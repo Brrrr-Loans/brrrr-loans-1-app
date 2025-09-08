@@ -136,14 +136,14 @@ export function SiteHeader({ breadcrumb, dealName }: SiteHeaderProps) {
         />
         {breadcrumb || generateBreadcrumbs(pathname, dealName)}
         <div className="flex items-center gap-4 ml-auto flex-shrink-0">
-          <SearchForm 
-            className="w-full max-w-56 xl:max-w-64" 
+          <SearchForm
+            className="w-full max-w-56 xl:max-w-64"
             onOpenTeamSwitcher={handleOpenTeamSwitcher}
           />
           <ThemeDropdown />
         </div>
       </header>
-      
+
       {/* Team Switcher Dialog */}
       <Dialog open={showTeamSwitcher} onOpenChange={setShowTeamSwitcher}>
         <DialogContent className="max-w-md">
