@@ -89,51 +89,86 @@ export async function uploadDocument(formData: FormData) {
     const supabase = await getSupabaseClient();
 
     // Parse optional numeric fields
-    const dealId = documentDealId && typeof documentDealId === "string" && documentDealId !== "multiple" 
-      ? parseInt(documentDealId, 10) 
-      : null;
-    
-    if (documentDealId && documentDealId !== "multiple" && (isNaN(dealId!) || dealId! <= 0)) {
+    const dealId =
+      documentDealId &&
+      typeof documentDealId === "string" &&
+      documentDealId !== "multiple"
+        ? parseInt(documentDealId, 10)
+        : null;
+
+    if (
+      documentDealId &&
+      documentDealId !== "multiple" &&
+      (isNaN(dealId!) || dealId! <= 0)
+    ) {
       throw new Error("Invalid deal ID");
     }
 
-    const borrowerId = documentBorrowerId && typeof documentBorrowerId === "string" && documentBorrowerId !== "" 
-      ? parseInt(documentBorrowerId, 10) 
-      : null;
-    
-    if (documentBorrowerId && documentBorrowerId !== "" && (isNaN(borrowerId!) || borrowerId! <= 0)) {
+    const borrowerId =
+      documentBorrowerId &&
+      typeof documentBorrowerId === "string" &&
+      documentBorrowerId !== ""
+        ? parseInt(documentBorrowerId, 10)
+        : null;
+
+    if (
+      documentBorrowerId &&
+      documentBorrowerId !== "" &&
+      (isNaN(borrowerId!) || borrowerId! <= 0)
+    ) {
       throw new Error("Invalid borrower ID");
     }
 
-    const guarantorId = documentGuarantorId && typeof documentGuarantorId === "string" && documentGuarantorId !== "" 
-      ? parseInt(documentGuarantorId, 10) 
-      : null;
-    
-    if (documentGuarantorId && documentGuarantorId !== "" && (isNaN(guarantorId!) || guarantorId! <= 0)) {
+    const guarantorId =
+      documentGuarantorId &&
+      typeof documentGuarantorId === "string" &&
+      documentGuarantorId !== ""
+        ? parseInt(documentGuarantorId, 10)
+        : null;
+
+    if (
+      documentGuarantorId &&
+      documentGuarantorId !== "" &&
+      (isNaN(guarantorId!) || guarantorId! <= 0)
+    ) {
       throw new Error("Invalid guarantor ID");
     }
 
-    const entityId = documentEntityId && typeof documentEntityId === "string" && documentEntityId !== "" 
-      ? parseInt(documentEntityId, 10) 
-      : null;
-    
-    if (documentEntityId && documentEntityId !== "" && (isNaN(entityId!) || entityId! <= 0)) {
+    const entityId =
+      documentEntityId &&
+      typeof documentEntityId === "string" &&
+      documentEntityId !== ""
+        ? parseInt(documentEntityId, 10)
+        : null;
+
+    if (
+      documentEntityId &&
+      documentEntityId !== "" &&
+      (isNaN(entityId!) || entityId! <= 0)
+    ) {
       throw new Error("Invalid entity ID");
     }
 
-    const propertyId = documentPropertyId && typeof documentPropertyId === "string" && documentPropertyId !== "" 
-      ? parseInt(documentPropertyId, 10) 
-      : null;
-    
-    if (documentPropertyId && documentPropertyId !== "" && (isNaN(propertyId!) || propertyId! <= 0)) {
+    const propertyId =
+      documentPropertyId &&
+      typeof documentPropertyId === "string" &&
+      documentPropertyId !== ""
+        ? parseInt(documentPropertyId, 10)
+        : null;
+
+    if (
+      documentPropertyId &&
+      documentPropertyId !== "" &&
+      (isNaN(propertyId!) || propertyId! <= 0)
+    ) {
       throw new Error("Invalid property ID");
     }
 
     // 1. Find the user's contact_id via auth_user_profile
     const { data: userProfile, error: userProfileError } = await supabase
-      .from("auth_user_profile")
+      .from("auth_clerk_users")
       .select("email")
-      .eq("clerk_id", userId)
+      .eq("clerk_user_id", userId)
       .single();
 
     if (userProfileError || !userProfile) {
@@ -159,11 +194,15 @@ export async function uploadDocument(formData: FormData) {
         property_id: propertyId,
         category: documentCategory as Enums<"document_category">,
         is_required: documentIsRequired,
-        status: typeof documentStatus === "string" ? documentStatus as Enums<"document_status"> : null,
+        status:
+          typeof documentStatus === "string"
+            ? (documentStatus as Enums<"document_status">)
+            : null,
         file_type: documentFileType.trim(),
         file_size: documentFileSize,
         file_url: documentFileUrl.trim(),
-        file_path: typeof documentFilePath === "string" ? documentFilePath.trim() : null,
+        file_path:
+          typeof documentFilePath === "string" ? documentFilePath.trim() : null,
         uploaded_by: userId,
         uploaded_at: new Date().toISOString(),
       })
@@ -206,14 +245,18 @@ export async function deleteDocument(id: string) {
       .single();
 
     if (fetchError) {
-      if (fetchError.code === 'PGRST116') {
-        throw new Error("Document not found or you don't have permission to delete it");
+      if (fetchError.code === "PGRST116") {
+        throw new Error(
+          "Document not found or you don't have permission to delete it"
+        );
       }
       throw new Error(`Failed to fetch document: ${fetchError.message}`);
     }
 
     if (!document) {
-      throw new Error("Document not found or you don't have permission to delete it");
+      throw new Error(
+        "Document not found or you don't have permission to delete it"
+      );
     }
 
     // Delete the file from storage if we have a path

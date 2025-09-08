@@ -15,7 +15,29 @@ const nextConfig = {
     "http://localhost:3000",
     "http://localhost:3001",
     "http://192.168.1.237:3001",
+    "https://f0187fe17a45.ngrok-free.app",
+    "https://builder.io",
+    "https://*.builder.io",
+    "https://fusion-development.builder.io",
   ],
+  // Additional headers for Builder.io integration
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          {
+            key: "X-Frame-Options",
+            value: "SAMEORIGIN",
+          },
+          {
+            key: "Access-Control-Allow-Origin",
+            value: "https://builder.io",
+          },
+        ],
+      },
+    ];
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },

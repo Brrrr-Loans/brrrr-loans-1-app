@@ -151,7 +151,7 @@ export type Database = {
           clerk_org_name: string;
           clerk_org_slug: string;
           created_at: string;
-          created_by_clerk_id: string;
+          created_by_clerk_user_id: string;
           id: number;
           updated_at: string | null;
         };
@@ -160,7 +160,7 @@ export type Database = {
           clerk_org_name: string;
           clerk_org_slug: string;
           created_at?: string;
-          created_by_clerk_id: string;
+          created_by_clerk_user_id: string;
           id?: number;
           updated_at?: string | null;
         };
@@ -169,17 +169,17 @@ export type Database = {
           clerk_org_name?: string;
           clerk_org_slug?: string;
           created_at?: string;
-          created_by_clerk_id?: string;
+          created_by_clerk_user_id?: string;
           id?: number;
           updated_at?: string | null;
         };
         Relationships: [
           {
-            foreignKeyName: "user_clerk_orgs_created_by_clerk_id_fkey";
-            columns: ["created_by_clerk_id"];
+            foreignKeyName: "user_clerk_orgs_created_by_clerk_user_id_fkey";
+            columns: ["created_by_clerk_user_id"];
             isOneToOne: false;
-            referencedRelation: "auth_user_profile";
-            referencedColumns: ["clerk_id"];
+            referencedRelation: "auth_clerk_users";
+            referencedColumns: ["clerk_user_id"];
           }
         ];
       };
@@ -189,7 +189,7 @@ export type Database = {
           clerk_org_role: Database["public"]["Enums"]["clerk_org_role"] | null;
           created_at: string;
           id: number;
-          user_clerk_id: string;
+          user_clerk_user_id: string;
           user_id: number | null;
         };
         Insert: {
@@ -197,7 +197,7 @@ export type Database = {
           clerk_org_role?: Database["public"]["Enums"]["clerk_org_role"] | null;
           created_at?: string;
           id?: number;
-          user_clerk_id: string;
+          user_clerk_user_id: string;
           user_id?: number | null;
         };
         Update: {
@@ -205,7 +205,7 @@ export type Database = {
           clerk_org_role?: Database["public"]["Enums"]["clerk_org_role"] | null;
           created_at?: string;
           id?: number;
-          user_clerk_id?: string;
+          user_clerk_user_id?: string;
           user_id?: number | null;
         };
         Relationships: [
@@ -220,17 +220,17 @@ export type Database = {
             foreignKeyName: "user_org_memberships_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
-            referencedRelation: "auth_user_profile";
+            referencedRelation: "auth_clerk_users";
             referencedColumns: ["id"];
           }
         ];
       };
-      auth_user_profile: {
+      auth_clerk_users: {
         Row: {
           activated_date: string | null;
           avatar_url: string | null;
           cell_phone: string | null;
-          clerk_id: string | null;
+          clerk_user_id: string | null;
           contact_id: number | null;
           create_organization_enabled: boolean | null;
           deactivation_date: string | null;
@@ -256,14 +256,14 @@ export type Database = {
           office_phone_extension: string | null;
           role: Database["public"]["Enums"]["user_role_internal"] | null;
           updated_at: string | null;
-          username: string | null;
+          clerk_username: string | null;
           website: string | null;
         };
         Insert: {
           activated_date?: string | null;
           avatar_url?: string | null;
           cell_phone?: string | null;
-          clerk_id?: string | null;
+          clerk_user_id?: string | null;
           contact_id?: number | null;
           create_organization_enabled?: boolean | null;
           deactivation_date?: string | null;
@@ -289,14 +289,14 @@ export type Database = {
           office_phone_extension?: string | null;
           role?: Database["public"]["Enums"]["user_role_internal"] | null;
           updated_at?: string | null;
-          username?: string | null;
+          clerk_username?: string | null;
           website?: string | null;
         };
         Update: {
           activated_date?: string | null;
           avatar_url?: string | null;
           cell_phone?: string | null;
-          clerk_id?: string | null;
+          clerk_user_id?: string | null;
           contact_id?: number | null;
           create_organization_enabled?: boolean | null;
           deactivation_date?: string | null;
@@ -322,7 +322,7 @@ export type Database = {
           office_phone_extension?: string | null;
           role?: Database["public"]["Enums"]["user_role_internal"] | null;
           updated_at?: string | null;
-          username?: string | null;
+          clerk_username?: string | null;
           website?: string | null;
         };
         Relationships: [
@@ -747,7 +747,7 @@ export type Database = {
             foreignKeyName: "bsi_distributions_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
-            referencedRelation: "auth_user_profile";
+            referencedRelation: "auth_clerk_users";
             referencedColumns: ["id"];
           }
         ];
@@ -807,7 +807,7 @@ export type Database = {
       };
       bsi_transactions: {
         Row: {
-          clerk_id: string | null;
+          clerk_user_id: string | null;
           clerk_organization_id: string | null;
           created_at: string | null;
           deal_id: number | null;
@@ -831,7 +831,7 @@ export type Database = {
           updated_at: string | null;
         };
         Insert: {
-          clerk_id?: string | null;
+          clerk_user_id?: string | null;
           clerk_organization_id?: string | null;
           created_at?: string | null;
           deal_id?: number | null;
@@ -855,7 +855,7 @@ export type Database = {
           updated_at?: string | null;
         };
         Update: {
-          clerk_id?: string | null;
+          clerk_user_id?: string | null;
           clerk_organization_id?: string | null;
           created_at?: string | null;
           deal_id?: number | null;
@@ -941,7 +941,7 @@ export type Database = {
             foreignKeyName: "cba_submission_credit_submitted_by_fkey";
             columns: ["submitted_by"];
             isOneToOne: false;
-            referencedRelation: "auth_user_profile";
+            referencedRelation: "auth_clerk_users";
             referencedColumns: ["id"];
           },
           {
@@ -1392,7 +1392,7 @@ export type Database = {
             foreignKeyName: "contact_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
-            referencedRelation: "auth_user_profile";
+            referencedRelation: "auth_clerk_users";
             referencedColumns: ["id"];
           }
         ];
@@ -1835,14 +1835,14 @@ export type Database = {
             foreignKeyName: "deal_loan_opener_id_fkey";
             columns: ["loan_opener_id"];
             isOneToOne: false;
-            referencedRelation: "auth_user_profile";
+            referencedRelation: "auth_clerk_users";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "deal_loan_processor_id_fkey";
             columns: ["loan_processor_id"];
             isOneToOne: false;
-            referencedRelation: "auth_user_profile";
+            referencedRelation: "auth_clerk_users";
             referencedColumns: ["id"];
           },
           {
@@ -1877,7 +1877,7 @@ export type Database = {
             foreignKeyName: "public_deal_account_executive_id_fkey";
             columns: ["account_executive_id"];
             isOneToOne: false;
-            referencedRelation: "auth_user_profile";
+            referencedRelation: "auth_clerk_users";
             referencedColumns: ["id"];
           },
           {
@@ -3416,7 +3416,7 @@ export type Database = {
             foreignKeyName: "task_templates_assigned_to_fkey";
             columns: ["assigned_to"];
             isOneToOne: false;
-            referencedRelation: "auth_user_profile";
+            referencedRelation: "auth_clerk_users";
             referencedColumns: ["id"];
           },
           {
@@ -3485,7 +3485,7 @@ export type Database = {
             foreignKeyName: "tasks_assigned_to_fkey";
             columns: ["assigned_to"];
             isOneToOne: false;
-            referencedRelation: "auth_user_profile";
+            referencedRelation: "auth_clerk_users";
             referencedColumns: ["id"];
           },
           {

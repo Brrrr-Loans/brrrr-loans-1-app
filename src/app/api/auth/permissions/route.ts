@@ -112,7 +112,7 @@ export async function GET() {
 
     // Get user profile from auth_user_profile table
     const { data: profile, error: profileError } = await supabase
-      .from("auth_user_profile")
+      .from("auth_clerk_users")
       .select("id, email, clerk_user_id")
       .eq("clerk_user_id", finalUserId)
       .single();

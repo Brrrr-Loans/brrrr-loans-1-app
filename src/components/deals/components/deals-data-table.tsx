@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { useState, useEffect } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { useRouter } from "next/navigation";
+import { useSupabase } from "@/hooks/use-supabase";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -41,8 +42,8 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/overlays/dropdown-menu";
@@ -66,6 +67,10 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  BoltIcon,
+  FilesIcon,
+  TrashIcon,
+  FolderOpenIcon,
 } from "lucide-react";
 import {
   Select,
@@ -74,7 +79,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui";
-import type { Tables } from "@/types/supabase";
+// Removed unused import
 
 // Extended type with joined data
 interface DealWithRelations {
@@ -90,7 +95,8 @@ interface DealWithRelations {
 }
 
 // Draggable Header Component
-const DraggableTableHeader = ({ header, table }: any) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const DraggableTableHeader = ({ header }: { header: any; table?: any }) => {
   const columnId = header.column.id;
   const isFixedColumn = columnId === "select" || columnId === "actions";
 
@@ -140,7 +146,9 @@ const DraggableTableHeader = ({ header, table }: any) => {
   );
 };
 
-const columns: ColumnDef<DealWithRelations>[] = [
+const createColumns = (router: {
+  push: (path: string) => void;
+}): ColumnDef<DealWithRelations>[] => [
   {
     id: "select",
     header: ({ table }) => (
@@ -358,19 +366,43 @@ const columns: ColumnDef<DealWithRelations>[] = [
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(deal.id.toString())}
-            >
-              Copy deal ID
-            </DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={() => router.push(`/dashboard/deals/${deal.id}`)}
+              >
+                <FolderOpenIcon
+                  size={16}
+                  className="opacity-60"
+                  aria-hidden="true"
+                />
+                Open
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => router.push(`/dashboard/deals/${deal.id}`)}
+              >
+                <BoltIcon size={16} className="opacity-60" aria-hidden="true" />
+                Edit
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>View details</DropdownMenuItem>
-            <DropdownMenuItem>Edit deal</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600">
-              Archive
-            </DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={() =>
+                  navigator.clipboard.writeText(deal.id.toString())
+                }
+              >
+                <FilesIcon
+                  size={16}
+                  className="opacity-60"
+                  aria-hidden="true"
+                />
+                Clone
+              </DropdownMenuItem>
+              <DropdownMenuItem className="text-red-600">
+                <TrashIcon size={16} aria-hidden="true" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       );
@@ -397,7 +429,9 @@ export function DealsDataTable() {
     "actions",
   ]);
 
-  const supabase = createClientComponentClient();
+  const router = useRouter();
+  const supabase = useSupabase();
+  const columns = createColumns(router);
 
   // Set up sensors for drag and drop
   const sensors = useSensors(
@@ -451,17 +485,23 @@ export function DealsDataTable() {
         const dealIds = deals?.map((deal) => deal.id) || [];
 
         // Fetch property data for these deals
-        let propertyData: any = {};
+        let propertyData: Record<number, string> = {};
         if (dealIds.length > 0) {
           const { data: properties, error: propError } = await supabase
             .from("property")
             .select("id, address");
 
           if (!propError && properties) {
-            propertyData = properties.reduce((acc, prop) => {
-              acc[prop.id] = prop.address;
-              return acc;
-            }, {});
+            propertyData = properties.reduce(
+              (
+                acc: Record<number, string>,
+                prop: { id: number; address: string }
+              ) => {
+                acc[prop.id] = prop.address;
+                return acc;
+              },
+              {}
+            );
             console.log("Property data:", propertyData);
           } else {
             console.error("Property fetch error:", propError);
@@ -469,17 +509,23 @@ export function DealsDataTable() {
         }
 
         // Fetch guarantor data
-        let guarantorData: any = {};
+        let guarantorData: Record<number, string> = {};
         if (dealIds.length > 0) {
           const { data: guarantors, error: guarError } = await supabase
             .from("guarantor")
             .select("id, name");
 
           if (!guarError && guarantors) {
-            guarantorData = guarantors.reduce((acc, guar) => {
-              acc[guar.id] = guar.name;
-              return acc;
-            }, {});
+            guarantorData = guarantors.reduce(
+              (
+                acc: Record<number, string>,
+                guar: { id: number; name: string }
+              ) => {
+                acc[guar.id] = guar.name;
+                return acc;
+              },
+              {}
+            );
             console.log("Guarantor data:", guarantorData);
           } else {
             console.error("Guarantor fetch error:", guarError);
@@ -488,7 +534,17 @@ export function DealsDataTable() {
 
         // Transform the data to match our interface
         const transformedData: DealWithRelations[] = (deals || []).map(
-          (deal: any) => {
+          (deal: {
+            id: number;
+            deal_name: string | null;
+            deal_stage_2: string | null;
+            loan_amount_total: number | null;
+            funding_date: string | null;
+            project_type: string | null;
+            property_id: number | null;
+            primary_guarantor_id: number | null;
+            loan_number: string | null;
+          }) => {
             const propertyAddress = deal.property_id
               ? propertyData[deal.property_id] ||
                 `Property ID: ${deal.property_id}`

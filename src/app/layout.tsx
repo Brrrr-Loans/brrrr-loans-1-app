@@ -18,6 +18,10 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "BL1 OS",
   description: "BL1 Loan Origination System",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/logos/brrrr-icon-sq-black-192.png",
+  },
 };
 
 function Header() {

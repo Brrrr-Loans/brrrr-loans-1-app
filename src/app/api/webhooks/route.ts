@@ -60,7 +60,7 @@ async function handleUserCreated(
 
   // Test service role access
   const { data: testAccess, error: testError } = await supabase
-    .from("auth_user_profile")
+    .from("auth_clerk_users")
     .select("id")
     .limit(1);
 
@@ -71,9 +71,9 @@ async function handleUserCreated(
   });
 
   const { data: profile, error } = await supabase
-    .from("auth_user_profile")
+    .from("auth_clerk_users")
     .insert({
-      clerk_id: clerkId,
+      clerk_user_id: clerkId,
       email: primaryEmail,
       first_name: first_name || null,
       last_name: last_name || null,
@@ -112,7 +112,7 @@ async function handleUserUpdated(
   const clerkRole = (public_metadata?.role as "admin" | "member") || "member";
 
   const { error } = await supabase
-    .from("auth_user_profile")
+    .from("auth_clerk_users")
     .update({
       email: primaryEmail,
       first_name: first_name || null,
@@ -120,7 +120,7 @@ async function handleUserUpdated(
       clerk_role: clerkRole,
       updated_at: new Date().toISOString(),
     })
-    .eq("clerk_id", clerkId);
+    .eq("clerk_user_id", clerkId);
 
   if (error) throw error;
 }
@@ -132,12 +132,12 @@ async function handleUserDeleted(
   const { id: clerkId } = data;
 
   const { error } = await supabase
-    .from("auth_user_profile")
+    .from("auth_clerk_users")
     .update({
       status: "inactive",
       updated_at: new Date().toISOString(),
     })
-    .eq("clerk_id", clerkId);
+    .eq("clerk_user_id", clerkId);
 
   if (error) throw error;
 }

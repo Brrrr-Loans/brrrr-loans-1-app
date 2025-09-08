@@ -7,9 +7,9 @@ export async function checkInternalAccess(userId: string) {
 
   try {
     const { data: profile, error } = await supabase
-      .from("auth_user_profile")
+      .from("auth_clerk_users")
       .select("is_internal_yn, is_active_yn")
-      .eq("clerk_id", userId)
+      .eq("clerk_user_id", userId)
       .single();
 
     if (error) {
@@ -43,7 +43,7 @@ export function useInternalAccess() {
 
 export async function isInternalUser(userId: string): Promise<boolean> {
   const supabase = await getSupabaseClient();
-  
+
   const { data: profile } = await supabase
     .from("auth_user_profile")
     .select("is_internal_yn, is_active_yn")

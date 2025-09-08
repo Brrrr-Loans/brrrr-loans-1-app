@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { useSupabase } from "@/hooks/use-supabase";
 import { withInvestorPermission } from "@/components/auth/with-investor-permission";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import {
@@ -31,7 +31,7 @@ interface DocumentsListProps {
 function UnprotectedDocumentsList({ dealId }: DocumentsListProps) {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
-  const supabase = createClientComponentClient<Database>();
+  const supabase = useSupabase();
 
   useEffect(() => {
     async function fetchDocuments() {

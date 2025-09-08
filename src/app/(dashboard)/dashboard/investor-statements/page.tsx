@@ -22,9 +22,9 @@ export default async function InvestorStatementsPage() {
 
   // Get user profile to check if they're a balance sheet investor or admin
   const { data: authUserProfile, error: profileError } = await supabase
-    .from("auth_user_profile")
+    .from("auth_clerk_users")
     .select("clerk_role")
-    .eq("clerk_id", user.id)
+    .eq("clerk_user_id", user.id)
     .single();
 
   // Check if the user is a Balance Sheet Investor (type_id = 12)
@@ -32,7 +32,7 @@ export default async function InvestorStatementsPage() {
 
   // Check if user is admin
   const { data: userData } = await supabase
-    .from("auth_user_profile")
+    .from("auth_clerk_users")
     .select("role")
     .eq("id", user.id)
     .single();

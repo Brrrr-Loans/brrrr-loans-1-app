@@ -43,7 +43,7 @@ export function NavUser({
   const { signOut, openUserProfile } = useClerk();
 
   const handleSignOut = () => {
-    signOut();
+    signOut({ redirectUrl: "/sign-in" });
   };
 
   const handleAccountClick = () => {

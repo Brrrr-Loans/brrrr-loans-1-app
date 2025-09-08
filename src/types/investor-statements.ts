@@ -9,7 +9,7 @@ export interface InvestorStatement {
   total_upb_close: number;
   total_interest: number;
   total_principal: number | null;
-  clerk_id: string | null;
+  clerk_user_id: string | null;
   clerk_organization_id: string | null;
   org_id: string | null; // Organization ID for shared statements
   // File fields

@@ -6,6 +6,7 @@ import { DealDetailsWrapper } from "@/components/deals/protected-deal-details";
 import { DocumentsListWrapper } from "@/components/documents/list-protected-documents";
 import { DistributionsListWrapper } from "@/components/distributions/protected-distributions-list";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
+import { SiteHeader } from "@/components/layout/site-header";
 import { notFound } from "next/navigation";
 import type { Database } from "@/types/supabase";
 
@@ -31,23 +32,41 @@ export default async function DealPage({ params }: PageProps) {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <DealDetailsWrapper dealId={id} deal={deal} />
+    <>
+      <SiteHeader dealName={deal.deal_name || `Deal #${id}`} />
+      <div className="flex flex-1 flex-col">
+        <div className="@container/main flex flex-1 flex-col gap-2">
+          <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6 px-4 lg:px-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">
+                  {deal.deal_name || `Deal #${id}`}
+                </h1>
+                <p className="text-muted-foreground">
+                  View and manage deal details, documents, and distributions.
+                </p>
+              </div>
+            </div>
 
-      <Tabs defaultValue="documents" className="w-full">
-        <TabsList>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="distributions">Distributions</TabsTrigger>
-        </TabsList>
+            <DealDetailsWrapper dealId={id} deal={deal} />
 
-        <TabsContent value="documents">
-          <DocumentsListWrapper dealId={id} />
-        </TabsContent>
+            <Tabs defaultValue="documents" className="w-full">
+              <TabsList>
+                <TabsTrigger value="documents">Documents</TabsTrigger>
+                <TabsTrigger value="distributions">Distributions</TabsTrigger>
+              </TabsList>
 
-        <TabsContent value="distributions">
-          <DistributionsListWrapper dealId={id} />
-        </TabsContent>
-      </Tabs>
-    </div>
+              <TabsContent value="documents">
+                <DocumentsListWrapper dealId={id} />
+              </TabsContent>
+
+              <TabsContent value="distributions">
+                <DistributionsListWrapper dealId={id} />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

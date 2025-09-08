@@ -142,12 +142,12 @@ export default function DocumentsPage() {
       const { data: contactData } = await supabase
         .from("contact")
         .select("id, contact_types_id")
-        .eq("clerk_id", user.id)
+        .eq("clerk_user_id", user.id)
         .single();
 
       // Get user profile to check role
       const { data: authUserProfiles } = await supabase
-        .from("auth_user_profile")
+        .from("auth_clerk_users")
         .select("role")
         .eq("id", Number(user.id))
         .single();
@@ -197,7 +197,7 @@ export default function DocumentsPage() {
           total_interest: item.total_interest,
           total_principal: item.total_principal,
           total_fees: item.total_fees,
-          clerk_id: item.clerk_id ?? null,
+          clerk_user_id: item.clerk_user_id ?? null,
           clerk_organization_id: item.clerk_organization_id ?? null,
           org_id: item.org_id ?? null,
           file_path: item.file_path ?? null,
@@ -506,7 +506,7 @@ export default function DocumentsPage() {
                       <TableCell>{statement.total_interest ?? ""}</TableCell>
                       <TableCell>{statement.total_principal ?? ""}</TableCell>
                       <TableCell>{statement.total_fees ?? ""}</TableCell>
-                      <TableCell>{statement.clerk_id ?? ""}</TableCell>
+                      <TableCell>{statement.clerk_user_id ?? ""}</TableCell>
                       <TableCell>
                         {statement.clerk_organization_id ?? ""}
                       </TableCell>

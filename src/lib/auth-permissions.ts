@@ -22,7 +22,7 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
 
     // Get user profile with contact info
     const { data: userProfile, error: userError } = await supabase
-      .from("auth_user_profiles")
+      .from("auth_clerk_users")
       .select(
         `
         id,
@@ -36,7 +36,7 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
         )
       `
       )
-      .eq("clerk_id", userId)
+      .eq("clerk_user_id", userId)
       .single();
 
     if (userError || !userProfile || !userProfile.contact) {

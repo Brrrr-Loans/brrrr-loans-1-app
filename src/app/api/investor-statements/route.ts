@@ -18,9 +18,9 @@ export async function GET(request: NextRequest) {
 
     // Map Clerk userId to contact_id (investor_id) using user_profile
     const { data: profile, error: profileError } = await supabase
-      .from("auth_user_profile")
+      .from("auth_clerk_users")
       .select("contact_id, role")
-      .eq("clerk_id", userId)
+      .eq("clerk_user_id", userId)
       .single();
 
     if (profileError || !profile) {

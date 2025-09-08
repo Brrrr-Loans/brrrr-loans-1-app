@@ -270,7 +270,7 @@ export type Database = {
             foreignKeyName: "bsi_distributions_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
-            referencedRelation: "auth_user_profile";
+            referencedRelation: "auth_clerk_users";
             referencedColumns: ["id"];
           }
         ];
@@ -398,7 +398,7 @@ export type Database = {
             foreignKeyName: "contact_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
-            referencedRelation: "auth_user_profile";
+            referencedRelation: "auth_clerk_users";
             referencedColumns: ["id"];
           }
         ];
@@ -731,14 +731,14 @@ export type Database = {
             foreignKeyName: "deal_loan_opener_id_fkey";
             columns: ["loan_opener_id"];
             isOneToOne: false;
-            referencedRelation: "auth_user_profile";
+            referencedRelation: "auth_clerk_users";
             referencedColumns: ["id"];
           },
           {
             foreignKeyName: "deal_loan_processor_id_fkey";
             columns: ["loan_processor_id"];
             isOneToOne: false;
-            referencedRelation: "auth_user_profile";
+            referencedRelation: "auth_clerk_users";
             referencedColumns: ["id"];
           },
           {
@@ -773,7 +773,7 @@ export type Database = {
             foreignKeyName: "public_deal_account_executive_id_fkey";
             columns: ["account_executive_id"];
             isOneToOne: false;
-            referencedRelation: "auth_user_profile";
+            referencedRelation: "auth_clerk_users";
             referencedColumns: ["id"];
           },
           {

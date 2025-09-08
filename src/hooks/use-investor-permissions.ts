@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSupabase } from "@/hooks/use-supabase";
+import { useUser } from "@clerk/nextjs";
 import type { Database } from "@/types/supabase";
 
 interface InvestorPermissions {
@@ -12,6 +13,7 @@ interface InvestorPermissions {
 
 export function useInvestorPermissions(): InvestorPermissions {
   const [isLoading, setIsLoading] = useState(true);
+  const { user } = useUser();
   const supabase = useSupabase(); // Use the proper Clerk-integrated client
 
   // Cache results to avoid repeated DB calls
@@ -23,7 +25,25 @@ export function useInvestorPermissions(): InvestorPermissions {
       return permissionCache.get(cacheKey)!;
     }
 
+    if (!user) {
+      permissionCache.set(cacheKey, false);
+      return false;
+    }
+
     try {
+      // First check if user is admin - admins can view all deals
+      const { data: userProfile, error: profileError } = await supabase
+        .from("auth_clerk_users")
+        .select("role")
+        .eq("clerk_user_id", user.id)
+        .single();
+
+      if (!profileError && userProfile?.role === "admin") {
+        permissionCache.set(cacheKey, true);
+        return true;
+      }
+
+      // For non-admin users, check if they have access via bsi_deals
       const { data, error } = await supabase
         .from("bsi_deals")
         .select("deal_id")
@@ -46,6 +66,11 @@ export function useInvestorPermissions(): InvestorPermissions {
       return permissionCache.get(cacheKey)!;
     }
 
+    if (!user) {
+      permissionCache.set(cacheKey, false);
+      return false;
+    }
+
     const idNum = Number(documentId);
     if (Number.isNaN(idNum)) {
       permissionCache.set(cacheKey, false);
@@ -53,6 +78,19 @@ export function useInvestorPermissions(): InvestorPermissions {
     }
 
     try {
+      // First check if user is admin - admins can view all documents
+      const { data: userProfile, error: profileError } = await supabase
+        .from("auth_clerk_users")
+        .select("role")
+        .eq("clerk_user_id", user.id)
+        .single();
+
+      if (!profileError && userProfile?.role === "admin") {
+        permissionCache.set(cacheKey, true);
+        return true;
+      }
+
+      // For non-admin users, check if they have access via document ownership or deal access
       const { data, error } = await supabase
         .from("document_files")
         .select("id")

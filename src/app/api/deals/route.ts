@@ -54,10 +54,10 @@ export async function GET() {
 
     // After fetching all user_profile rows:
     const { data: allClerkIds } = await supabase
-      .from("auth_user_profile")
-      .select("clerk_id");
+      .from("auth_clerk_users")
+      .select("clerk_user_id");
 
-    console.log("All clerk_ids in DB:", allClerkIds);
+    console.log("All clerk_user_ids in DB:", allClerkIds);
 
     // The returned data is: Array<{ ...bsi_deals fields..., deal: Tables<"deal"> }>
     return NextResponse.json(data || []);

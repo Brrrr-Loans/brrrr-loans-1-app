@@ -57,9 +57,9 @@ export async function createDeal(formData: FormData) {
 
     // 1. Find the user's contact_id via auth_user_profile
     const { data: userProfile, error: userProfileError } = await supabase
-      .from("auth_user_profile")
+      .from("auth_clerk_users")
       .select("email")
-      .eq("clerk_id", userId)
+      .eq("clerk_user_id", userId)
       .single();
 
     if (userProfileError || !userProfile) {
@@ -85,7 +85,8 @@ export async function createDeal(formData: FormData) {
         type,
         amount: parseFloat(cleanAmount),
         location: location.trim(),
-        description: typeof description === "string" ? description.trim() : null,
+        description:
+          typeof description === "string" ? description.trim() : null,
         roi: parseFloat(roi),
         start_date: startDate,
         status,
@@ -179,9 +180,9 @@ export async function updateDeal(formData: FormData) {
 
     // 1. Find the user's contact_id via auth_user_profile
     const { data: userProfile, error: userProfileError } = await supabase
-      .from("auth_user_profile")
+      .from("auth_clerk_users")
       .select("email")
-      .eq("clerk_id", userId)
+      .eq("clerk_user_id", userId)
       .single();
 
     if (userProfileError || !userProfile) {
@@ -220,7 +221,8 @@ export async function updateDeal(formData: FormData) {
         type,
         amount: parseFloat(cleanAmount),
         location: location.trim(),
-        description: typeof description === "string" ? description.trim() : null,
+        description:
+          typeof description === "string" ? description.trim() : null,
         roi: parseFloat(roi),
         start_date: startDate,
         status,
@@ -256,9 +258,9 @@ export async function deleteDeal(id: string) {
 
     // 1. Find the user's contact_id via auth_user_profile
     const { data: userProfile, error: userProfileError } = await supabase
-      .from("auth_user_profile")
+      .from("auth_clerk_users")
       .select("email")
-      .eq("clerk_id", userId)
+      .eq("clerk_user_id", userId)
       .single();
 
     if (userProfileError || !userProfile) {

@@ -1,8 +1,10 @@
 {
   "devCommand": "npm run dev",
   "serverUrl": "http://localhost:3000",
+  "previewUrl": "https://f0187fe17a45.ngrok-free.app",
   "commitMode": "commits",
   "isLocal": true,
+  "watchFiles": true,
   "allowedCommands": [
     "npm *",
     "pnpm *",

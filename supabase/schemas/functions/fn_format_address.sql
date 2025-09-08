@@ -23,7 +23,6 @@ BEGIN
                         ELSE
                             NULL
                     END,
-                    NULLIF(country, ''),
                     CASE 
                         WHEN COALESCE(po_box, '') <> '' THEN
                             'PO Box ' || po_box 
