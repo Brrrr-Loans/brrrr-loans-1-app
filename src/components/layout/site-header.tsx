@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SlashIcon } from "lucide-react";
@@ -7,6 +8,13 @@ import { Separator } from "@/components/ui/layout/separator";
 import { SidebarTrigger } from "@/components/ui/layout/sidebar";
 import { SearchForm } from "@/components/layout/search-form";
 import { ThemeDropdown } from "@/components/theme/theme-dropdown";
+import { TeamSwitcherV2 } from "@/components/layout/team-switcher-v2";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -112,19 +120,41 @@ function getPageTitle(pathname: string): string {
 
 export function SiteHeader({ breadcrumb, dealName }: SiteHeaderProps) {
   const pathname = usePathname();
+  const [showTeamSwitcher, setShowTeamSwitcher] = React.useState(false);
+
+  const handleOpenTeamSwitcher = () => {
+    setShowTeamSwitcher(true);
+  };
 
   return (
-    <header className="bg-background z-50 flex h-16 shrink-0 items-center gap-2 border-b px-4 sticky top-0">
-      <SidebarTrigger className="-ml-1" />
-      <Separator
-        orientation="vertical"
-        className="bg-border shrink-0 w-[1px] mr-2 h-4"
-      />
-      {breadcrumb || generateBreadcrumbs(pathname, dealName)}
-      <div className="flex items-center gap-4 ml-auto flex-shrink-0">
-        <SearchForm className="w-full max-w-56 xl:max-w-64" />
-        <ThemeDropdown />
-      </div>
-    </header>
+    <>
+      <header className="bg-background z-50 flex h-16 shrink-0 items-center gap-2 border-b px-4 sticky top-0">
+        <SidebarTrigger className="-ml-1" />
+        <Separator
+          orientation="vertical"
+          className="bg-border shrink-0 w-[1px] mr-2 h-4"
+        />
+        {breadcrumb || generateBreadcrumbs(pathname, dealName)}
+        <div className="flex items-center gap-4 ml-auto flex-shrink-0">
+          <SearchForm 
+            className="w-full max-w-56 xl:max-w-64" 
+            onOpenTeamSwitcher={handleOpenTeamSwitcher}
+          />
+          <ThemeDropdown />
+        </div>
+      </header>
+      
+      {/* Team Switcher Dialog */}
+      <Dialog open={showTeamSwitcher} onOpenChange={setShowTeamSwitcher}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Switch Organization</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <TeamSwitcherV2 />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
