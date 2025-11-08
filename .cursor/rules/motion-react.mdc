@@ -1,13 +1,7 @@
 ---
-description: 
-globs: 
-alwaysApply: true
----
----
-
 description: Animating with the Motion for React animation library
-globs: _.tsx, _.jsx
-
+globs: *.tsx, *.jsx
+alwaysApply: true
 ---
 
 # Motion for React

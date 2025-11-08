@@ -1,6 +1,8 @@
+// Core components
+export * from "./badge";
+
 // Feedback components
 export * from "./feedback/alert";
-export * from "./feedback/badge";
 export * from "./feedback/progress";
 export * from "./feedback/skeleton";
 export { Toaster as SonnerToaster } from "./feedback/sonner";
@@ -12,7 +14,7 @@ export * from "./forms/button";
 export * from "./forms/calendar";
 export * from "./forms/checkbox";
 export * from "./forms/date-picker";
-export * from "./forms/dropzone";
+// export * from "./forms/dropzone"; // Commented out due to naming conflict with supabase-dropzone
 export * from "./forms/form";
 export * from "./forms/input";
 export * from "./forms/label";
@@ -28,6 +30,7 @@ export * from "./layout/scroll-area";
 export * from "./layout/separator";
 export * from "./layout/sidebar";
 export * from "./layout/tabs";
+export * from "./layout/virtualized";
 
 // Overlay components
 export * from "./overlays/dialog";
@@ -36,6 +39,9 @@ export * from "./overlays/dropdown-menu";
 export * from "./overlays/popover";
 export * from "./overlays/sheet";
 export * from "./overlays/tooltip";
+
+// Interaction components
+export * from "./collapsible";
 
 // Data components
 export * from "./data/chart";
@@ -47,11 +53,6 @@ export * from "./navigation/breadcrumb";
 
 // Media components
 export * from "./media/avatar";
-export * from "./media/carousel";
-export * from "./media/carousel-button";
-export * from "./media/carousel-indicator";
-export * from "./media/infinite-slider";
-export * from "./media/magic-carousel-2";
-export * from "./media/magic-carousel-2-example";
-export * from "./media/pagination";
-export * from "./media/progressive-blur";
+export * from "./layout/pagination";
+export * from "./stacked-avatars";
+export * from "./supabase-dropzone";

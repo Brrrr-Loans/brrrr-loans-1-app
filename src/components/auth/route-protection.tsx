@@ -10,7 +10,7 @@ import {
   Alert,
   AlertDescription,
   AlertTitle,
-} from "@/components/ui/feedback/alert";
+} from "@/components/ui";
 import { Button } from "@/components/ui";
 import {
   Card,
@@ -18,7 +18,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/layout/card";
+} from "@/components/ui";
 
 interface RouteProtectionProps {
   children: React.ReactNode;
@@ -124,7 +124,7 @@ export function RouteProtection({
             </div>
             <CardTitle>Access Restricted</CardTitle>
             <CardDescription>
-              You don't have permission to access this page.
+              You don&apos;t have permission to access this page.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

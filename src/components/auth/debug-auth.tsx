@@ -2,12 +2,21 @@
 
 import { useUser, useAuth } from "@clerk/nextjs";
 import { Button } from "@/components/ui";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 export function DebugAuth() {
   const { user, isLoaded } = useUser();
   const { signOut } = useAuth();
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [debugInfo, setDebugInfo] = useState<unknown>(null);
+  const formattedDebugInfo = useMemo<string>(() => {
+    if (!debugInfo) return "";
+    try {
+      return JSON.stringify(debugInfo, null, 2);
+    } catch (error) {
+      console.error("Error formatting debug info", error);
+      return "Unable to display debug information";
+    }
+  }, [debugInfo]);
 
   const handleDebugCheck = async () => {
     try {
@@ -39,9 +48,9 @@ export function DebugAuth() {
           Force Sign Out
         </Button>
       </div>
-      {debugInfo && (
+      {debugInfo !== null && debugInfo !== undefined && (
         <pre className="text-xs bg-white dark:bg-gray-900 p-2 rounded overflow-auto">
-          {JSON.stringify(debugInfo, null, 2)}
+          {formattedDebugInfo}
         </pre>
       )}
       <div className="text-xs">

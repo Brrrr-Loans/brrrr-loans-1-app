@@ -1,15 +1,15 @@
 "use client";
 
 import { builder } from "@builder.io/react";
-import { Button } from "@/components/ui/forms/button";
+import { Button } from "@/components/ui";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/layout/card";
-import { Badge } from "@/components/ui/feedback/badge";
+} from "@/components/ui";
+import { Badge } from "@/components/ui";
 import { ReactNode } from "react";
 
 // Register UI components with Builder.io for visual editing

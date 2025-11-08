@@ -18,13 +18,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/overlays/dropdown-menu";
+} from "@/components/ui";
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/ui/layout/sidebar";
+} from "@/components/ui";
 
 export function TeamSwitcherV2() {
   const { isMobile } = useSidebar();
@@ -97,7 +97,7 @@ export function TeamSwitcherV2() {
         <SidebarMenuItem>
           <SidebarMenuButton
             size="lg"
-            className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground h-12"
+            className="h-12 rounded-lg hover:bg-sidebar-accent/60 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             onClick={handleCreateOrganization}
           >
             {/* Same structure as nav-user.tsx but for "Create Organization" */}
@@ -126,7 +126,7 @@ export function TeamSwitcherV2() {
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
                 size="lg"
-                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground h-12"
+                className="h-12 rounded-lg hover:bg-sidebar-accent/60 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               >
                 {/* EXACT same structure as nav-user.tsx - just with organization data */}
 

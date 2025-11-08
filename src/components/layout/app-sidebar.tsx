@@ -1,18 +1,19 @@
 "use client";
 
-import * as React from "react";
+import React, { Suspense } from "react";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import {
   Building,
   Home,
   FileBarChart2,
-  LineChart,
   CircleDollarSign,
+  Receipt,
+  CreditCard,
 } from "lucide-react";
-import { NavAI } from "./nav-ai";
+import { NavSearch } from "./nav-search";
 import { NavMain } from "./nav-main";
-import { NavDocuments } from "./nav-documents";
+import { NavBalanceSheet } from "./nav-balancesheet";
 import { NavUser } from "./nav-user";
 import { TeamSwitcherV2 } from "./team-switcher-v2";
 
@@ -21,13 +22,13 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-} from "@/components/ui/layout/sidebar";
+} from "@/components/ui";
 
 export function AppSidebar(
   props: React.ComponentPropsWithoutRef<typeof Sidebar>
 ) {
   const pathname = usePathname();
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
 
   const mainNavItems = [
     {
@@ -38,55 +39,71 @@ export function AppSidebar(
     },
     {
       title: "Deals",
-      url: "/dashboard/deals",
+      url: "/deals",
       icon: Building,
-      isActive: pathname.startsWith("/dashboard/deals"),
-    },
-    {
-      title: "Distributions",
-      url: "/dashboard/distributions",
-      icon: CircleDollarSign,
-      isActive: pathname.startsWith("/dashboard/distributions"),
+      isActive: pathname.startsWith("/deals"),
     },
   ];
 
-  const documentItems = [
+  const balanceSheetItems = [
     {
-      name: "Statements",
-      url: "/dashboard/documents",
+      name: "Documents",
       icon: FileBarChart2,
+      items: [
+        {
+          name: "Statements",
+          url: "/balance-sheet/documents?tab=statements",
+          icon: Receipt,
+        },
+        {
+          name: "Payment Records",
+          url: "/balance-sheet/documents?tab=payments",
+          icon: CreditCard,
+        },
+      ],
     },
     {
-      name: "Reports",
-      url: "/dashboard/reports",
-      icon: LineChart,
+      name: "Transactions",
+      url: "/balance-sheet/transactions",
+      icon: CircleDollarSign,
     },
   ];
 
   // Prepare user data for NavUser component
-  const userData = user
-    ? {
-        name: user.fullName || user.firstName || "User",
-        email: user.primaryEmailAddress?.emailAddress || "user@example.com",
-        avatar: user.imageUrl || "/default-avatar.png",
-      }
-    : {
-        name: "Loading...",
-        email: "",
-        avatar: "/default-avatar.png",
-      };
+  const userData =
+    user && isLoaded
+      ? {
+          name: user.fullName || user.firstName || "User",
+          email: user.primaryEmailAddress?.emailAddress || "user@example.com",
+          avatar: user.imageUrl || "",
+        }
+      : {
+          name: isLoaded ? "Guest" : "Loading...",
+          email: isLoaded ? "guest@example.com" : "",
+          avatar: "",
+        };
+
+  // Debug: Log Clerk user data
+  console.log("🔍 AppSidebar Clerk data:", {
+    isLoaded,
+    hasUser: !!user,
+    imageUrl: user?.imageUrl,
+    finalAvatar: userData.avatar,
+  });
 
   return (
-    <Sidebar collapsible="offcanvas" variant="inset" {...props}>
+    <Sidebar {...props}>
       <SidebarHeader>
         <TeamSwitcherV2 />
       </SidebarHeader>
       <SidebarContent>
-        <NavAI />
+        <NavSearch />
         <NavMain items={mainNavItems} />
-        <NavDocuments items={documentItems} />
+        <Suspense fallback={null}>
+          <NavBalanceSheet items={balanceSheetItems} />
+        </Suspense>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="mt-auto border-t border-sidebar-border pt-2">
         <NavUser user={userData} />
       </SidebarFooter>
     </Sidebar>

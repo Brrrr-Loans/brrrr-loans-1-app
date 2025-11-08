@@ -1,9 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  getSupabaseClient,
-  createServiceRoleClient,
-} from "@/lib/supabase-server";
-import { auth } from "@clerk/nextjs/server";
+import { createServiceRoleClient } from "@/lib/supabase-server";
 import type { Tables } from "@/types/supabase";
 
 export async function GET(request: Request) {
@@ -18,8 +14,8 @@ export async function GET(request: Request) {
 
     const url = new URL(request.url);
     const searchParams = url.searchParams;
-    const status = searchParams.get("status") ?? "";
-    const type = searchParams.get("type") ?? "";
+    // const status = searchParams.get("status") ?? ""; // TODO: Add status field to bsi_distributions table
+    // const type = searchParams.get("type") ?? ""; // TODO: Add distribution_type field to bsi_distributions table
     const search = searchParams.get("search") ?? "";
     const period = searchParams.get("period") ?? "all";
 

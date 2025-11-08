@@ -2,7 +2,7 @@
 
 import { BuilderComponent, builder, useIsPreviewing } from "@builder.io/react";
 import { BuilderContent } from "@builder.io/sdk";
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, Suspense } from "react";
 
 // Initialize Builder.io
 builder.init(process.env.NEXT_PUBLIC_BUILDER_API_KEY!);
@@ -11,7 +11,7 @@ interface BuilderPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default function BuilderPage({ searchParams }: BuilderPageProps) {
+function BuilderPageContent({ searchParams }: BuilderPageProps) {
   const [content, setContent] = useState<BuilderContent | undefined>(undefined);
   const isPreviewing = useIsPreviewing();
   const model = "page";
@@ -60,5 +60,19 @@ export default function BuilderPage({ searchParams }: BuilderPageProps) {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function BuilderPage(props: BuilderPageProps) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          Loading...
+        </div>
+      }
+    >
+      <BuilderPageContent {...props} />
+    </Suspense>
   );
 }

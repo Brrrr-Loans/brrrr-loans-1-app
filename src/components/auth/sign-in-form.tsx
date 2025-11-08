@@ -146,7 +146,7 @@ export function SignInForm() {
           <SignIn.Strategy name="email_code">
             <Clerk.Field name="code">
               <Clerk.Input asChild>
-                <Input placeholder="Verification code" />
+                <Input placeholder="Email verification code" />
               </Clerk.Input>
               <Clerk.FieldError className="text-sm text-destructive mt-1" />
             </Clerk.Field>
@@ -167,41 +167,9 @@ export function SignInForm() {
             </SignIn.Action>
           </SignIn.Strategy>
 
-          <SignIn.Action navigate="choose-strategy" asChild>
+          <SignIn.Action navigate="previous" asChild>
             <Button variant="ghost" className="w-full">
               Use another method
-            </Button>
-          </SignIn.Action>
-        </div>
-      </SignIn.Step>
-
-      {/* Choose strategy step for alternative verification methods */}
-      <SignIn.Step name="choose-strategy">
-        <div className="m-auto w-full max-w-sm space-y-6">
-          <div className="space-y-2 text-center">
-            <h1 className="text-3xl font-bold">Choose verification method</h1>
-            <p className="text-muted-foreground text-sm">
-              Select how you&apos;d like to verify your identity.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <SignIn.SupportedStrategy name="email_code" asChild>
-              <Button variant="outline" className="w-full">
-                Email verification code
-              </Button>
-            </SignIn.SupportedStrategy>
-
-            <SignIn.SupportedStrategy name="password" asChild>
-              <Button variant="outline" className="w-full">
-                Password
-              </Button>
-            </SignIn.SupportedStrategy>
-          </div>
-
-          <SignIn.Action navigate="start" asChild>
-            <Button variant="ghost" className="w-full">
-              Go back
             </Button>
           </SignIn.Action>
         </div>

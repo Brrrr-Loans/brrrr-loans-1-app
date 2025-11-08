@@ -4,29 +4,23 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Define which routes require authentication
 const isProtectedRoute = createRouteMatcher([
-  // Temporarily comment out main pages to debug
-  // "/dashboard/deals(.*)",
-  // "/dashboard/distributions(.*)",
-  // "/dashboard/investor-statements(.*)", // Remove statements protection
-  // "/dashboard/reports(.*)", // Remove reports protection
-  // "/dashboard/documents(.*)", // Remove documents protection (this is the Statements page)
-  "/dashboard/investor(.*)",
-  "/dashboard/admin(.*)",
-  // Temporarily comment out API auth to debug session issue
-  // "/api/auth(.*)",
+  "/dashboard(.*)",
+  "/deals(.*)",
+  "/balance-sheet(.*)",
+  "/api/auth/permissions(.*)",
   "/api/deals(.*)",
   "/api/distributions(.*)",
-  // "/api/documents(.*)", // Remove documents API protection
-  // "/api/investor-statements(.*)", // Remove statements protection
+  "/api/documents(.*)",
   "/api/investor-summary(.*)",
-  // "/api/reports(.*)", // Remove reports API protection
   "/api/storage(.*)",
+  "/api/user-workflows(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {
-  // TEMPORARILY BYPASS ALL API ROUTES FOR DEBUGGING
-  if (req.nextUrl.pathname.startsWith("/api/")) {
-    console.log("🔓 BYPASSING MIDDLEWARE for API route:", req.nextUrl.pathname);
+  // Allow specific API routes to be public (webhooks, sync operations)
+  const publicApiRoutes = ["/api/webhooks", "/api/sync-clerk"];
+  if (publicApiRoutes.some((route) => req.nextUrl.pathname.startsWith(route))) {
+    console.log("🔓 Allowing public API route:", req.nextUrl.pathname);
     return NextResponse.next();
   }
 

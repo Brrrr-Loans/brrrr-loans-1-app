@@ -4,8 +4,8 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SlashIcon } from "lucide-react";
-import { Separator } from "@/components/ui/layout/separator";
-import { SidebarTrigger } from "@/components/ui/layout/sidebar";
+import { Separator } from "@/components/ui";
+import { SidebarTrigger } from "@/components/ui";
 import { SearchForm } from "@/components/layout/search-form";
 import { ThemeDropdown } from "@/components/theme/theme-dropdown";
 import { TeamSwitcherV2 } from "@/components/layout/team-switcher-v2";
@@ -42,7 +42,7 @@ function generateBreadcrumbs(
   const path = pathname.replace(/\/$/, "");
 
   // Handle deal details pages
-  if (path.startsWith("/dashboard/deals/") && path !== "/dashboard/deals") {
+  if (path.startsWith("/deals/") && path !== "/deals") {
     const dealId = path.split("/").pop();
     const displayName = dealName || `Deal #${dealId}`;
 
@@ -51,7 +51,7 @@ function generateBreadcrumbs(
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/dashboard/deals">Deals</Link>
+              <Link href="/deals">Deals</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
@@ -59,7 +59,7 @@ function generateBreadcrumbs(
           </BreadcrumbSeparator>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href={`/dashboard/deals/${dealId}`}>Loan Details</Link>
+              <Link href={`/deals/${dealId}`}>Loan Details</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
@@ -98,15 +98,13 @@ function getPageTitle(pathname: string): string {
   const path = pathname.replace(/\/$/, "");
 
   if (path === "/dashboard") return "Dashboard";
-  if (path === "/dashboard/deals") return "Deals";
-  if (path.startsWith("/dashboard/deals/")) return "Deal Details";
-  if (path === "/dashboard/distributions") return "Distributions";
-  if (path.startsWith("/dashboard/distributions/"))
-    return "Distribution Details";
-  if (path === "/dashboard/documents") return "Documents";
-  if (path === "/dashboard/reports") return "Reports";
+  if (path === "/deals") return "Deals";
+  if (path.startsWith("/deals/")) return "Deal Details";
+  if (path === "/balance-sheet/transactions") return "Transaction Records";
+  if (path.startsWith("/balance-sheet/transactions/")) return "Transaction Details";
+  if (path === "/balance-sheet/documents") return "Documents";
+  if (path === "/balance-sheet/distributions") return "Distributions";
   if (path === "/dashboard/investor") return "Investor Portal";
-  if (path === "/dashboard/investor-statements") return "Investor Statements";
   if (path.startsWith("/dashboard/admin/")) return "Admin";
   if (path === "/builder") return "Builder";
 
@@ -128,7 +126,7 @@ export function SiteHeader({ breadcrumb, dealName }: SiteHeaderProps) {
 
   return (
     <>
-      <header className="bg-background z-50 flex h-16 shrink-0 items-center gap-2 border-b px-4 sticky top-0">
+      <header className="bg-background z-50 flex h-16 shrink-0 items-center gap-2 border-b px-4 sticky top-0 rounded-tl-xl rounded-tr-xl">
         <SidebarTrigger className="-ml-1" />
         <Separator
           orientation="vertical"

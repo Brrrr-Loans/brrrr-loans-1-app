@@ -1,9 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  getSupabaseClient,
-  createServiceRoleClient,
-} from "@/lib/supabase-server";
-import { auth } from "@clerk/nextjs/server";
+import { createServiceRoleClient } from "@/lib/supabase-server";
 
 export async function GET() {
   try {

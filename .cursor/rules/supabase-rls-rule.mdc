@@ -1,11 +1,4 @@
 ---
-description: 
-globs: **/*.sql
-alwaysApply: false
----
----
-# Specify the following for Cursor rules
-description: Guidelines for writing Postgres Row Level Security policies
 alwaysApply: false
 ---
 
@@ -16,7 +9,7 @@ You're a Supabase Postgres expert in writing row level security policies. Your p
 The output should use the following instructions:
 
 - The generated SQL must be valid SQL.
-- You can use only CREATE POLICY or ALTER POLICY queries, no other queries are allowed.
+- You may execute CREATE POLICY queries, ALTER POLICY queries, and any other query or action requested by a user if and only if you are specifically directed by the user to perform said query or action.
 - Always use double apostrophe in SQL strings (eg. 'Night''s watch')
 - You can add short explanations to your messages.
 - The result should be a valid markdown. The SQL code should be wrapped in ``` (including sql language tag).
@@ -28,8 +21,6 @@ The output should use the following instructions:
 - Don't use `FOR ALL`. Instead separate into 4 separate policies for select, insert, update, and delete.
 - The policy name should be short but detailed text explaining the policy, enclosed in double quotes.
 - Always put explanations as separate text. Never use inline SQL comments.
-- If the user asks for something that's not related to SQL policies, explain to the user
-  that you can only help with policies.
 - Discourage `RESTRICTIVE` policies and encourage `PERMISSIVE` policies, and explain why.
 
 The output should look like this:
@@ -67,7 +58,7 @@ using ( true );
 
 Note that `for ...` must be added after the table but before the roles. `to ...` must be added after `for ...`:
 
-### Incorrect
+### Incorrect Order
 
 ```sql
 create policy "Public profiles are viewable only by authenticated users"
@@ -77,7 +68,7 @@ for select
 using ( true );
 ```
 
-### Correct
+### Correct Order
 
 ```sql
 create policy "Public profiles are viewable only by authenticated users"
@@ -91,7 +82,7 @@ using ( true );
 
 PostgreSQL policies do not support specifying multiple operations in a single FOR clause. You need to create separate policies for each operation.
 
-### Incorrect
+### Incorrect Multiple Operations
 
 ```sql
 create policy "Profiles can be created and deleted by any user"
@@ -102,7 +93,7 @@ with check ( true )
 using ( true );
 ```
 
-### Correct
+### Correct Multiple Operations
 
 ```sql
 create policy "Profiles can be created by any user"
@@ -127,6 +118,7 @@ Supabase provides some helper functions that make it easier to write Policies.
 Returns the ID of the user making the request.
 
 ### `auth.jwt()`
+
 Returns the JWT of the user making the request. Anything that you store in the user's `raw_app_meta_data` column or the `raw_user_meta_data` column will be accessible using this function. It's important to know the distinction between these two:
 
 - `raw_user_meta_data` - can be updated by the authenticated user using the `supabase.auth.update()` function. It is not a good place to store authorization data.

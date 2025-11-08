@@ -5,7 +5,7 @@ export class AppError extends Error {
     message: string,
     public code: string = "UNKNOWN_ERROR",
     public statusCode: number = 500,
-    public context?: Record<string, any>
+    public context?: Record<string, unknown>
   ) {
     super(message);
     this.name = "AppError";
@@ -19,14 +19,14 @@ export const SupabaseErrorCodes = {
   FOREIGN_KEY_VIOLATION: "23503",
   NOT_NULL_VIOLATION: "23502",
   CHECK_VIOLATION: "23514",
-  
+
   // PostgREST errors
   NO_ROWS: "PGRST116",
   TOO_MANY_ROWS: "PGRST010",
   PARSE_ERROR: "PGRST100",
   JWT_INVALID: "PGRST301",
   PERMISSION_DENIED: "42501",
-  
+
   // Custom app errors
   VALIDATION_ERROR: "VALIDATION_ERROR",
   UNAUTHORIZED: "UNAUTHORIZED",
@@ -35,9 +35,9 @@ export const SupabaseErrorCodes = {
 } as const;
 
 export function handleSupabaseError(
-  error: any, 
+  error: unknown,
   context: string,
-  additionalContext?: Record<string, any>
+  additionalContext?: Record<string, unknown>
 ): never {
   console.error(`Supabase error in ${context}:`, {
     error,
@@ -46,103 +46,93 @@ export function handleSupabaseError(
     timestamp: new Date().toISOString(),
   });
 
+  // Type guard to check if error has a code property
+  const errorWithCode = error as { code?: string; message?: string };
+
   // Handle specific PostgreSQL errors
-  if (error.code === SupabaseErrorCodes.UNIQUE_VIOLATION) {
+  if (errorWithCode.code === SupabaseErrorCodes.UNIQUE_VIOLATION) {
     throw new AppError(
       "A record with this information already exists",
       "DUPLICATE_ENTRY",
       409,
-      { context, originalError: error.message }
+      { context, originalError: errorWithCode.message }
     );
   }
 
-  if (error.code === SupabaseErrorCodes.FOREIGN_KEY_VIOLATION) {
+  if (errorWithCode.code === SupabaseErrorCodes.FOREIGN_KEY_VIOLATION) {
     throw new AppError(
       "Referenced record not found",
       "INVALID_REFERENCE",
       400,
-      { context, originalError: error.message }
+      { context, originalError: errorWithCode.message }
     );
   }
 
-  if (error.code === SupabaseErrorCodes.NOT_NULL_VIOLATION) {
+  if (errorWithCode.code === SupabaseErrorCodes.NOT_NULL_VIOLATION) {
     throw new AppError(
       "Required field is missing",
-      "MISSING_REQUIRED_FIELD", 
+      "MISSING_REQUIRED_FIELD",
       400,
-      { context, originalError: error.message }
+      { context, originalError: errorWithCode.message }
     );
   }
 
-  if (error.code === SupabaseErrorCodes.NO_ROWS) {
-    throw new AppError(
-      "Record not found",
-      "NOT_FOUND",
-      404,
-      { context, originalError: error.message }
-    );
+  if (errorWithCode.code === SupabaseErrorCodes.NO_ROWS) {
+    throw new AppError("Record not found", "NOT_FOUND", 404, {
+      context,
+      originalError: errorWithCode.message,
+    });
   }
 
-  if (error.code === SupabaseErrorCodes.TOO_MANY_ROWS) {
+  if (errorWithCode.code === SupabaseErrorCodes.TOO_MANY_ROWS) {
     throw new AppError(
       "Multiple records found when only one was expected",
       "MULTIPLE_RECORDS",
       409,
-      { context, originalError: error.message }
+      { context, originalError: errorWithCode.message }
     );
   }
 
-  if (error.code === SupabaseErrorCodes.JWT_INVALID) {
-    throw new AppError(
-      "Invalid authentication token",
-      "INVALID_TOKEN",
-      401,
-      { context, originalError: error.message }
-    );
+  if (errorWithCode.code === SupabaseErrorCodes.JWT_INVALID) {
+    throw new AppError("Invalid authentication token", "INVALID_TOKEN", 401, {
+      context,
+      originalError: errorWithCode.message,
+    });
   }
 
-  if (error.code === SupabaseErrorCodes.PERMISSION_DENIED) {
-    throw new AppError(
-      "Permission denied",
-      "PERMISSION_DENIED",
-      403,
-      { context, originalError: error.message }
-    );
+  if (errorWithCode.code === SupabaseErrorCodes.PERMISSION_DENIED) {
+    throw new AppError("Permission denied", "PERMISSION_DENIED", 403, {
+      context,
+      originalError: errorWithCode.message,
+    });
   }
 
   // Handle network and connection errors
-  if (error.message?.includes("fetch")) {
-    throw new AppError(
-      "Database connection failed",
-      "CONNECTION_ERROR",
-      503,
-      { context, originalError: error.message }
-    );
+  if (errorWithCode.message?.includes("fetch")) {
+    throw new AppError("Database connection failed", "CONNECTION_ERROR", 503, {
+      context,
+      originalError: errorWithCode.message,
+    });
   }
 
   // Handle timeout errors
-  if (error.message?.includes("timeout")) {
-    throw new AppError(
-      "Database operation timed out",
-      "TIMEOUT_ERROR",
-      504,
-      { context, originalError: error.message }
-    );
+  if (errorWithCode.message?.includes("timeout")) {
+    throw new AppError("Database operation timed out", "TIMEOUT_ERROR", 504, {
+      context,
+      originalError: errorWithCode.message,
+    });
   }
 
   // Generic Supabase error
   throw new AppError(
-    error.message || "Database operation failed",
+    errorWithCode.message || "Database operation failed",
     "DATABASE_ERROR",
     500,
-    { context, originalError: error.message }
+    { context, originalError: errorWithCode.message }
   );
 }
 
-export function handleValidationError(
-  error: Error,
-  context: string
-): never {
+export function handleValidationError(error: Error, context: string): never {
   console.error(`Validation error in ${context}:`, {
     error: error.message,
     context,
@@ -150,7 +140,7 @@ export function handleValidationError(
   });
 
   throw new AppError(
-    error.message,
+    error.message || "Validation error",
     "VALIDATION_ERROR",
     400,
     { context }
@@ -167,12 +157,7 @@ export function handleAuthError(
     timestamp: new Date().toISOString(),
   });
 
-  throw new AppError(
-    message,
-    "UNAUTHORIZED",
-    401,
-    { context }
-  );
+  throw new AppError(message, "UNAUTHORIZED", 401, { context });
 }
 
 export function handlePermissionError(
@@ -185,16 +170,14 @@ export function handlePermissionError(
     timestamp: new Date().toISOString(),
   });
 
-  throw new AppError(
-    message,
-    "FORBIDDEN",
-    403,
-    { context }
-  );
+  throw new AppError(message, "FORBIDDEN", 403, { context });
 }
 
 // API response helpers
-export function createErrorResponse(error: AppError | Error, fallbackMessage: string = "An error occurred") {
+export function createErrorResponse(
+  error: AppError | Error,
+  fallbackMessage: string = "An error occurred"
+) {
   if (error instanceof AppError) {
     return {
       error: error.message,
@@ -221,7 +204,7 @@ export function createSuccessResponse<T>(data: T, message?: string) {
 }
 
 // Async error wrapper for server actions
-export function withErrorHandling<T extends any[], R>(
+export function withErrorHandling<T extends unknown[], R>(
   fn: (...args: T) => Promise<R>,
   context: string
 ) {
@@ -235,7 +218,11 @@ export function withErrorHandling<T extends any[], R>(
 
       if (error instanceof Error) {
         // Check if it's a validation error
-        if (error.message.includes("must be") || error.message.includes("required") || error.message.includes("invalid")) {
+        if (
+          error.message.includes("must be") ||
+          error.message.includes("required") ||
+          error.message.includes("invalid")
+        ) {
           handleValidationError(error, context);
         }
 
@@ -272,7 +259,7 @@ export function logOperation(
   operation: string,
   table: string,
   userId?: string,
-  additionalData?: Record<string, any>
+  additionalData?: Record<string, unknown>
 ) {
   console.log("Database operation:", {
     operation,

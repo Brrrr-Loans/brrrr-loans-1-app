@@ -70,7 +70,7 @@ export async function createDeal(formData: FormData) {
     const { data: contact, error: contactError } = await supabase
       .from("contact")
       .select("id")
-      .eq("email_address", userProfile.email)
+      .eq("email_address", userProfile.email || "")
       .single();
 
     if (contactError || !contact) {
@@ -82,14 +82,8 @@ export async function createDeal(formData: FormData) {
       .from("deal")
       .insert({
         deal_name: name.trim(),
-        type,
-        amount: parseFloat(cleanAmount),
-        location: location.trim(),
-        description:
-          typeof description === "string" ? description.trim() : null,
-        roi: parseFloat(roi),
-        start_date: startDate,
-        status,
+        loan_amount_initial: parseFloat(cleanAmount),
+        loan_number: `LOAN-${Date.now()}`, // Generate a unique loan number
         created_at: new Date().toISOString(),
       })
       .select("id")
@@ -112,7 +106,7 @@ export async function createDeal(formData: FormData) {
       // Continue anyway as the deal was created
     }
 
-    revalidatePath("/dashboard/deals");
+    revalidatePath("/deals");
     return { success: true, dealId: dealData.id };
   } catch (error) {
     console.error("Error creating deal:", error);
@@ -193,7 +187,7 @@ export async function updateDeal(formData: FormData) {
     const { data: contact, error: contactError } = await supabase
       .from("contact")
       .select("id")
-      .eq("email_address", userProfile.email)
+      .eq("email_address", userProfile.email || "")
       .single();
 
     if (contactError || !contact) {
@@ -234,7 +228,7 @@ export async function updateDeal(formData: FormData) {
       throw new Error(`Failed to update deal: ${updateError.message}`);
     }
 
-    revalidatePath("/dashboard/deals");
+    revalidatePath("/deals");
     return { success: true };
   } catch (error) {
     console.error("Error updating deal:", error);
@@ -271,7 +265,7 @@ export async function deleteDeal(id: string) {
     const { data: contact, error: contactError } = await supabase
       .from("contact")
       .select("id")
-      .eq("email_address", userProfile.email)
+      .eq("email_address", userProfile.email || "")
       .single();
 
     if (contactError || !contact) {
@@ -301,7 +295,7 @@ export async function deleteDeal(id: string) {
       throw new Error(`Failed to delete deal: ${deleteError.message}`);
     }
 
-    revalidatePath("/dashboard/deals");
+    revalidatePath("/deals");
     return { success: true };
   } catch (error) {
     console.error("Error deleting deal:", error);

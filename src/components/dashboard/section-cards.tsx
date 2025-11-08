@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/layout/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { DollarSign, Building, TrendingUp, FileText } from "lucide-react";
 
 export function SectionCards() {

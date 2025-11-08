@@ -35,7 +35,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Badge } from "@/components/ui/feedback/badge";
+import { Badge } from "@/components/ui";
 import { Button } from "@/components/ui";
 import { Checkbox } from "@/components/ui";
 import {
@@ -46,7 +46,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/overlays/dropdown-menu";
+} from "@/components/ui";
 import { Input } from "@/components/ui";
 import {
   Table,
@@ -55,7 +55,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/data/table";
+} from "@/components/ui";
 import {
   ArrowUpDown,
   ChevronDown,
@@ -271,8 +271,8 @@ const createColumns = (router: {
             stage === "closed_and_funded"
               ? "default"
               : stage === "clear_to_close"
-              ? "secondary"
-              : "outline"
+                ? "secondary"
+                : "outline"
           }
         >
           {displayValue}
@@ -298,7 +298,7 @@ const createColumns = (router: {
     cell: ({ row }) => {
       const amount = row.getValue("loan_amount_total") as number;
       return (
-        <div className="font-medium">
+        <div>
           {amount
             ? new Intl.NumberFormat("en-US", {
                 style: "currency",
@@ -368,7 +368,7 @@ const createColumns = (router: {
           <DropdownMenuContent align="end">
             <DropdownMenuGroup>
               <DropdownMenuItem
-                onClick={() => router.push(`/dashboard/deals/${deal.id}`)}
+                onClick={() => router.push(`/deals/${deal.id}`)}
               >
                 <FolderOpenIcon
                   size={16}
@@ -378,7 +378,7 @@ const createColumns = (router: {
                 Open
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => router.push(`/dashboard/deals/${deal.id}`)}
+                onClick={() => router.push(`/deals/${deal.id}`)}
               >
                 <BoltIcon size={16} className="opacity-60" aria-hidden="true" />
                 Edit
@@ -495,9 +495,11 @@ export function DealsDataTable() {
             propertyData = properties.reduce(
               (
                 acc: Record<number, string>,
-                prop: { id: number; address: string }
+                prop: { id: number; address: string | null }
               ) => {
-                acc[prop.id] = prop.address;
+                if (prop.address) {
+                  acc[prop.id] = prop.address;
+                }
                 return acc;
               },
               {}
@@ -519,9 +521,11 @@ export function DealsDataTable() {
             guarantorData = guarantors.reduce(
               (
                 acc: Record<number, string>,
-                guar: { id: number; name: string }
+                guar: { id: number; name: string | null }
               ) => {
-                acc[guar.id] = guar.name;
+                if (guar.name) {
+                  acc[guar.id] = guar.name;
+                }
                 return acc;
               },
               {}
@@ -761,7 +765,7 @@ export function DealsDataTable() {
             </Button>
           </div>
         </div>
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-hidden">
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (

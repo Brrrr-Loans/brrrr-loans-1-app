@@ -76,7 +76,11 @@ export async function uploadDocument(formData: FormData) {
   }
 
   // Validate category
-  if (!validCategories.includes(documentCategory as any)) {
+  if (
+    !validCategories.includes(
+      documentCategory as (typeof validCategories)[number]
+    )
+  ) {
     throw new Error("Invalid document category");
   }
 
@@ -175,13 +179,6 @@ export async function uploadDocument(formData: FormData) {
       throw new Error("User profile not found");
     }
 
-    // 2. Find the contact_id using the email
-    const { data: contact, error: contactError } = await supabase
-      .from("contact")
-      .select("id")
-      .eq("email_address", userProfile.email)
-      .single();
-
     // Insert document record
     const { data, error } = await supabase
       .from("document_files")
@@ -213,7 +210,7 @@ export async function uploadDocument(formData: FormData) {
       throw new Error(`Failed to upload document: ${error.message}`);
     }
 
-    revalidatePath("/dashboard/documents");
+    revalidatePath("/balance-sheet/documents");
     return { success: true, documentId: data.id };
   } catch (error) {
     console.error("Error uploading document:", error);
@@ -282,7 +279,7 @@ export async function deleteDocument(id: string) {
       throw new Error(`Failed to delete document: ${deleteError.message}`);
     }
 
-    revalidatePath("/dashboard/documents");
+    revalidatePath("/balance-sheet/documents");
     return { success: true };
   } catch (error) {
     console.error("Error deleting document:", error);

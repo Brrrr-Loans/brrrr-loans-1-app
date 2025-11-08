@@ -12,8 +12,8 @@ USING (
   contact_id IN (
     SELECT c.id 
     FROM contact c
-    JOIN auth_user_profiles aup ON c.email_address = aup.email
-    WHERE aup.clerk_id = (auth.jwt() ->> 'clerk_user_id')
+    JOIN auth_user_profile aup ON c.email_address = aup.email
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
   )
 );
 
@@ -24,8 +24,8 @@ WITH CHECK (
   contact_id IN (
     SELECT c.id 
     FROM contact c
-    JOIN auth_user_profiles aup ON c.email_address = aup.email
-    WHERE aup.clerk_id = (auth.jwt() ->> 'clerk_user_id')
+    JOIN auth_user_profile aup ON c.email_address = aup.email
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
   )
 );
 
@@ -41,8 +41,8 @@ USING (
     SELECT bd.deal_id
     FROM bsi_deals bd
     JOIN contact c ON bd.contact_id = c.id
-    JOIN auth_user_profiles aup ON c.email_address = aup.email
-    WHERE aup.clerk_id = (auth.jwt() ->> 'clerk_user_id')
+    JOIN auth_user_profile aup ON c.email_address = aup.email
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
   )
 );
 
@@ -58,8 +58,37 @@ USING (
     SELECT bd.deal_id
     FROM bsi_deals bd
     JOIN contact c ON bd.contact_id = c.id
-    JOIN auth_user_profiles aup ON c.email_address = aup.email
-    WHERE aup.clerk_id = (auth.jwt() ->> 'clerk_user_id')
+    JOIN auth_user_profile aup ON c.email_address = aup.email
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
+  )
+);
+
+-- ============================================================================
+-- BSI_TRANSACTIONS TABLE POLICIES
+-- ============================================================================
+
+-- Policy: Users can view transactions they're associated with
+CREATE POLICY "Users can view their transactions" ON "public"."bsi_transactions"
+FOR SELECT TO authenticated
+USING (
+  -- User's clerk_id matches transaction clerk_id
+  clerk_id = (auth.jwt() ->> 'sub'::text)
+  OR
+  -- User is associated through investor_id
+  investor_id IN (
+    SELECT c.id
+    FROM contact c
+    JOIN auth_user_profile aup ON c.email_address = aup.email
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
+  )
+  OR
+  -- User is associated through deal_id
+  deal_id IN (
+    SELECT bd.deal_id
+    FROM bsi_deals bd
+    JOIN contact c ON bd.contact_id = c.id
+    JOIN auth_user_profile aup ON c.email_address = aup.email
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
   )
 );
 
@@ -74,8 +103,8 @@ USING (
   contact_id IN (
     SELECT c.id 
     FROM contact c
-    JOIN auth_user_profiles aup ON c.email_address = aup.email
-    WHERE aup.clerk_id = (auth.jwt() ->> 'clerk_user_id')
+    JOIN auth_user_profile aup ON c.email_address = aup.email
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
   )
 );
 
@@ -92,8 +121,8 @@ USING (
     SELECT bd.deal_id
     FROM bsi_deals bd
     JOIN contact c ON bd.contact_id = c.id
-    JOIN auth_user_profiles aup ON c.email_address = aup.email
-    WHERE aup.clerk_id = (auth.jwt() ->> 'clerk_user_id')
+    JOIN auth_user_profile aup ON c.email_address = aup.email
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
   )
 );
 
@@ -107,8 +136,8 @@ FOR SELECT TO authenticated
 USING (
   email_address IN (
     SELECT aup.email
-    FROM auth_user_profiles aup
-    WHERE aup.clerk_id = (auth.jwt() ->> 'clerk_user_id')
+    FROM auth_user_profile aup
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
   )
 );
 
@@ -118,27 +147,27 @@ FOR UPDATE TO authenticated
 USING (
   email_address IN (
     SELECT aup.email
-    FROM auth_user_profiles aup
-    WHERE aup.clerk_id = (auth.jwt() ->> 'clerk_user_id')
+    FROM auth_user_profile aup
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
   )
 );
 
 -- ============================================================================
--- AUTH_USER_PROFILES TABLE POLICIES
+-- AUTH_USER_PROFILE TABLE POLICIES
 -- ============================================================================
 
 -- Policy: Users can view their own profile
-CREATE POLICY "Users can view their profile" ON "public"."auth_user_profiles"
+CREATE POLICY "Users can view their profile" ON "public"."auth_user_profile"
 FOR SELECT TO authenticated
 USING (
-  clerk_id = (auth.jwt() ->> 'clerk_user_id')
+  clerk_id = (auth.jwt() ->> 'sub'::text)
 );
 
 -- Policy: Users can update their own profile
-CREATE POLICY "Users can update their profile" ON "public"."auth_user_profiles"
+CREATE POLICY "Users can update their profile" ON "public"."auth_user_profile"
 FOR UPDATE TO authenticated
 USING (
-  clerk_id = (auth.jwt() ->> 'clerk_user_id')
+  clerk_id = (auth.jwt() ->> 'sub'::text)
 );
 
 -- ============================================================================
@@ -152,8 +181,8 @@ CREATE POLICY "Admin can view all bsi_deals" ON "public"."bsi_deals"
 FOR ALL TO authenticated
 USING (
   EXISTS (
-    SELECT 1 FROM auth_user_profiles aup
-    WHERE aup.clerk_id = (auth.jwt() ->> 'clerk_user_id')
+    SELECT 1 FROM auth_user_profile aup
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
     AND aup.role = 'admin'
   )
 );
@@ -162,8 +191,8 @@ CREATE POLICY "Admin can view all deals" ON "public"."deal"
 FOR ALL TO authenticated
 USING (
   EXISTS (
-    SELECT 1 FROM auth_user_profiles aup
-    WHERE aup.clerk_id = (auth.jwt() ->> 'clerk_user_id')
+    SELECT 1 FROM auth_user_profile aup
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
     AND aup.role = 'admin'
   )
 );
@@ -172,8 +201,18 @@ CREATE POLICY "Admin can view all distributions" ON "public"."bsi_distributions"
 FOR ALL TO authenticated
 USING (
   EXISTS (
-    SELECT 1 FROM auth_user_profiles aup
-    WHERE aup.clerk_id = (auth.jwt() ->> 'clerk_user_id')
+    SELECT 1 FROM auth_user_profile aup
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
+    AND aup.role = 'admin'
+  )
+);
+
+CREATE POLICY "Admin can view all transactions" ON "public"."bsi_transactions"
+FOR ALL TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM auth_user_profile aup
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
     AND aup.role = 'admin'
   )
 );
@@ -182,8 +221,8 @@ CREATE POLICY "Admin can view all statements" ON "public"."bsi_statements"
 FOR ALL TO authenticated
 USING (
   EXISTS (
-    SELECT 1 FROM auth_user_profiles aup
-    WHERE aup.clerk_id = (auth.jwt() ->> 'clerk_user_id')
+    SELECT 1 FROM auth_user_profile aup
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
     AND aup.role = 'admin'
   )
 );
@@ -192,8 +231,8 @@ CREATE POLICY "Admin can view all contacts" ON "public"."contact"
 FOR ALL TO authenticated
 USING (
   EXISTS (
-    SELECT 1 FROM auth_user_profiles aup
-    WHERE aup.clerk_id = (auth.jwt() ->> 'clerk_user_id')
+    SELECT 1 FROM auth_user_profile aup
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
     AND aup.role = 'admin'
   )
 );
@@ -202,12 +241,12 @@ USING (
 -- STORAGE POLICIES
 -- ============================================================================
 
--- Policy: Users can only access documents in folders named with their clerk_user_id
+-- Policy: Users can only access documents in folders named with their clerk_id
 CREATE POLICY "User-specific document access" ON storage.objects
 FOR ALL TO authenticated
 USING (
   bucket_id = 'documents' AND
-  (storage.foldername(name))[1] = (auth.jwt() ->> 'clerk_user_id')
+  (storage.foldername(name))[1] = (auth.jwt() ->> 'sub'::text)
 );
 
 -- Policy: Admin can access all documents
@@ -216,8 +255,8 @@ FOR ALL TO authenticated
 USING (
   bucket_id = 'documents' AND
   EXISTS (
-    SELECT 1 FROM auth_user_profiles aup
-    WHERE aup.clerk_id = (auth.jwt() ->> 'clerk_user_id')
+    SELECT 1 FROM auth_user_profile aup
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
     AND aup.role = 'admin'
   )
 );
@@ -235,8 +274,8 @@ STABLE
 AS $$
   SELECT c.id
   FROM contact c
-  JOIN auth_user_profiles aup ON c.email_address = aup.email
-  WHERE aup.clerk_id = (auth.jwt() ->> 'clerk_user_id')
+  JOIN auth_user_profile aup ON c.email_address = aup.email
+  WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
   LIMIT 1;
 $$;
 
@@ -248,8 +287,8 @@ SECURITY DEFINER
 STABLE
 AS $$
   SELECT EXISTS (
-    SELECT 1 FROM auth_user_profiles aup
-    WHERE aup.clerk_id = (auth.jwt() ->> 'clerk_user_id')
+    SELECT 1 FROM auth_user_profile aup
+    WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
     AND aup.role = 'admin'
   );
 $$;
@@ -263,7 +302,7 @@ STABLE
 AS $$
   SELECT c.contact_type
   FROM contact c
-  JOIN auth_user_profiles aup ON c.email_address = aup.email
-  WHERE aup.clerk_id = (auth.jwt() ->> 'clerk_user_id')
+  JOIN auth_user_profile aup ON c.email_address = aup.email
+  WHERE aup.clerk_id = (auth.jwt() ->> 'sub'::text)
   LIMIT 1;
 $$;

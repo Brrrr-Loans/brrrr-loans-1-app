@@ -18,9 +18,8 @@ import {
   CartesianGrid,
 } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
-import { DistributionsListWrapper } from "@/components/distributions/protected-distributions-list";
-import { ActiveDealsListWrapper } from "@/components/deals/active-deals-list";
-import type { Tables } from "@/types/supabase";
+import { DistributionsListWrapper } from "@/components/distributions/list-protected-distributions";
+import { ActiveDealsListWrapper } from "@/components/deals/list-active-deals";
 
 interface MonthlyDistribution {
   month: string;

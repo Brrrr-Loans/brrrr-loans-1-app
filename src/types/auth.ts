@@ -18,11 +18,19 @@ export type ContactType =
   | "Transaction Coordinator"
   | "Loan Buyer";
 
-export type UserRole = "admin" | "investor" | "broker" | "borrower" | "viewer";
+export type UserRole =
+  | "admin"
+  | "account_executive"
+  | "loan_processor"
+  | "balance_sheet_investor"
+  | "loan_opener";
 
 export interface UserPermissions {
   userId: string;
   email: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
   contactType: ContactType;
   role: UserRole;
   contactId: number;
@@ -30,12 +38,14 @@ export interface UserPermissions {
   canAccessDeals: boolean;
   canAccessDistributions: boolean;
   canAccessDocuments: boolean;
-  canAccessReports: boolean;
   canAccessAdminFeatures: boolean;
 }
 
 export class PermissionError extends Error {
-  constructor(message: string, public code: string = "PERMISSION_DENIED") {
+  constructor(
+    message: string,
+    public code: string = "PERMISSION_DENIED"
+  ) {
     super(message);
     this.name = "PermissionError";
   }

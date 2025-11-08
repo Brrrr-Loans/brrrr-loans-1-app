@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseClient } from "@/lib/supabase-server";
 import { auth } from "@clerk/nextjs/server";
-import type { Tables } from "@/types/supabase";
+import type { Tables, TablesInsert } from "@/types/supabase";
 
 const validCategories = [
   "application",
@@ -115,9 +115,9 @@ export async function POST(request: Request) {
       typeof deal_id === "string" && deal_id !== "multiple"
         ? Number(deal_id)
         : typeof deal_id === "number"
-        ? deal_id
-        : null;
-    const insertObj: any = {
+          ? deal_id
+          : null;
+    const insertObj: TablesInsert<"document_files"> = {
       name,
       deal_id: dealIdValue,
       category: categoryValue,
@@ -127,10 +127,8 @@ export async function POST(request: Request) {
       uploaded_by: userId,
       uploaded_at: new Date().toISOString(),
     };
-    // Only include id if the type allows a string, otherwise let the DB auto-generate
-    if (typeof documentId === "string" && documentId.startsWith("DOC-")) {
-      insertObj.id = documentId;
-    }
+    // Let the DB auto-generate the id (it's a number field)
+    // documentId is used for tracking but not inserted into DB
     const { data, error } = await supabase
       .from("document_files")
       .insert(insertObj)

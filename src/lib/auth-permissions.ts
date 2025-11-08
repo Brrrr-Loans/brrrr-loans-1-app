@@ -1,12 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseClient } from "@/lib/supabase-server";
-import type {
-  ContactType,
-  UserRole,
-  UserPermissions,
-  PermissionError,
-} from "@/types/auth";
+import type { ContactType, UserRole, UserPermissions } from "@/types/auth";
 
+import { PermissionError } from "@/types/auth";
 export { PermissionError } from "@/types/auth";
 export type { ContactType, UserRole, UserPermissions } from "@/types/auth";
 
@@ -58,7 +54,6 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
       canAccessDeals: canAccessDeals(contactType, role),
       canAccessDistributions: canAccessDistributions(contactType, role),
       canAccessDocuments: canAccessDocuments(contactType, role),
-      canAccessReports: canAccessReports(contactType, role),
       canAccessAdminFeatures: canAccessAdminFeatures(contactType, role),
     };
 
@@ -81,7 +76,7 @@ function canAccessDeals(contactType: ContactType, role: UserRole): boolean {
     "Point of Contact",
   ];
 
-  const allowedRoles: UserRole[] = ["admin", "investor", "broker", "borrower"];
+  const allowedRoles: UserRole[] = ["admin", "balance_sheet_investor"];
 
   return (
     allowedContactTypes.includes(contactType) || allowedRoles.includes(role)
@@ -101,7 +96,7 @@ function canAccessDistributions(
     "Borrower",
   ];
 
-  const allowedRoles: UserRole[] = ["admin", "investor"];
+  const allowedRoles: UserRole[] = ["admin", "balance_sheet_investor"];
 
   return (
     allowedContactTypes.includes(contactType) || allowedRoles.includes(role)
@@ -119,23 +114,6 @@ function canAccessDocuments(contactType: ContactType, role: UserRole): boolean {
   ];
 
   return !restrictedContactTypes.includes(contactType) || role === "admin";
-}
-
-/**
- * Check if user can access reports
- */
-function canAccessReports(contactType: ContactType, role: UserRole): boolean {
-  const allowedContactTypes: ContactType[] = [
-    "Balance Sheet Investor",
-    "Lender",
-    "Point of Contact",
-  ];
-
-  const allowedRoles: UserRole[] = ["admin", "investor"];
-
-  return (
-    allowedContactTypes.includes(contactType) || allowedRoles.includes(role)
-  );
 }
 
 /**

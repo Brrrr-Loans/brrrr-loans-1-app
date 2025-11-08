@@ -37,7 +37,6 @@ import {
 } from "@tanstack/react-table";
 import {
   CheckCircle2Icon,
-  CheckCircleIcon,
   ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -55,15 +54,15 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Badge } from "@/components/ui/feedback/badge";
-import { Button } from "@/components/ui/forms/button";
+import { Badge } from "@/components/ui";
+import { Button } from "@/components/ui";
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-} from "@/components/ui/data/chart";
-import { Checkbox } from "@/components/ui/forms/checkbox";
+} from "@/components/ui";
+import { Checkbox } from "@/components/ui";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -71,17 +70,17 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/overlays/dropdown-menu";
-import { Input } from "@/components/ui/forms/input";
-import { Label } from "@/components/ui/forms/label";
+} from "@/components/ui";
+import { Input } from "@/components/ui";
+import { Label } from "@/components/ui";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/forms/select";
-import { Separator } from "@/components/ui/layout/separator";
+} from "@/components/ui";
+import { Separator } from "@/components/ui";
 import {
   Sheet,
   SheetClose,
@@ -91,7 +90,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from "@/components/ui/overlays/sheet";
+} from "@/components/ui";
 import {
   Table,
   TableBody,
@@ -99,13 +98,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/data/table";
+} from "@/components/ui";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@/components/ui/layout/tabs";
+} from "@/components/ui";
 
 export const schema = z.object({
   id: z.number(),

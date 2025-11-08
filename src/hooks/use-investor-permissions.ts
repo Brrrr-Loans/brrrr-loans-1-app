@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSupabase } from "@/hooks/use-supabase";
 import { useUser } from "@clerk/nextjs";
-import type { Database } from "@/types/supabase";
 
 interface InvestorPermissions {
   canViewDeal: (dealId: string) => Promise<boolean>;
@@ -17,7 +16,8 @@ export function useInvestorPermissions(): InvestorPermissions {
   const supabase = useSupabase(); // Use the proper Clerk-integrated client
 
   // Cache results to avoid repeated DB calls
-  const permissionCache = new Map<string, boolean>();
+  const permissionCacheRef = useRef(new Map<string, boolean>());
+  const permissionCache = permissionCacheRef.current;
 
   const canViewDeal = async (dealId: string): Promise<boolean> => {
     const cacheKey = `deal:${dealId}`;
@@ -161,8 +161,10 @@ export function useInvestorPermissions(): InvestorPermissions {
 
   useEffect(() => {
     setIsLoading(false);
+    // Capture the current cache reference to avoid stale closure warning
+    const currentCache = permissionCacheRef.current;
     return () => {
-      permissionCache.clear();
+      currentCache.clear();
     };
   }, []);
 

@@ -9,7 +9,7 @@ import {
   CarouselItem,
   CarouselNext,
   CarouselPrevious,
-} from "@/components/ui/carousel";
+} from "@/components/ui/media/carousel";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 
@@ -40,13 +40,14 @@ export function AuthCarousel({ images = defaultImages }: AuthCarouselProps) {
   // Embla event listeners
   React.useEffect(() => {
     if (!api) return;
-    autoplayPlugin.current.play();
+    const autoplay = autoplayPlugin.current;
+    autoplay.play();
     setCount(api.slideNodes().length);
     setCurrent(api.selectedScrollSnap());
     const onSelect = () => setCurrent(api.selectedScrollSnap());
     api.on("select", onSelect);
     return () => {
-      autoplayPlugin.current.stop();
+      autoplay.stop();
       api.off("select", onSelect);
     };
   }, [api]);

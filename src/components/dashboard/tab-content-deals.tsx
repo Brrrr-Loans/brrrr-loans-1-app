@@ -6,7 +6,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/layout/card";
+} from "@/components/ui";
 import {
   Table,
   TableBody,
@@ -14,8 +14,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/data/table";
-import { Badge } from "@/components/ui/feedback/badge";
+} from "@/components/ui";
+import { Badge } from "@/components/ui";
 import { Button } from "@/components/ui";
 import { Eye } from "lucide-react";
 

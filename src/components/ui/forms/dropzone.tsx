@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { type UseSupabaseUploadReturn } from "@/hooks/use-supabase-upload";
 import { Button } from "@/components/ui";
 import { CheckCircle, File, Loader2, Upload, X } from "lucide-react";
+import Image from "next/image";
 import {
   createContext,
   type PropsWithChildren,
@@ -127,10 +128,13 @@ const DropzoneContent = ({ className }: { className?: string }) => {
           >
             {file.type.startsWith("image/") ? (
               <div className="h-10 w-10 rounded border overflow-hidden shrink-0 bg-muted flex items-center justify-center">
-                <img
-                  src={file.preview}
+                <Image
+                  src={file.preview || ""}
                   alt={file.name}
+                  width={40}
+                  height={40}
                   className="object-cover"
+                  unoptimized
                 />
               </div>
             ) : (

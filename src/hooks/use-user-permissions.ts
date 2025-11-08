@@ -1,11 +1,10 @@
 "use client";
 
-import { useUser } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
 import type { UserPermissions } from "@/types/auth";
 
 export function useUserPermissions() {
-  const { user, isLoaded } = useUser();
+  // Clerk user data not needed here since our API has fallback logic
   const [permissions, setPermissions] = useState<UserPermissions | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

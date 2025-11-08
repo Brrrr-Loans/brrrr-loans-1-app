@@ -122,7 +122,9 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
 
     // [Joshen] This is to support handling partial successes
     // If any files didn't upload for any reason, hitting "Upload" again will only upload the files that had errors
-    const filesWithErrors = errors.map((x: { name: string; message: string }) => x.name);
+    const filesWithErrors = errors.map(
+      (x: { name: string; message: string }) => x.name
+    );
     const filesToUpload =
       filesWithErrors.length > 0
         ? [
@@ -147,13 +149,26 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
       })
     );
 
-    const responseErrors = responses.filter((x: { name: string; message: string | undefined }) => x.message !== undefined);
+    const responseErrors = responses.filter(
+      (x: {
+        name: string;
+        message: string | undefined;
+      }): x is { name: string; message: string } => x.message !== undefined
+    );
     // if there were errors previously, this function tried to upload the files again so we should clear/overwrite the existing errors.
     setErrors(responseErrors);
 
-    const responseSuccesses = responses.filter((x: { name: string; message: string | undefined }) => x.message === undefined);
+    const responseSuccesses = responses.filter(
+      (x: { name: string; message: string | undefined }) =>
+        x.message === undefined
+    );
     const newSuccesses = Array.from(
-      new Set([...successes, ...responseSuccesses.map((x: { name: string; message: string | undefined }) => x.name)])
+      new Set([
+        ...successes,
+        ...responseSuccesses.map(
+          (x: { name: string; message: string | undefined }) => x.name
+        ),
+      ])
     );
     setSuccesses(newSuccesses);
 

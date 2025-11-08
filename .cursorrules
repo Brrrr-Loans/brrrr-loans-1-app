@@ -1,0 +1,26 @@
+# .cursorrules
+
+model_routing:
+
+- when: "Scaffolding new code (Next.js pages, Supabase queries, shadcn/ui components, Clerk auth flows)"
+  prefer: "gpt-5-codex"
+
+- when: "Day-to-day coding that also requires reasoning (multi-step API integrations, Supabase Edge Functions, complex joins, wiring Clerk + Supabase)"
+  prefer: "o3-pro"
+
+- when: "Debugging or reasoning-heavy problems (RLS policies, schema design, auth role logic, migrations, performance tuning)"
+  prefer: "claude-4.1-opus-thinking"
+
+- when: "Repo-wide analysis (verifying schema ↔ Prisma ↔ migrations consistency, auditing full RLS policies, checking cross-file dependencies)"
+  prefer: "claude-4-sonnet-max"
+
+- when: "Quick drafts, boilerplate, documentation, or scratchpad tasks where speed > precision"
+  prefer: "gpt-5-codex"
+
+Notes:
+
+- Default daily driver: o3-pro (balanced code + reasoning).
+- Switch to gpt-5-codex for clean scaffolds or repetitive coding.
+- Use claude-4.1-opus-thinking for logic-heavy debugging, schema analysis, migrations, or architectural Q&A.
+- Use claude-4-sonnet-max for full-repo audits or ingestion of many files.
+- Fall back to gpt-5-codex.

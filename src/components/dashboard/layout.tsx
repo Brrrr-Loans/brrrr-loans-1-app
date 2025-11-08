@@ -3,9 +3,8 @@
 import type React from "react";
 import { useAuth } from "@/hooks/use-clerk-auth";
 import { AppSidebar } from "@/components/layout/app-sidebar";
-import { DataTable } from "@/components/ui/data/data-table";
 import { SiteHeader } from "@/components/layout/site-header";
-import { SidebarInset, SidebarProvider } from "@/components/ui/layout/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -30,10 +29,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset className="bg-background">
+      <AppSidebar variant="inset" />
+      <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-col gap-4 p-4 md:gap-6 md:p-6">
+        <div className="flex flex-col gap-4 pb-4 md:gap-6 md:pb-6 px-4 lg:px-6 flex-1">
           {children}
         </div>
       </SidebarInset>

@@ -139,4 +139,8 @@ export const clerkFormFieldAttributes = {
     label: "Last Name",
     placeholder: "Last Name",
   },
+  phoneNumber: {
+    label: "Phone Number",
+    placeholder: "Phone Number",
+  },
 };

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { ThemeDropdown } from "@/components/theme/theme-dropdown";
 import type { ReactNode } from "react";
 
@@ -13,9 +14,9 @@ export function SignInLayout({ children }: SignInLayoutProps) {
     <div className="bg-background min-h-screen relative">
       {/* Logo and theme toggle grouped in top-left */}
       <div className="absolute top-4 left-4 z-50 flex items-center gap-3">
-        <a
-          href="/dashboard"
-          aria-label="Go to dashboard"
+        <Link
+          href="/"
+          aria-label="Go to home"
           className="flex items-center gap-2 font-medium"
         >
           <div className="flex h-8 w-8 items-center justify-center">
@@ -34,7 +35,7 @@ export function SignInLayout({ children }: SignInLayoutProps) {
               className="hidden dark:block"
             />
           </div>
-        </a>
+        </Link>
         <ThemeDropdown />
       </div>
 
