@@ -38,19 +38,38 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     // Google Drive passes the file ID in the 'state' parameter
     const fileId = url.searchParams.get("state") || url.searchParams.get("id");
+    
+    // Log for debugging (remove in production if needed)
+    console.log("Google Drive Open URL called:", {
+      fileId,
+      pathname: url.pathname,
+      searchParams: url.searchParams.toString(),
+      userAgent: request.headers.get("user-agent"),
+    });
 
     // Google Console validates the URL by making a request with {FILE_ID} literally
     // We need to return a 200 OK response for validation, even without auth
     // Check if this is a validation request (no file ID, or literal {FILE_ID} placeholder)
+    // Handle both URL-encoded and plain versions
+    const decodedFileId = fileId ? decodeURIComponent(fileId) : null;
     const isValidationRequest = 
       !fileId || 
+      !decodedFileId ||
       fileId === "{FILE_ID}" || 
       fileId === "{fileId}" ||
-      fileId.includes("{");
+      fileId === "FILE_ID" || // Google might send without braces
+      decodedFileId === "{FILE_ID}" ||
+      decodedFileId === "{fileId}" ||
+      decodedFileId === "FILE_ID" ||
+      fileId.includes("{") ||
+      decodedFileId.includes("{") ||
+      fileId.toLowerCase() === "file_id" ||
+      decodedFileId.toLowerCase() === "file_id";
 
     if (isValidationRequest) {
       // Return 200 OK for Google Console validation
       // Google expects a simple 200 response
+      console.log("Returning validation response");
       return new NextResponse("OK", {
         status: 200,
         headers: {
