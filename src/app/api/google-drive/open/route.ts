@@ -21,6 +21,18 @@ interface GoogleDriveFile {
   mimeType: string;
 }
 
+// Handle OPTIONS requests for CORS preflight
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  });
+}
+
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
@@ -38,11 +50,12 @@ export async function GET(request: NextRequest) {
 
     if (isValidationRequest) {
       // Return 200 OK for Google Console validation
-      // Google expects a simple 200 response, not necessarily JSON
+      // Google expects a simple 200 response
       return new NextResponse("OK", {
         status: 200,
         headers: {
-          "Content-Type": "text/plain",
+          "Content-Type": "text/plain; charset=utf-8",
+          "Access-Control-Allow-Origin": "*",
         },
       });
     }
@@ -94,7 +107,8 @@ export async function GET(request: NextRequest) {
       return new NextResponse("OK", {
         status: 200,
         headers: {
-          "Content-Type": "text/plain",
+          "Content-Type": "text/plain; charset=utf-8",
+          "Access-Control-Allow-Origin": "*",
         },
       });
     }
