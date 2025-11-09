@@ -27,18 +27,24 @@ export async function GET(request: NextRequest) {
     // Google Drive passes the file ID in the 'state' parameter
     const fileId = url.searchParams.get("state") || url.searchParams.get("id");
 
-    // Google Console validates the URL by making a request without authentication
+    // Google Console validates the URL by making a request with {FILE_ID} literally
     // We need to return a 200 OK response for validation, even without auth
-    // If no file ID is provided, this is likely a validation request
-    if (!fileId) {
+    // Check if this is a validation request (no file ID, or literal {FILE_ID} placeholder)
+    const isValidationRequest = 
+      !fileId || 
+      fileId === "{FILE_ID}" || 
+      fileId === "{fileId}" ||
+      fileId.includes("{");
+
+    if (isValidationRequest) {
       // Return 200 OK for Google Console validation
-      return NextResponse.json(
-        {
-          status: "ok",
-          message: "Google Drive Open URL handler is ready",
+      // Google expects a simple 200 response, not necessarily JSON
+      return new NextResponse("OK", {
+        status: 200,
+        headers: {
+          "Content-Type": "text/plain",
         },
-        { status: 200 }
-      );
+      });
     }
 
     // Actual file opening request - check authentication
@@ -78,14 +84,19 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const fileId = url.searchParams.get("state") || url.searchParams.get("id");
     
-    if (!fileId) {
-      return NextResponse.json(
-        {
-          status: "error",
-          message: "An error occurred",
+    const isValidationRequest = 
+      !fileId || 
+      fileId === "{FILE_ID}" || 
+      fileId === "{fileId}" ||
+      fileId.includes("{");
+    
+    if (isValidationRequest) {
+      return new NextResponse("OK", {
+        status: 200,
+        headers: {
+          "Content-Type": "text/plain",
         },
-        { status: 200 }
-      );
+      });
     }
 
     return NextResponse.redirect(
