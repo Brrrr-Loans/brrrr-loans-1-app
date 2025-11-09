@@ -17,8 +17,12 @@ const isProtectedRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {
-  // Allow specific API routes to be public (webhooks, sync operations)
-  const publicApiRoutes = ["/api/webhooks", "/api/sync-clerk"];
+  // Allow specific API routes to be public (webhooks, sync operations, Google Drive)
+  const publicApiRoutes = [
+    "/api/webhooks",
+    "/api/sync-clerk",
+    "/api/google-drive", // Allow Google Drive routes for OAuth and file opening
+  ];
   if (publicApiRoutes.some((route) => req.nextUrl.pathname.startsWith(route))) {
     console.log("🔓 Allowing public API route:", req.nextUrl.pathname);
     return NextResponse.next();
