@@ -36,12 +36,13 @@ export async function OPTIONS(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const url = new URL(request.url);
-    // Google Drive passes the file ID in the 'state' parameter
-    const fileId = url.searchParams.get("state") || url.searchParams.get("id");
+    // Google Drive passes file information in the 'state' parameter as JSON
+    // Format: {"ids":["fileId"],"resourceKeys":{},"action":"open","userId":"user@example.com"}
+    const stateParam = url.searchParams.get("state") || url.searchParams.get("id");
     
     // Log for debugging (remove in production if needed)
     console.log("Google Drive Open URL called:", {
-      fileId,
+      stateParam,
       pathname: url.pathname,
       searchParams: url.searchParams.toString(),
       userAgent: request.headers.get("user-agent"),
@@ -49,22 +50,22 @@ export async function GET(request: NextRequest) {
 
     // Google Console validates the URL by making a request with {FILE_ID} literally
     // We need to return a 200 OK response for validation, even without auth
-    // Check if this is a validation request (no file ID, or literal {FILE_ID} placeholder)
+    // Check if this is a validation request (no state param, or literal {FILE_ID} placeholder)
     // Handle both URL-encoded and plain versions
-    const decodedFileId = fileId ? decodeURIComponent(fileId) : null;
+    const decodedState = stateParam ? decodeURIComponent(stateParam) : null;
     const isValidationRequest = 
-      !fileId || 
-      !decodedFileId ||
-      fileId === "{FILE_ID}" || 
-      fileId === "{fileId}" ||
-      fileId === "FILE_ID" || // Google might send without braces
-      decodedFileId === "{FILE_ID}" ||
-      decodedFileId === "{fileId}" ||
-      decodedFileId === "FILE_ID" ||
-      fileId.includes("{") ||
-      decodedFileId.includes("{") ||
-      fileId.toLowerCase() === "file_id" ||
-      decodedFileId.toLowerCase() === "file_id";
+      !stateParam || 
+      !decodedState ||
+      stateParam === "{FILE_ID}" || 
+      stateParam === "{fileId}" ||
+      stateParam === "FILE_ID" ||
+      decodedState === "{FILE_ID}" ||
+      decodedState === "{fileId}" ||
+      decodedState === "FILE_ID" ||
+      stateParam.includes("{") ||
+      decodedState.includes("{") ||
+      stateParam.toLowerCase() === "file_id" ||
+      decodedState.toLowerCase() === "file_id";
 
     if (isValidationRequest) {
       // Return 200 OK for Google Console validation
@@ -79,6 +80,18 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Try to parse the state parameter as JSON (Google Drive format)
+    let fileIds: string[] = [];
+    try {
+      const stateData = JSON.parse(decodedState || stateParam || "{}");
+      fileIds = stateData.ids || [];
+    } catch {
+      // If not JSON, treat as single file ID (backward compatibility)
+      fileIds = [decodedState || stateParam || ""];
+    }
+
+    const fileId = fileIds[0] || stateParam;
+
     // Actual file opening request - check authentication
     const { userId } = await auth();
     if (!userId) {
@@ -86,7 +99,7 @@ export async function GET(request: NextRequest) {
       // After sign in, they'll be redirected back to open the file
       return NextResponse.redirect(
         new URL(
-          `/sign-in?redirect=${encodeURIComponent(`/api/google-drive/open?state=${fileId}`)}`,
+          `/sign-in?redirect=${encodeURIComponent(`/api/google-drive/open?state=${encodeURIComponent(stateParam || "")}`)}`,
           request.url
         )
       );
@@ -114,13 +127,22 @@ export async function GET(request: NextRequest) {
     console.error("Google Drive open error:", error);
     // Return 200 even on error for validation requests
     const url = new URL(request.url);
-    const fileId = url.searchParams.get("state") || url.searchParams.get("id");
+    const stateParam = url.searchParams.get("state") || url.searchParams.get("id");
     
+    const decodedState = stateParam ? decodeURIComponent(stateParam) : null;
     const isValidationRequest = 
-      !fileId || 
-      fileId === "{FILE_ID}" || 
-      fileId === "{fileId}" ||
-      fileId.includes("{");
+      !stateParam || 
+      !decodedState ||
+      stateParam === "{FILE_ID}" || 
+      stateParam === "{fileId}" ||
+      stateParam === "FILE_ID" ||
+      decodedState === "{FILE_ID}" ||
+      decodedState === "{fileId}" ||
+      decodedState === "FILE_ID" ||
+      stateParam.includes("{") ||
+      decodedState.includes("{") ||
+      stateParam.toLowerCase() === "file_id" ||
+      decodedState.toLowerCase() === "file_id";
     
     if (isValidationRequest) {
       return new NextResponse("OK", {
