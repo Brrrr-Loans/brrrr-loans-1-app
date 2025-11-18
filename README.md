@@ -22,6 +22,18 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Security
+
+### Database Security Fixes (November 2025)
+All Supabase Security Advisor warnings have been resolved:
+- ✅ Fixed 11 function `search_path` security vulnerabilities
+- ✅ Enabled RLS on all public tables
+- ✅ Upgraded to PostgreSQL 17.6 with latest security patches
+
+For details, see:
+- [SECURITY_FIX_SUMMARY.md](./SECURITY_FIX_SUMMARY.md) - Complete overview of fixes
+- [POSTGRES_UPGRADE_INSTRUCTIONS.md](./POSTGRES_UPGRADE_INSTRUCTIONS.md) - Upgrade guide
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
