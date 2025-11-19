@@ -2,5 +2,15 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "crons": [
+    {
+      "path": "/api/brex/sync-vendors",
+      "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/brex/sync-transfers",
+      "schedule": "0 2 * * *"
+    }
+  ]
 }
