@@ -5,10 +5,16 @@
 
 const BREX_API_URL =
   process.env.BREX_API_URL || "https://platform.brexapis.com";
-const BREX_API_KEY = process.env.BREX_API_KEY;
 
-if (!BREX_API_KEY) {
-  throw new Error("BREX_API_KEY environment variable is required");
+/**
+ * Get Brex API key with validation (lazy check - only at runtime, not build time)
+ */
+function getBrexApiKey(): string {
+  const apiKey = process.env.BREX_API_KEY;
+  if (!apiKey) {
+    throw new Error("BREX_API_KEY environment variable is required");
+  }
+  return apiKey;
 }
 
 export interface BrexApiError {
@@ -53,11 +59,12 @@ async function brexFetch(
   options: RequestInit = {}
 ): Promise<Response> {
   const url = `${BREX_API_URL}${endpoint}`;
+  const apiKey = getBrexApiKey(); // Lazy check - validates at runtime, not build time
 
   const response = await fetch(url, {
     ...options,
     headers: {
-      "Authorization": `Bearer ${BREX_API_KEY}`,
+      "Authorization": `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       ...options.headers,
     },
