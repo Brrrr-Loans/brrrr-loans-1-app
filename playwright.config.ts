@@ -10,9 +10,16 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: "npm run build && npm start",
+    command: "npm start",
     port: 3000,
     timeout: 120 * 1000,
     reuseExistingServer: !process.env.CI,
+    env: {
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || '',
+      NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+      CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY || '',
+      SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+    },
   },
 });
