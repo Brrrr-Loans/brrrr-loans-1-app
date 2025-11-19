@@ -10,7 +10,7 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: "pnpm build && pnpm start",
+    command: "npm run build && npm start",
     port: 3000,
     timeout: 120 * 1000,
     reuseExistingServer: !process.env.CI,
