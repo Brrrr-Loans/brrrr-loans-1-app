@@ -43,6 +43,10 @@ export function NavBalanceSheet({
     return searchParams?.get("tab") ?? "statements";
   }, [searchParams]);
 
+  const currentTransactionsTab = useMemo(() => {
+    return searchParams?.get("tab") ?? "all";
+  }, [searchParams]);
+
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel className="text-xs font-medium text-sidebar-foreground/70">
@@ -54,6 +58,9 @@ export function NavBalanceSheet({
             const hasSubItems = item.items && item.items.length > 0;
             const isDocumentsRoute = pathname.startsWith(
               "/balance-sheet/documents"
+            );
+            const isTransactionsRoute = pathname.startsWith(
+              "/balance-sheet/transactions"
             );
 
             const isActive = item.url
@@ -73,8 +80,16 @@ export function NavBalanceSheet({
                     return true;
                   }
 
-                  return isDocumentsRoute && tabParam === currentDocumentsTab;
-                });
+                  if (isDocumentsRoute) {
+                    return tabParam === currentDocumentsTab;
+                  }
+                  if (isTransactionsRoute) {
+                    return tabParam === currentTransactionsTab;
+                  }
+                  return true;
+                }) ||
+                (isTransactionsRoute &&
+                  pathname.startsWith("/balance-sheet/transactions"));
 
             if (hasSubItems) {
               const isOpen = openItems[item.name] ?? isActive;
@@ -106,11 +121,15 @@ export function NavBalanceSheet({
                             ? new URLSearchParams(search).get("tab")
                             : undefined;
                           const isTabMatch = tabParam
-                            ? currentDocumentsTab === tabParam
+                            ? isDocumentsRoute
+                              ? currentDocumentsTab === tabParam
+                              : isTransactionsRoute
+                                ? currentTransactionsTab === tabParam
+                                : true
                             : true;
 
-                          const isSubItemActive =
-                            isPathMatch && isTabMatch && isDocumentsRoute;
+                          // For Documents and Transactions routes, check tab match
+                          const isSubItemActive = isPathMatch && isTabMatch;
                           return (
                             <SidebarMenuSubItem key={subItem.name}>
                               <SidebarMenuSubButton

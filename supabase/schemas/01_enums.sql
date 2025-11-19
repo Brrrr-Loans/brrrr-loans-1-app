@@ -15,7 +15,7 @@ CREATE TYPE public.company_role AS ENUM ('Borrowing Entity','Broker','Insurance'
 CREATE TYPE public.citizenship AS ENUM ('U.S. Citizen','Permanent Resident','Non-Permanent Resident','Foreign National');
 CREATE TYPE public.constant_types AS ENUM ('Text','Numeric','Boolean');
 CREATE TYPE public.transaction_reference_type AS ENUM ('federal_reference_number','imad','omad');
-CREATE TYPE public.ledger_entry_type AS ENUM ('contribution','redemption','interest','fee');
+CREATE TYPE public.ledger_entry_type AS ENUM ('contribution','redemption','interest','fee','distribution','return');
 CREATE TYPE public.loan_amortization AS ENUM ('interest_only','300','360');
 CREATE TYPE public.fee_type AS ENUM ('lender_fee','broker_fee','appraisal_fee','title_fee','property_tax_-_city/town','property_tax_-_county','property_tax_-_school','lender_holdback','lender_reserve','insurance _premium','credit_and_background_fee','judgment','lien','recording_and_transfer_fee','transfer_tax','lender_escrow');
 CREATE TYPE public.clerk_role AS ENUM ('admin','member');
@@ -31,7 +31,7 @@ CREATE TYPE public.yes_no AS ENUM ('yes','no');
 CREATE TYPE public.ppp_term AS ENUM ('96','108','120','12','24','36','48','60','72','84','0');
 CREATE TYPE public.transaction_type AS ENUM ('refinance_cash_out','purchase','delayed_purchase','refinance_rate_term');
 CREATE TYPE public.deal_stage_1 AS ENUM ('lead','scenario','deal');
-CREATE TYPE public.transaction_status AS ENUM ('canceled','completed','failed','initiated','on_hold','owed','pending','processing','refunded','returned','scheduled');
+CREATE TYPE public.transaction_status AS ENUM ('canceled','completed','failed','initiated','on_hold','owed','pending','pending_approval','processed','processing','refunded','returned','scheduled');
 CREATE TYPE public.user_role_internal AS ENUM ('admin','account_executive','loan_processor','balance_sheet_investor','loan_opener');
 CREATE TYPE public.loan_structure_dscr AS ENUM ('30_yr_fixed','5/1_arm','7/1_arm','10/1_arm_io','5/6_arm','10/6_arm');
 CREATE TYPE public.appraisal_order_type AS ENUM ('commercial','residential');

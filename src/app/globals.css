@@ -42,6 +42,27 @@
     --sidebar-ring: 217.2 91.2% 59.8%;
     --box-shadow:
       0px 1px 3px 0px rgb(0 0 0 / 10%), 0px 1px 2px 0px rgb(0 0 0 / 6%);
+    --brand-gradient-orange: radial-gradient(
+      260.69 202.67% at -4.83% -37.67%,
+      #f72121 24%,
+      #ff9500 71%,
+      #f0d047 100%
+    );
+    --brand-gradient-blue: linear-gradient(
+      165deg,
+      #2c53f0 5.99%,
+      #39accd 91.59%
+    );
+    --brand-gradient-purple: linear-gradient(
+      165deg,
+      #753fef 5.99%,
+      #7697cd 91.59%
+    );
+    --brand-gradient-green: linear-gradient(
+      165deg,
+      #0ebb3f 5.99%,
+      #3df04e 91.59%
+    );
   }
 
   .dark {
@@ -77,6 +98,27 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    --brand-gradient-orange: radial-gradient(
+      260.69% 202.67% at -4.83% -37.67%,
+      #b71a1a 24%,
+      #e07b00 71%,
+      #bfa53d 100%
+    );
+    --brand-gradient-blue: linear-gradient(
+      155deg,
+      #1b3ab8 5.99%,
+      #2c7ea3 91.59%
+    );
+    --brand-gradient-purple: linear-gradient(
+      155deg,
+      #5323cc 5.99%,
+      #627bb5 91.59%
+    );
+    --brand-gradient-green: linear-gradient(
+      155deg,
+      #067e2f 5.99%,
+      #2ac23c 91.59%
+    );
   }
 }
 
@@ -303,7 +345,8 @@
 }
 
 /* Dark mode - remove active state background only for collapsible buttons */
-.dark .sidebar-collapsible-button[data-active="true"]:not(
+.dark
+  .sidebar-collapsible-button[data-active="true"]:not(
     [data-sidebar="header"] [data-sidebar="menu-button"],
     [data-sidebar="footer"] [data-sidebar="menu-button"]
   ) {
@@ -340,4 +383,39 @@
 
 [data-sidebar="menu-sub-button"][data-active="true"] {
   color: hsl(var(--sidebar-foreground)) !important;
+}
+
+/* Print styles - hide navigation, buttons, and non-essential elements */
+@media print {
+  /* Hide navigation and header */
+  header,
+  nav,
+  [data-sidebar],
+  [role="navigation"],
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Ensure content is visible */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Remove shadows and borders for cleaner print */
+  * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* Ensure tables and cards print properly */
+  table {
+    border-collapse: collapse !important;
+  }
+
+  /* Page breaks */
+  .page-break {
+    break-after: page;
+  }
 }

@@ -10,6 +10,9 @@ import {
   CircleDollarSign,
   Receipt,
   CreditCard,
+  ArrowDownToLine,
+  ArrowUpToLine,
+  ListTree,
 } from "lucide-react";
 import { NavSearch } from "./nav-search";
 import { NavMain } from "./nav-main";
@@ -22,6 +25,7 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
+  SidebarSeparator,
 } from "@/components/ui";
 
 export function AppSidebar(
@@ -56,7 +60,7 @@ export function AppSidebar(
           icon: Receipt,
         },
         {
-          name: "Payment Records",
+          name: "Payments",
           url: "/balance-sheet/documents?tab=payments",
           icon: CreditCard,
         },
@@ -64,8 +68,24 @@ export function AppSidebar(
     },
     {
       name: "Transactions",
-      url: "/balance-sheet/transactions",
       icon: CircleDollarSign,
+      items: [
+        {
+          name: "All",
+          url: "/balance-sheet/transactions?tab=all",
+          icon: ListTree,
+        },
+        {
+          name: "Investments",
+          url: "/balance-sheet/transactions?tab=investments",
+          icon: ArrowDownToLine,
+        },
+        {
+          name: "Distributions",
+          url: "/balance-sheet/transactions?tab=distributions",
+          icon: ArrowUpToLine,
+        },
+      ],
     },
   ];
 
@@ -103,6 +123,7 @@ export function AppSidebar(
           <NavBalanceSheet items={balanceSheetItems} />
         </Suspense>
       </SidebarContent>
+      <SidebarSeparator />
       <SidebarFooter className="mt-auto border-t border-sidebar-border pt-2">
         <NavUser user={userData} />
       </SidebarFooter>

@@ -1,8 +1,15 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, Fragment } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useMemo,
+  Fragment,
+  Suspense,
+} from "react";
 import { useSupabase } from "@/hooks/use-supabase";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Button,
   Card,
@@ -48,13 +55,14 @@ import {
   ListTree,
   ChevronRight,
   Archive,
-  CloudUpload,
   Trash2,
   MoreHorizontal,
   Printer,
+  FileUp,
 } from "lucide-react";
 import { format } from "date-fns";
 import { TransactionDocumentUpload } from "@/components/transactions/transaction-document-upload";
+import { TransactionDetailsSheet } from "@/components/transactions/transaction-details-sheet";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -100,10 +108,10 @@ const isTransactionWithDetailsArray = (
   value: unknown
 ): value is TransactionWithDetails[] => Array.isArray(value);
 
-export default function TransactionsPage() {
+function TransactionsPageContent() {
   const supabase = useSupabase();
   const router = useRouter();
-  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [transactions, setTransactions] = useState<TransactionWithDetails[]>(
     []
   );
@@ -114,8 +122,12 @@ export default function TransactionsPage() {
   );
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
-  const [activeTab, setActiveTab] = useState<string>("all");
+  const activeTab = searchParams.get("tab") || "all";
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const [showDetailsSheet, setShowDetailsSheet] = useState(false);
+  const [detailsTransactionId, setDetailsTransactionId] = useState<
+    number | null
+  >(null);
 
   const fetchTransactions = useCallback(async () => {
     if (!supabase) return;
@@ -257,22 +269,6 @@ export default function TransactionsPage() {
     }
   };
 
-  // Determine active tab from pathname
-  useEffect(() => {
-    if (pathname.includes("/investments")) {
-      setActiveTab("investments");
-    } else if (pathname.includes("/distributions")) {
-      setActiveTab("distributions");
-    } else if (
-      pathname.includes("/all") ||
-      pathname === "/balance-sheet/transactions"
-    ) {
-      setActiveTab("all");
-    } else {
-      setActiveTab("all");
-    }
-  }, [pathname]);
-
   // Filter transactions based on active tab
   const filteredTransactions = useMemo(() => {
     if (activeTab === "all") return transactions;
@@ -337,7 +333,6 @@ export default function TransactionsPage() {
       }
 
       // Wait for page to load, then trigger print dialog
-      // User can select "Save as PDF" in the print dialog
       printWindow.onload = () => {
         setTimeout(() => {
           printWindow.focus();
@@ -348,12 +343,6 @@ export default function TransactionsPage() {
       console.error("Error downloading PDF:", error);
       toast.error("Failed to download PDF");
     }
-  }, []);
-
-  // Handle save to PDF (opens print dialog)
-  const handleSaveToPDF = useCallback((transactionId: number) => {
-    // Redirect to OAuth authorization
-    window.location.href = `/api/google-drive/authorize?transactionId=${transactionId}`;
   }, []);
 
   // Handle print
@@ -394,19 +383,19 @@ export default function TransactionsPage() {
     {
       id: "all",
       label: "All",
-      href: "/balance-sheet/transactions/all",
+      href: "/balance-sheet/transactions?tab=all",
       icon: ListTree,
     },
     {
       id: "investments",
       label: "Investments",
-      href: "/balance-sheet/transactions/investments",
+      href: "/balance-sheet/transactions?tab=investments",
       icon: ArrowDownToLine,
     },
     {
       id: "distributions",
       label: "Distributions",
-      href: "/balance-sheet/transactions/distributions",
+      href: "/balance-sheet/transactions?tab=distributions",
       icon: ArrowUpToLine,
     },
   ];
@@ -463,7 +452,7 @@ export default function TransactionsPage() {
       {/* Summary Statistics Cards */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
         <button
-          onClick={() => router.push("/balance-sheet/transactions/all")}
+          onClick={() => router.push("/balance-sheet/transactions?tab=all")}
           className={cn(
             "rounded-lg border-2 p-4 text-left transition-colors",
             "border-border hover:bg-muted/50"
@@ -697,7 +686,7 @@ export default function TransactionsPage() {
                                 }}
                                 title="Upload Files"
                               >
-                                <FileText className="h-4 w-4" />
+                                <FileUp className="h-4 w-4" />
                               </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -716,9 +705,8 @@ export default function TransactionsPage() {
                                   <DropdownMenuItem
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      router.push(
-                                        `/balance-sheet/transactions/${transaction.id}`
-                                      );
+                                      setDetailsTransactionId(transaction.id);
+                                      setShowDetailsSheet(true);
                                     }}
                                   >
                                     <Eye className="h-4 w-4" />
@@ -732,15 +720,6 @@ export default function TransactionsPage() {
                                   >
                                     <Download className="h-4 w-4" />
                                     Download
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleSaveToPDF(transaction.id);
-                                    }}
-                                  >
-                                    <CloudUpload className="h-4 w-4" />
-                                    Save as PDF
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
                                     onClick={(e) => {
@@ -1067,6 +1046,32 @@ export default function TransactionsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <TransactionDetailsSheet
+        transactionId={detailsTransactionId}
+        open={showDetailsSheet}
+        onOpenChange={(open) => {
+          setShowDetailsSheet(open);
+          if (!open) {
+            // Reset transaction ID when sheet closes
+            setDetailsTransactionId(null);
+          }
+        }}
+      />
     </div>
+  );
+}
+
+export default function TransactionsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          Loading...
+        </div>
+      }
+    >
+      <TransactionsPageContent />
+    </Suspense>
   );
 }

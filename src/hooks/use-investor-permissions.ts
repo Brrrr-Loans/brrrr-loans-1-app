@@ -146,10 +146,10 @@ export function useInvestorPermissions(): InvestorPermissions {
         .from("bsi_transactions")
         .select("id, ledger_entry_type")
         .eq("id", Number(distributionId))
-        .eq("ledger_entry_type", "interest")
+        .eq("ledger_entry_type", "distribution")
         .single();
 
-      const hasAccess = !error && data?.ledger_entry_type === "interest";
+      const hasAccess = !error && data?.ledger_entry_type === "distribution";
       permissionCache.set(cacheKey, hasAccess);
       return hasAccess;
     } catch (error) {

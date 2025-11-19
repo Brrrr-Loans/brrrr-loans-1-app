@@ -21,7 +21,7 @@ function DocumentsPageContent() {
     },
     {
       id: "payments",
-      label: "Payment Records",
+      label: "Payments",
       href: "/balance-sheet/documents?tab=payments",
       icon: CreditCard,
       content: <PaymentRecords />,

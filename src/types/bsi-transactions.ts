@@ -6,7 +6,7 @@ export interface BsiTransaction {
   transaction_status: string | null; // enum, nullable
   reference_number: string | null; // text, nullable
   reference_type: string | null; // enum, nullable
-  notes: string | null; // text, nullable
+  external_memo: string | null; // text, nullable
   created_at: string | null; // timestamp with time zone, nullable
   updated_at: string | null; // timestamp with time zone, nullable
   ledger_entry_type: string; // enum, not null

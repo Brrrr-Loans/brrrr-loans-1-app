@@ -7,7 +7,7 @@ create table if not exists "public"."bsi_transactions" (
     "transaction_status" transaction_status,
     "reference_number" text,
     "reference_type" transaction_reference_type,
-    "notes" text,
+    "external_memo" text,
     "created_at" timestamp with time zone default now(),
     "updated_at" timestamp with time zone default now(),
     "deal_id" bigint,

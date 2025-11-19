@@ -50,7 +50,7 @@ const transactionSchema = z.object({
     required_error: "Transaction date is required",
   }),
   method: z.enum(["wire", "ach", "check", "cash", "internal", "other"]),
-  type: z.enum(["contribution", "redemption", "interest", "fee"]),
+  type: z.enum(["contribution", "distribution"]),
   referenceNumber: z.string().optional(),
   notes: z.string().optional(),
   dealAllocations: z
@@ -115,7 +115,7 @@ export function CreateTransactionForm({
       amount: "",
       date: new Date(),
       method: "wire",
-      type: "interest",
+      type: "distribution",
       referenceNumber: "",
       notes: "",
       dealAllocations: [{ dealId: "", amount: "" }],
@@ -391,11 +391,9 @@ export function CreateTransactionForm({
                         <SelectItem value="contribution">
                           Contribution
                         </SelectItem>
-                        <SelectItem value="redemption">Redemption</SelectItem>
-                        <SelectItem value="interest">
-                          Interest Payment
+                        <SelectItem value="distribution">
+                          Distribution
                         </SelectItem>
-                        <SelectItem value="fee">Fee</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />

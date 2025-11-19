@@ -167,7 +167,7 @@ export async function createMultiPartyTransaction(
         transaction.method as Database["public"]["Enums"]["transaction_method"],
       ledger_entry_type:
         transaction.type as Database["public"]["Enums"]["ledger_entry_type"],
-      notes: transaction.notes,
+      external_memo: transaction.notes,
       reference_number: transaction.referenceNumber,
     })
     .select()
@@ -183,7 +183,7 @@ export async function createMultiPartyTransaction(
         dealAllocations.map((allocation) => ({
           transaction_id: txData.id,
           deal_id: allocation.dealId,
-          amount: allocation.amount,
+          allocation_amount: allocation.amount,
         }))
       );
 
