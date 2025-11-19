@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Explicitly set turbopack root to prevent detecting parent directory lockfiles
+  turbopack: {
+    root: '.',
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "shadcnblocks.com" },

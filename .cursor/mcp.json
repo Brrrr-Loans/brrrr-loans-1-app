@@ -26,10 +26,6 @@
         "--header",
         "Authorization: Bearer ${V0_API_KEY}"
       ]
-    },
-    "browsermcp": {
-      "command": "npx",
-      "args": ["@browsermcp/mcp@latest"]
     }
   }
 }
