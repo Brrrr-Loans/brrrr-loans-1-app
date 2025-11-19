@@ -127,6 +127,7 @@ export function TeamSwitcherV2() {
               <SidebarMenuButton
                 size="lg"
                 className="h-12 rounded-lg hover:bg-sidebar-accent/60 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                data-testid="org-switcher"
               >
                 {/* EXACT same structure as nav-user.tsx - just with organization data */}
 
