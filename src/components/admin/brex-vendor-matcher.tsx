@@ -62,7 +62,7 @@ interface VendorMatch {
   clerk_org_id?: number;
   match_method: string | null;
   match_confidence: number | null;
-  matchType: 'user' | 'org';
+  matchType: "user" | "org";
 }
 
 export function BrexVendorMatcher() {
@@ -128,7 +128,7 @@ export function BrexVendorMatcher() {
           clerk_user_id: m.clerk_user_id,
           match_method: m.match_method,
           match_confidence: m.match_confidence,
-          matchType: 'user' as const,
+          matchType: "user" as const,
         })),
         ...(orgMatches || []).map((m) => ({
           id: m.id,
@@ -136,7 +136,7 @@ export function BrexVendorMatcher() {
           clerk_org_id: m.clerk_org_id,
           match_method: m.match_method,
           match_confidence: m.match_confidence,
-          matchType: 'org' as const,
+          matchType: "org" as const,
         })),
       ];
 
@@ -227,7 +227,10 @@ export function BrexVendorMatcher() {
         ? "api_brex_vendors_clerk_users"
         : "api_brex_vendors_clerk_orgs";
 
-      const { error } = await supabase.from(tableName).delete().eq("id", matchId);
+      const { error } = await supabase
+        .from(tableName)
+        .delete()
+        .eq("id", matchId);
 
       if (error) throw error;
 
@@ -286,7 +289,8 @@ export function BrexVendorMatcher() {
                   >
                     {selectedVendor
                       ? vendors.find((v) => v.id === selectedVendor)?.name ||
-                        vendors.find((v) => v.id === selectedVendor)?.brex_vendor_id ||
+                        vendors.find((v) => v.id === selectedVendor)
+                          ?.brex_vendor_id ||
                         "Select a vendor..."
                       : "Select a vendor..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -303,14 +307,18 @@ export function BrexVendorMatcher() {
                             key={vendor.id}
                             value={`${vendor.name || vendor.brex_vendor_id} ${vendor.email || ""}`}
                             onSelect={() => {
-                              setSelectedVendor(vendor.id === selectedVendor ? null : vendor.id);
+                              setSelectedVendor(
+                                vendor.id === selectedVendor ? null : vendor.id
+                              );
                               setVendorOpen(false);
                             }}
                           >
                             <Check
                               className={cn(
                                 "mr-2 h-4 w-4",
-                                selectedVendor === vendor.id ? "opacity-100" : "opacity-0"
+                                selectedVendor === vendor.id
+                                  ? "opacity-100"
+                                  : "opacity-0"
                               )}
                             />
                             {vendor.name || vendor.brex_vendor_id}
@@ -337,8 +345,10 @@ export function BrexVendorMatcher() {
                       className="flex-1 justify-between"
                     >
                       {selectedUser
-                        ? clerkUsers.find((u) => u.id === selectedUser)?.full_name ||
-                          clerkUsers.find((u) => u.id === selectedUser)?.email ||
+                        ? clerkUsers.find((u) => u.id === selectedUser)
+                            ?.full_name ||
+                          clerkUsers.find((u) => u.id === selectedUser)
+                            ?.email ||
                           "Select a user..."
                         : "Select a user..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -355,17 +365,23 @@ export function BrexVendorMatcher() {
                               key={user.id}
                               value={`${user.full_name || ""} ${user.email || ""} ${user.clerk_user_id}`}
                               onSelect={() => {
-                                setSelectedUser(user.id === selectedUser ? null : user.id);
+                                setSelectedUser(
+                                  user.id === selectedUser ? null : user.id
+                                );
                                 setUserOpen(false);
                               }}
                             >
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",
-                                  selectedUser === user.id ? "opacity-100" : "opacity-0"
+                                  selectedUser === user.id
+                                    ? "opacity-100"
+                                    : "opacity-0"
                                 )}
                               />
-                              {user.full_name || user.email || user.clerk_user_id}
+                              {user.full_name ||
+                                user.email ||
+                                user.clerk_user_id}
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -385,7 +401,9 @@ export function BrexVendorMatcher() {
 
             {/* Org Match */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Match to Organization</label>
+              <label className="text-sm font-medium">
+                Match to Organization
+              </label>
               <div className="flex gap-2">
                 <Popover open={orgOpen} onOpenChange={setOrgOpen}>
                   <PopoverTrigger asChild>
@@ -396,8 +414,8 @@ export function BrexVendorMatcher() {
                       className="flex-1 justify-between"
                     >
                       {selectedOrg
-                        ? clerkOrgs.find((o) => o.id === selectedOrg)?.clerk_org_name ||
-                          "Select an organization..."
+                        ? clerkOrgs.find((o) => o.id === selectedOrg)
+                            ?.clerk_org_name || "Select an organization..."
                         : "Select an organization..."}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -413,14 +431,18 @@ export function BrexVendorMatcher() {
                               key={org.id}
                               value={org.clerk_org_name}
                               onSelect={() => {
-                                setSelectedOrg(org.id === selectedOrg ? null : org.id);
+                                setSelectedOrg(
+                                  org.id === selectedOrg ? null : org.id
+                                );
                                 setOrgOpen(false);
                               }}
                             >
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",
-                                  selectedOrg === org.id ? "opacity-100" : "opacity-0"
+                                  selectedOrg === org.id
+                                    ? "opacity-100"
+                                    : "opacity-0"
                                 )}
                               />
                               {org.clerk_org_name}
@@ -482,7 +504,9 @@ export function BrexVendorMatcher() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">
-                            {match.matchType === 'user' ? 'User' : 'Organization'}
+                            {match.matchType === "user"
+                              ? "User"
+                              : "Organization"}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -495,10 +519,7 @@ export function BrexVendorMatcher() {
                             variant="ghost"
                             size="sm"
                             onClick={() =>
-                              deleteMatch(
-                                match.id,
-                                match.matchType === 'user'
-                              )
+                              deleteMatch(match.id, match.matchType === "user")
                             }
                           >
                             <X className="h-4 w-4" />
@@ -509,7 +530,10 @@ export function BrexVendorMatcher() {
                   })}
                   {vendorMatches.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      <TableCell
+                        colSpan={5}
+                        className="text-center text-muted-foreground"
+                      >
                         No matches found
                       </TableCell>
                     </TableRow>
@@ -523,4 +547,3 @@ export function BrexVendorMatcher() {
     </div>
   );
 }
-

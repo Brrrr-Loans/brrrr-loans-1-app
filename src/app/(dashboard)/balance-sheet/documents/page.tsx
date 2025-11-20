@@ -2,10 +2,11 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { Receipt, CreditCard } from "lucide-react";
+import { Receipt, CreditCard, FileSignature } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { AccountStatements } from "@/components/documents/account-statements";
 import { PaymentRecords } from "@/components/documents/payment-records";
+import { ParticipationAgreements } from "@/components/documents/participation-agreements";
 
 function DocumentsPageContent() {
   const searchParams = useSearchParams();
@@ -26,13 +27,20 @@ function DocumentsPageContent() {
       icon: CreditCard,
       content: <PaymentRecords />,
     },
+    {
+      id: "participation-agreements",
+      label: "Participation Agreements",
+      href: "/balance-sheet/documents?tab=participation-agreements",
+      icon: FileSignature,
+      content: <ParticipationAgreements />,
+    },
   ];
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <PageHeader
         title="My Documents"
-        description="A personalized document repository leveraging serverless storage, enterprise-grade encryption, and row level security (RLS) to distribute monthly distribution statements, investor-specific agreements, loan-level due diligence, deposit details and records to evidence receipt of all prior and planned distributions."
+        description="Lookup or download monthly distribution statements, transaction detail records, participation agreements, and confidential due diligence materials"
         tabs={tabs}
         defaultTab={activeTab}
       />
