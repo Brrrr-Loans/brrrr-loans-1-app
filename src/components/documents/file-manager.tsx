@@ -72,6 +72,7 @@ interface FileManagerProps {
   allowedTypes?: string[];
   className?: string;
   readOnly?: boolean; // If true, disables upload and delete actions
+  basePath?: string; // Base path in storage bucket (e.g., "payments", "agreements")
 }
 
 export function FileManager({
@@ -81,6 +82,7 @@ export function FileManager({
   allowedTypes = ["*/*"],
   className,
   readOnly = false,
+  basePath = "",
 }: FileManagerProps) {
   const { user } = useUser();
   const supabase = useSupabase();
@@ -92,9 +94,13 @@ export function FileManager({
   const [showUploader, setShowUploader] = useState(false);
 
   // Upload configuration
+  const uploadPath = basePath 
+    ? `${basePath}/${currentPath.join("/")}`
+    : currentPath.join("/");
+    
   const uploadProps = useSupabaseUpload({
     bucketName,
-    path: currentPath.join("/"),
+    path: uploadPath,
     maxFiles: 10,
     maxFileSize: 50 * 1024 * 1024, // 50MB
     allowedMimeTypes: allowedTypes,
@@ -105,12 +111,16 @@ export function FileManager({
 
     setLoading(true);
     try {
-      const pathPrefix =
-        currentPath.length > 0 ? currentPath.join("/") + "/" : "";
+      // Construct full path with basePath
+      let fullPath = basePath;
+      if (currentPath.length > 0) {
+        fullPath = fullPath ? `${fullPath}/${currentPath.join("/")}` : currentPath.join("/");
+      }
+      const pathPrefix = fullPath ? `${fullPath}/` : "";
 
       const { data, error } = await supabase.storage
         .from(bucketName)
-        .list(pathPrefix || undefined, {
+        .list(fullPath || undefined, {
           limit: 100,
           offset: 0,
         });
@@ -126,7 +136,7 @@ export function FileManager({
     } finally {
       setLoading(false);
     }
-  }, [supabase, bucketName, currentPath, user]);
+  }, [supabase, bucketName, currentPath, user, basePath]);
 
   useEffect(() => {
     fetchFiles();
@@ -177,10 +187,15 @@ export function FileManager({
 
   const handleDownload = async (file: FileItem) => {
     try {
-      const filePath =
-        currentPath.length > 0
-          ? `${currentPath.join("/")}/${file.name}`
-          : file.name;
+      let filePath = file.name;
+      if (basePath) {
+        filePath = `${basePath}/${filePath}`;
+      }
+      if (currentPath.length > 0) {
+        filePath = basePath
+          ? `${basePath}/${currentPath.join("/")}/${file.name}`
+          : `${currentPath.join("/")}/${file.name}`;
+      }
 
       const { data, error } = await supabase.storage
         .from(bucketName)
@@ -206,10 +221,15 @@ export function FileManager({
 
   const handleDelete = async (file: FileItem) => {
     try {
-      const filePath =
-        currentPath.length > 0
-          ? `${currentPath.join("/")}/${file.name}`
-          : file.name;
+      let filePath = file.name;
+      if (basePath) {
+        filePath = `${basePath}/${filePath}`;
+      }
+      if (currentPath.length > 0) {
+        filePath = basePath
+          ? `${basePath}/${currentPath.join("/")}/${file.name}`
+          : `${currentPath.join("/")}/${file.name}`;
+      }
 
       const { error } = await supabase.storage
         .from(bucketName)
