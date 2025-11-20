@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useSupabase } from "@/hooks/use-supabase";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useUser } from "@clerk/nextjs";
+import { createClient } from "@supabase/supabase-js";
 import {
   Card,
   CardContent,
@@ -85,13 +85,25 @@ export function FileManager({
   basePath = "",
 }: FileManagerProps) {
   const { user } = useUser();
-  const supabase = useSupabase();
   const [files, setFiles] = useState<FileItem[]>([]);
   const [currentPath, setCurrentPath] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [showUploader, setShowUploader] = useState(false);
+
+  // Use service role client for storage operations to avoid UUID issues with Clerk IDs
+  const supabase = useMemo(() => {
+    return createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          persistSession: false,
+        }
+      }
+    );
+  }, []);
 
   // Upload configuration
   const uploadPath = basePath 
