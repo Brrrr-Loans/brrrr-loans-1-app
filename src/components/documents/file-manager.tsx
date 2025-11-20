@@ -311,41 +311,43 @@ export function FileManager({
           </div>
         </div>
 
-        {/* Breadcrumb Navigation */}
-        <div className="flex items-center gap-4 mt-4">
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink
-                  onClick={navigateHome}
-                  className="cursor-pointer flex items-center gap-1"
-                >
-                  <Home className="h-3 w-3" />
-                  {title}
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              {currentPath.map((folder, index) => (
-                <div key={index} className="flex items-center">
-                  <BreadcrumbSeparator>
-                    <ChevronRight className="h-3 w-3" />
-                  </BreadcrumbSeparator>
-                  <BreadcrumbItem>
-                    {index === currentPath.length - 1 ? (
-                      <BreadcrumbPage>{folder}</BreadcrumbPage>
-                    ) : (
-                      <BreadcrumbLink
-                        onClick={() => navigateToPath(index)}
-                        className="cursor-pointer"
-                      >
-                        {folder}
-                      </BreadcrumbLink>
-                    )}
-                  </BreadcrumbItem>
-                </div>
-              ))}
-            </BreadcrumbList>
-          </Breadcrumb>
-        </div>
+        {/* Breadcrumb Navigation - only show if there are files or in a subfolder */}
+        {(files.length > 0 || currentPath.length > 0) && (
+          <div className="flex items-center gap-4 mt-4">
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink
+                    onClick={navigateHome}
+                    className="cursor-pointer flex items-center gap-1"
+                  >
+                    <Home className="h-3 w-3" />
+                    {title}
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                {currentPath.map((folder, index) => (
+                  <div key={index} className="flex items-center">
+                    <BreadcrumbSeparator>
+                      <ChevronRight className="h-3 w-3" />
+                    </BreadcrumbSeparator>
+                    <BreadcrumbItem>
+                      {index === currentPath.length - 1 ? (
+                        <BreadcrumbPage>{folder}</BreadcrumbPage>
+                      ) : (
+                        <BreadcrumbLink
+                          onClick={() => navigateToPath(index)}
+                          className="cursor-pointer"
+                        >
+                          {folder}
+                        </BreadcrumbLink>
+                      )}
+                    </BreadcrumbItem>
+                  </div>
+                ))}
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
+        )}
 
         {/* Search - only show if there are files */}
         {files.length > 0 && (
