@@ -67,7 +67,7 @@ export function AppSidebar(
         },
         {
           name: "Agreements",
-          url: "/balance-sheet/documents?tab=participation-agreements",
+          url: "/balance-sheet/documents?tab=agreements",
           icon: FileSignature,
         },
       ],

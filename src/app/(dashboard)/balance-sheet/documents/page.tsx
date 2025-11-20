@@ -28,9 +28,9 @@ function DocumentsPageContent() {
       content: <PaymentRecords />,
     },
     {
-      id: "participation-agreements",
+      id: "agreements",
       label: "Agreements",
-      href: "/balance-sheet/documents?tab=participation-agreements",
+      href: "/balance-sheet/documents?tab=agreements",
       icon: FileSignature,
       content: <ParticipationAgreements />,
     },
