@@ -347,16 +347,18 @@ export function FileManager({
           </Breadcrumb>
         </div>
 
-        {/* Search */}
-        <div className="relative mt-4">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search files..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-9 max-w-sm"
-          />
-        </div>
+        {/* Search - only show if there are files */}
+        {files.length > 0 && (
+          <div className="relative mt-4">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search files..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 max-w-sm"
+            />
+          </div>
+        )}
       </div>
 
       <CardContent className="p-0">
