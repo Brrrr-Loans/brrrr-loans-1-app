@@ -14,6 +14,7 @@ export function PaymentRecords() {
         title="Payment Records"
         description="Transaction receipts, payment confirmations, and distribution records"
         allowedTypes={["application/pdf", "image/*", "text/csv"]}
+        readOnly={true}
       />
     </div>
   );

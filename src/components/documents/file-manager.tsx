@@ -71,6 +71,7 @@ interface FileManagerProps {
   description: string;
   allowedTypes?: string[];
   className?: string;
+  readOnly?: boolean; // If true, disables upload and delete actions
 }
 
 export function FileManager({
@@ -79,6 +80,7 @@ export function FileManager({
   description,
   allowedTypes = ["*/*"],
   className,
+  readOnly = false,
 }: FileManagerProps) {
   const { user } = useUser();
   const supabase = useSupabase();
@@ -264,14 +266,16 @@ export function FileManager({
                 <Grid3X3 className="h-4 w-4" />
               )}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowUploader(!showUploader)}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Upload
-            </Button>
+            {!readOnly && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowUploader(!showUploader)}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Upload
+              </Button>
+            )}
           </div>
         </div>
 
@@ -325,7 +329,7 @@ export function FileManager({
 
       <CardContent className="p-0">
         {/* Upload Area */}
-        {showUploader && (
+        {!readOnly && showUploader && (
           <div className="border-b bg-muted/10 p-6">
             <Dropzone {...uploadProps}>
               <DropzoneEmptyState />
@@ -351,7 +355,7 @@ export function FileManager({
                 ? "Try adjusting your search"
                 : "Upload your first file to get started"}
             </p>
-            {!searchTerm && (
+            {!searchTerm && !readOnly && (
               <Button onClick={() => setShowUploader(true)}>
                 <Upload className="h-4 w-4 mr-2" />
                 Upload Files
@@ -416,14 +420,18 @@ export function FileManager({
                           <Download className="h-4 w-4 mr-2" />
                           Download
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(file)}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
+                        {!readOnly && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(file)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -470,14 +478,18 @@ export function FileManager({
                             <Download className="h-4 w-4 mr-2" />
                             Download
                           </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => handleDelete(file)}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
+                          {!readOnly && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleDelete(file)}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
