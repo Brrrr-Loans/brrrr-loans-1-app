@@ -22,31 +22,12 @@ import { Download, Receipt, Calendar } from "lucide-react";
 import { useSupabase } from "@/hooks/use-supabase";
 import { useUser } from "@clerk/nextjs";
 import type { InvestorStatement } from "@/types/investor-statements";
-import {
-  Dropzone,
-  DropzoneContent,
-  DropzoneEmptyState,
-} from "@/components/ui/supabase-dropzone";
-import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
 
 export function AccountStatements() {
   const [statements, setStatements] = useState<InvestorStatement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useUser();
   const supabase = useSupabase();
-
-  // Upload configuration for statement files
-  const uploadProps = useSupabaseUpload({
-    bucketName: "investors",
-    path: user?.id ? `user_${user.id}` : "general",
-    maxFiles: 5,
-    maxFileSize: 50 * 1024 * 1024, // 50MB
-    allowedMimeTypes: [
-      "application/pdf",
-      "application/vnd.ms-excel",
-      "text/csv",
-    ],
-  });
 
   // Fetch investor statements
   const fetchStatements = useCallback(async () => {
@@ -233,9 +214,9 @@ export function AccountStatements() {
           ) : statements.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Receipt className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No Statements Available</h3>
-              <p className="text-sm text-muted-foreground max-w-md">
-                Your account statements will appear here once they are generated.
+              <h4 className="text-lg font-medium mb-2">No statements found</h4>
+              <p className="text-sm text-muted-foreground">
+                Your account statements will appear here once they are generated
               </p>
             </div>
           ) : (
@@ -289,22 +270,6 @@ export function AccountStatements() {
               </TableBody>
             </Table>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Upload Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Upload Statement</CardTitle>
-          <CardDescription>
-            Upload historical statements or additional documentation
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Dropzone {...uploadProps}>
-            <DropzoneEmptyState />
-            <DropzoneContent />
-          </Dropzone>
         </CardContent>
       </Card>
     </div>
