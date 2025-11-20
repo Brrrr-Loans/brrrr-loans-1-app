@@ -15,16 +15,24 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Badge,
 } from "@/components/ui";
-import { Loader2, Search, X, Plus } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/navigation/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/overlays/popover";
+import { Loader2, X, Plus, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface Vendor {
   id: number;
@@ -64,12 +72,12 @@ export function BrexVendorMatcher() {
   const [clerkOrgs, setClerkOrgs] = useState<ClerkOrg[]>([]);
   const [vendorMatches, setVendorMatches] = useState<VendorMatch[]>([]);
   const [loading, setLoading] = useState(true);
-  const [vendorSearch, setVendorSearch] = useState("");
-  const [userSearch, setUserSearch] = useState("");
-  const [orgSearch, setOrgSearch] = useState("");
   const [selectedVendor, setSelectedVendor] = useState<number | null>(null);
   const [selectedUser, setSelectedUser] = useState<number | null>(null);
   const [selectedOrg, setSelectedOrg] = useState<number | null>(null);
+  const [vendorOpen, setVendorOpen] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
+  const [orgOpen, setOrgOpen] = useState(false);
 
   useEffect(() => {
     if (supabase) {
@@ -239,26 +247,7 @@ export function BrexVendorMatcher() {
     }
   };
 
-  const filteredVendors = vendors.filter(
-    (v) =>
-      !vendorSearch ||
-      v.name?.toLowerCase().includes(vendorSearch.toLowerCase()) ||
-      v.email?.toLowerCase().includes(vendorSearch.toLowerCase()) ||
-      v.brex_vendor_id.toLowerCase().includes(vendorSearch.toLowerCase())
-  );
-
-  const filteredUsers = clerkUsers.filter(
-    (u) =>
-      !userSearch ||
-      u.full_name?.toLowerCase().includes(userSearch.toLowerCase()) ||
-      u.email?.toLowerCase().includes(userSearch.toLowerCase())
-  );
-
-  const filteredOrgs = clerkOrgs.filter(
-    (o) =>
-      !orgSearch ||
-      o.clerk_org_name.toLowerCase().includes(orgSearch.toLowerCase())
-  );
+  // Command component handles filtering internally, no need for filtered lists
 
   if (loading) {
     return (
@@ -287,71 +276,103 @@ export function BrexVendorMatcher() {
             {/* Vendor Selection */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Select Vendor</label>
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search vendors..."
-                  value={vendorSearch}
-                  onChange={(e) => setVendorSearch(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
-              <Select
-                value={selectedVendor?.toString() || ""}
-                onValueChange={(value) =>
-                  setSelectedVendor(value ? parseInt(value) : null)
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a vendor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredVendors.map((vendor) => (
-                    <SelectItem
-                      key={vendor.id}
-                      value={vendor.id.toString()}
-                    >
-                      {vendor.name || vendor.brex_vendor_id}
-                      {vendor.email && ` (${vendor.email})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={vendorOpen} onOpenChange={setVendorOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={vendorOpen}
+                    className="w-full justify-between"
+                  >
+                    {selectedVendor
+                      ? vendors.find((v) => v.id === selectedVendor)?.name ||
+                        vendors.find((v) => v.id === selectedVendor)?.brex_vendor_id ||
+                        "Select a vendor..."
+                      : "Select a vendor..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput placeholder="Search vendors..." />
+                    <CommandList>
+                      <CommandEmpty>No vendor found.</CommandEmpty>
+                      <CommandGroup>
+                        {vendors.map((vendor) => (
+                          <CommandItem
+                            key={vendor.id}
+                            value={`${vendor.name || vendor.brex_vendor_id} ${vendor.email || ""}`}
+                            onSelect={() => {
+                              setSelectedVendor(vendor.id === selectedVendor ? null : vendor.id);
+                              setVendorOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedVendor === vendor.id ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {vendor.name || vendor.brex_vendor_id}
+                            {vendor.email && ` (${vendor.email})`}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* User Match */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Match to User</label>
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search users..."
-                  value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
               <div className="flex gap-2">
-                <Select
-                  value={selectedUser?.toString() || ""}
-                  onValueChange={(value) =>
-                    setSelectedUser(value ? parseInt(value) : null)
-                  }
-                >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select a user" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredUsers.map((user) => (
-                      <SelectItem
-                        key={user.id}
-                        value={user.id.toString()}
-                      >
-                        {user.full_name || user.email || user.clerk_user_id}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={userOpen} onOpenChange={setUserOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={userOpen}
+                      className="flex-1 justify-between"
+                    >
+                      {selectedUser
+                        ? clerkUsers.find((u) => u.id === selectedUser)?.full_name ||
+                          clerkUsers.find((u) => u.id === selectedUser)?.email ||
+                          "Select a user..."
+                        : "Select a user..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search users..." />
+                      <CommandList>
+                        <CommandEmpty>No user found.</CommandEmpty>
+                        <CommandGroup>
+                          {clerkUsers.map((user) => (
+                            <CommandItem
+                              key={user.id}
+                              value={`${user.full_name || ""} ${user.email || ""} ${user.clerk_user_id}`}
+                              onSelect={() => {
+                                setSelectedUser(user.id === selectedUser ? null : user.id);
+                                setUserOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedUser === user.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {user.full_name || user.email || user.clerk_user_id}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 <Button
                   onClick={createUserMatch}
                   disabled={!selectedVendor || !selectedUser}
@@ -365,36 +386,51 @@ export function BrexVendorMatcher() {
             {/* Org Match */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Match to Organization</label>
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search organizations..."
-                  value={orgSearch}
-                  onChange={(e) => setOrgSearch(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
               <div className="flex gap-2">
-                <Select
-                  value={selectedOrg?.toString() || ""}
-                  onValueChange={(value) =>
-                    setSelectedOrg(value ? parseInt(value) : null)
-                  }
-                >
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder="Select an organization" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredOrgs.map((org) => (
-                      <SelectItem
-                        key={org.id}
-                        value={org.id.toString()}
-                      >
-                        {org.clerk_org_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={orgOpen} onOpenChange={setOrgOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={orgOpen}
+                      className="flex-1 justify-between"
+                    >
+                      {selectedOrg
+                        ? clerkOrgs.find((o) => o.id === selectedOrg)?.clerk_org_name ||
+                          "Select an organization..."
+                        : "Select an organization..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <Command>
+                      <CommandInput placeholder="Search organizations..." />
+                      <CommandList>
+                        <CommandEmpty>No organization found.</CommandEmpty>
+                        <CommandGroup>
+                          {clerkOrgs.map((org) => (
+                            <CommandItem
+                              key={org.id}
+                              value={org.clerk_org_name}
+                              onSelect={() => {
+                                setSelectedOrg(org.id === selectedOrg ? null : org.id);
+                                setOrgOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedOrg === org.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {org.clerk_org_name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 <Button
                   onClick={createOrgMatch}
                   disabled={!selectedVendor || !selectedOrg}
