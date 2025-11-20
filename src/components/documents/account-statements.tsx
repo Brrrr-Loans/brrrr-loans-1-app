@@ -210,5 +210,103 @@ export function AccountStatements() {
     }).format(amount);
   }
 
-  return <div className="space-y-6">{/* Content removed */}</div>;
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Receipt className="h-5 w-5 text-muted-foreground" />
+            <CardTitle>Account Statements</CardTitle>
+          </div>
+          <CardDescription>
+            Monthly statements showing your balance sheet investments and returns
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Loading statements...</p>
+              </div>
+            </div>
+          ) : statements.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Receipt className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No Statements Available</h3>
+              <p className="text-sm text-muted-foreground max-w-md">
+                Your account statements will appear here once they are generated.
+              </p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Billing Period</TableHead>
+                  <TableHead>Statement Date</TableHead>
+                  <TableHead className="text-right">Opening Balance</TableHead>
+                  <TableHead className="text-right">Closing Balance</TableHead>
+                  <TableHead className="text-right">Interest</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {statements.map((statement) => (
+                  <TableRow key={statement.id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        {getBillingPeriod(statement)}
+                      </div>
+                    </TableCell>
+                    <TableCell>{formatDate(statement.statement_date)}</TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(statement.total_upb_open)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(statement.total_upb_close)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {formatCurrency(statement.total_interest)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">Available</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleStatementDownload(statement)}
+                        disabled={!statement.file_path}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Upload Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Upload Statement</CardTitle>
+          <CardDescription>
+            Upload historical statements or additional documentation
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Dropzone {...uploadProps}>
+            <DropzoneEmptyState />
+            <DropzoneContent />
+          </Dropzone>
+        </CardContent>
+      </Card>
+    </div>
+  );
 }
