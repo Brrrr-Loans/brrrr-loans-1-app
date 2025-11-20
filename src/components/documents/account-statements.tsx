@@ -195,10 +195,7 @@ export function AccountStatements() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <Receipt className="h-5 w-5 text-muted-foreground" />
-            <CardTitle>Account Statements</CardTitle>
-          </div>
+          <CardTitle>Account Statements</CardTitle>
           <CardDescription>
             Monthly statements showing your balance sheet investments and returns
           </CardDescription>
