@@ -29,7 +29,7 @@ function DocumentsPageContent() {
     },
     {
       id: "participation-agreements",
-      label: "Participation Agreements",
+      label: "Agreements",
       href: "/balance-sheet/documents?tab=participation-agreements",
       icon: FileSignature,
       content: <ParticipationAgreements />,
