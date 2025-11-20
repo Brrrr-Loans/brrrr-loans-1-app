@@ -10,6 +10,7 @@ export function ParticipationAgreements() {
         title="Participation Agreements"
         description="Investment agreements, subscription documents, and legal contracts"
         allowedTypes={["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]}
+        readOnly={true}
       />
     </div>
   );
