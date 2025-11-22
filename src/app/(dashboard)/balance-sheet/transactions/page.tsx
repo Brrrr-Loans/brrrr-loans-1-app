@@ -409,14 +409,6 @@ function TransactionsPageContent() {
         </div>
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
-            onClick={() => {
-              // Analyze functionality
-            }}
-          >
-            Analyze
-          </Button>
-          <Button
             onClick={() => router.push("/balance-sheet/transactions/new")}
           >
             <Plus className="mr-2 h-4 w-4" />
@@ -507,38 +499,18 @@ function TransactionsPageContent() {
         </button>
       </div>
 
-      {/* Filters and Actions */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button variant="outline" size="sm" className="gap-2">
-            <Filter className="h-4 w-4" />
-            Date and time
-          </Button>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Filter className="h-4 w-4" />
-            Amount
-          </Button>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Filter className="h-4 w-4" />
-            Status
-          </Button>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Filter className="h-4 w-4" />
-            Payment method
-          </Button>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Filter className="h-4 w-4" />
-            More filters
-          </Button>
-        </div>
+      {/* Actions */}
+      <div className="flex items-center justify-end">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="gap-2"
+            disabled
+            title="Export functionality coming soon"
+          >
             <Download className="h-4 w-4" />
             Export
-          </Button>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Settings className="h-4 w-4" />
-            Edit columns
           </Button>
         </div>
       </div>
@@ -565,9 +537,26 @@ function TransactionsPageContent() {
               </AlertDescription>
             </Alert>
           ) : filteredTransactions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No transactions found. Create your first transaction to get
-              started.
+            <div className="flex flex-col items-center justify-center py-12">
+              <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">
+                {activeTab === "all" 
+                  ? "No transactions found"
+                  : activeTab === "investments"
+                  ? "No investment transactions"
+                  : "No distribution transactions"}
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4 max-w-md text-center">
+                {activeTab === "all"
+                  ? "Track all your financial transactions including investments and distributions in one place."
+                  : activeTab === "investments"
+                  ? "Record capital contributions and investments to track incoming funds."
+                  : "Track payments and distributions made to investors."}
+              </p>
+              <Button onClick={() => router.push("/balance-sheet/transactions/new")}>
+                <Plus className="mr-2 h-4 w-4" />
+                Create Transaction
+              </Button>
             </div>
           ) : (
             <div className="overflow-x-auto">

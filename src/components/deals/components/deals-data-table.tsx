@@ -387,16 +387,17 @@ const createColumns = (router: {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem
-                onClick={() =>
-                  navigator.clipboard.writeText(deal.id.toString())
-                }
+                onClick={() => {
+                  navigator.clipboard.writeText(deal.id.toString());
+                  // Could add toast notification here
+                }}
               >
                 <FilesIcon
                   size={16}
                   className="opacity-60"
                   aria-hidden="true"
                 />
-                Clone
+                Copy ID
               </DropdownMenuItem>
               <DropdownMenuItem className="text-red-600">
                 <TrashIcon size={16} aria-hidden="true" />
@@ -413,6 +414,7 @@ const createColumns = (router: {
 export function DealsDataTable() {
   const [data, setData] = useState<DealWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -451,11 +453,18 @@ export function DealsDataTable() {
 
   useEffect(() => {
     async function fetchDeals() {
+      if (!supabase) {
+        console.log("Supabase client not ready yet");
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
+        setError(null);
 
         // First, let's try a simple query to see what we get
-        console.log("Fetching deals with joins...");
+        console.log("Fetching deals...");
 
         const { data: deals, error } = await supabase
           .from("deal")
@@ -476,6 +485,17 @@ export function DealsDataTable() {
 
         if (error) {
           console.error("Error fetching deals:", error);
+          console.error("Error details:", {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+          });
+          setError(
+            error.message ||
+              "Unable to load deals. Please check your permissions or try again later."
+          );
+          setData([]);
           return;
         }
 
@@ -583,7 +603,11 @@ export function DealsDataTable() {
         console.log("Final transformed data:", transformedData);
         setData(transformedData);
       } catch (err) {
-        console.error("Error fetching deals:", err);
+        console.error("Unexpected error fetching deals:", err);
+        const errorMessage =
+          err instanceof Error ? err.message : "An unexpected error occurred";
+        setError(errorMessage);
+        setData([]);
       } finally {
         setLoading(false);
       }
@@ -698,6 +722,53 @@ export function DealsDataTable() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="w-full">
+        <div className="rounded-md border border-destructive/50 bg-destructive/10 p-6">
+          <div className="flex items-start gap-4">
+            <div className="rounded-full bg-destructive/20 p-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5 text-destructive"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-destructive mb-1">
+                Unable to load deals
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">{error}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setError(null);
+                  setLoading(true);
+                  // Trigger re-fetch by changing a dependency
+                  window.location.reload();
+                }}
+              >
+                Try Again
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <DndContext
       collisionDetection={closestCenter}
@@ -759,7 +830,11 @@ export function DealsDataTable() {
                   })}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button size="sm" className="h-8">
+            <Button
+              size="sm"
+              className="h-8"
+              onClick={() => router.push("/deals/new")}
+            >
               <Plus className="mr-2 h-4 w-4" />
               Add Deal
             </Button>
@@ -809,9 +884,22 @@ export function DealsDataTable() {
                 <TableRow>
                   <TableCell
                     colSpan={columns.length}
-                    className="h-24 text-center"
+                    className="h-48 text-center"
                   >
-                    No results.
+                    <div className="flex flex-col items-center justify-center py-8">
+                      <Building className="h-12 w-12 text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">
+                        No deals found
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-4 max-w-md">
+                        Get started by creating your first investment deal to
+                        track performance and manage your portfolio.
+                      </p>
+                      <Button onClick={() => router.push("/deals/new")}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Create Deal
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}
