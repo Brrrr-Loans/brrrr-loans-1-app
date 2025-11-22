@@ -153,7 +153,7 @@ export function TransactionDetailsSheet({
         `
         )
         .eq("id", transactionId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error("Error fetching transaction:", error);
@@ -164,20 +164,15 @@ export function TransactionDetailsSheet({
           code: error.code,
           fullError: JSON.stringify(error, null, 2),
         });
-        // PostgREST errors have different structures - handle both cases
-        const errorMessage =
-          error.message ||
-          error.details ||
-          error.hint ||
-          error.code ||
-          JSON.stringify(error) ||
-          "Failed to load transaction";
-        setError(errorMessage);
+        setError(
+          error.message || error.details || error.hint || 
+          "Failed to load transaction details"
+        );
         return;
       }
 
       if (!data) {
-        setError("Transaction not found");
+        setError("Transaction not found or you don't have access");
         return;
       }
 
