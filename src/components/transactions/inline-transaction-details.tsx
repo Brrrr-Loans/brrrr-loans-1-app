@@ -117,9 +117,6 @@ export function InlineTransactionDetails({
 }) {
   const router = useRouter();
   
-  // Get Brex transfer data
-  const brexTransfer = transaction.brex_link?.[0]?.brex_transfer;
-  
   // Process investors from already-loaded data
   const investors: ExpandedInvestor[] = (transaction.investors || [])
     .map((link) => {
@@ -139,7 +136,7 @@ export function InlineTransactionDetails({
           type: "org" as const,
           name: link.auth_clerk_orgs.clerk_org_name,
           amount: link.allocation_amount || 0,
-          members: [], // TODO: Fetch org members if needed
+          members: [], // Org members shown separately
         };
       }
 
@@ -179,36 +176,31 @@ export function InlineTransactionDetails({
               <div className="flex flex-col gap-1">
                 <span className="text-xs text-muted-foreground">Date</span>
                 <span className="font-medium">
-                  {brexTransfer?.process_date 
-                    ? format(new Date(brexTransfer.process_date), "MMM d, yyyy")
-                    : format(new Date(transaction.transaction_date), "MMM d, yyyy")}
+                  {format(new Date(transaction.transaction_date), "MMM d, yyyy")}
                 </span>
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground">Payment Type</span>
+                <span className="text-xs text-muted-foreground">Payment Method</span>
                 <Badge
-                  variant={
-                    brexTransfer?.payment_type === "DOMESTIC_WIRE" ? "default" :
-                    brexTransfer?.payment_type === "ACH" ? "secondary" : "outline"
-                  }
+                  variant={getMethodBadgeVariant(transaction.transaction_method)}
                   className="w-fit"
                 >
-                  {brexTransfer?.payment_type === "DOMESTIC_WIRE" ? "Wire" :
-                   brexTransfer?.payment_type === "ACH" ? "ACH" :
-                   brexTransfer?.payment_type || "N/A"}
+                  {transaction.transaction_method?.toUpperCase() || "N/A"}
                 </Badge>
               </div>
+              {transaction.reference_number && (
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-muted-foreground">
+                    Reference Number
+                  </span>
+                  <span className="font-medium text-xs">
+                    {transaction.reference_number}
+                  </span>
+                </div>
+              )}
               <div className="flex flex-col gap-1">
                 <span className="text-xs text-muted-foreground">
-                  Vendor
-                </span>
-                <span className="font-medium">
-                  {brexTransfer?.display_name || "-"}
-                </span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground">
-                  Transfer Type
+                  Ledger Type
                 </span>
                 <Badge 
                   variant={transaction.ledger_entry_type === "contribution" ? "default" : "secondary"}
@@ -216,19 +208,10 @@ export function InlineTransactionDetails({
                 >
                   {transaction.ledger_entry_type === "contribution" ? "Contribution" :
                    transaction.ledger_entry_type === "distribution" ? "Distribution" :
+                   transaction.ledger_entry_type === "redemption" ? "Redemption" :
                    transaction.ledger_entry_type}
                 </Badge>
               </div>
-              {transaction.reference_number && (
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs text-muted-foreground">
-                    Reference
-                  </span>
-                  <span className="font-medium text-xs">
-                    {transaction.reference_number}
-                  </span>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
