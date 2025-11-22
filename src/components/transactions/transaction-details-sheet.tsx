@@ -471,12 +471,13 @@ export function TransactionDetailsSheet({
                             >
                               <div className="flex-1">
                                 <p className="font-medium">
-                                  {investorAllocation.auth_clerk_users
-                                    ?.full_name || "N/A"}
+                                  {investorAllocation.auth_clerk_users?.full_name || 
+                                   investorAllocation.auth_clerk_orgs?.clerk_org_name || 
+                                   "N/A"}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
                                   {investorAllocation.auth_clerk_users?.email ||
-                                    ""}
+                                   (investorAllocation.auth_clerk_orgs ? "Organization" : "")}
                                 </p>
                               </div>
                               <p className="font-semibold">
