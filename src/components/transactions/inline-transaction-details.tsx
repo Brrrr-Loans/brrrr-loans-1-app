@@ -155,13 +155,10 @@ export function InlineTransactionDetails({
                 Transfer Details
               </CardTitle>
               <Badge 
-                variant={
-                  brexTransfer?.status === "PROCESSED" ? "default" :
-                  brexTransfer?.status === "PENDING" ? "secondary" : "destructive"
-                } 
+                variant={getStatusBadgeVariant(transaction.transaction_status)}
                 className="w-fit"
               >
-                {brexTransfer?.status || "N/A"}
+                {transaction.transaction_status || "N/A"}
               </Badge>
             </div>
           </CardHeader>
