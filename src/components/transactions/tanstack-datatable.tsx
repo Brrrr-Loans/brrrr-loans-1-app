@@ -175,7 +175,7 @@ export function TransactionsDataTable() {
           *,
           brex_link:bsi_transactions_api_brex_transfers(
             brex_transfer_id,
-            brex_transfer:api_brex_transfers!brex_transfer_id(
+            brex_transfer:api_brex_transfers!bsi_transactions_api_brex_transfers_brex_transfer_id_fkey(
               brex_transfer_id,
               display_name,
               payment_type,

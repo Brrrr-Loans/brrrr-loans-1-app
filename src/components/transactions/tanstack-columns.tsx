@@ -196,6 +196,15 @@ export const createTransactionColumns = (
       const brexTransfer = row.brex_link?.[0]?.brex_transfer;
       const vendorName = brexTransfer?.display_name;
       
+      // Debug logging
+      console.log("TO column debug:", {
+        txId: row.id,
+        amount: row.transaction_amount,
+        brexLink: row.brex_link,
+        brexTransfer: brexTransfer,
+        displayName: vendorName
+      });
+      
       // Check transaction amount direction
       const amount = row.transaction_amount ? Number(row.transaction_amount) : 0;
       
