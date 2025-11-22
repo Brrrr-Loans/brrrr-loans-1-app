@@ -62,12 +62,17 @@ interface TransactionWithDetails {
     };
   }>;
   investors: Array<{
-    clerk_user_id: number;
+    clerk_user_id: number | null;
+    clerk_org_id: number | null;
     allocation_amount: number;
     auth_clerk_users: {
       full_name: string;
       email: string;
-    };
+    } | null;
+    auth_clerk_orgs: {
+      id: number;
+      clerk_org_name: string;
+    } | null;
   }>;
   documents: Array<{
     document_file_id: number;
