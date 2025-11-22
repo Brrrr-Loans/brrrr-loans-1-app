@@ -157,31 +157,25 @@ export const createTransactionColumns = (
     },
   },
 
-  // Column 3: From - Based on Brex originating_account
+  // Column 3: From - Use matched investor name
   {
     id: "from",
     header: "From",
     accessorFn: (row) => {
-      const brexTransfer = row.brex_link?.[0]?.brex_transfer;
-      const vendorName = brexTransfer?.display_name;
-      
-      console.log("FROM column - Row data:", {
-        txId: row.id,
-        amount: row.transaction_amount,
-        brex_link: row.brex_link,
-        brex_transfer: brexTransfer,
-        display_name: vendorName,
-        full_row: row
-      });
+      // Get matched investor/org name
+      const investor = row.investors?.[0];
+      const investorName = investor?.auth_clerk_users?.full_name || 
+                          investor?.auth_clerk_orgs?.clerk_org_name ||
+                          "Unknown";
       
       const amount = row.transaction_amount ? Number(row.transaction_amount) : 0;
       
       if (amount > 0) {
-        // Outgoing: Brrrr sends TO investor
+        // Outgoing (Distribution/Redemption): Brrrr sends TO investor
         return "Brrrr Loans 1 LLC";
       } else {
-        // Incoming: Investor sends TO Brrrr
-        return vendorName || "Unknown Sender";
+        // Incoming (Contribution): Investor sends TO Brrrr
+        return investorName;
       }
     },
     cell: ({ row }) => {
@@ -194,31 +188,24 @@ export const createTransactionColumns = (
     },
   },
 
-  // Column 4: To - Based on Brex originating_account (opposite of FROM)
+  // Column 4: To - Use matched investor name (opposite of FROM)
   {
     id: "to",
     header: "To",
     accessorFn: (row) => {
-      const brexTransfer = row.brex_link?.[0]?.brex_transfer;
-      const vendorName = brexTransfer?.display_name;
+      // Get matched investor/org name
+      const investor = row.investors?.[0];
+      const investorName = investor?.auth_clerk_users?.full_name || 
+                          investor?.auth_clerk_orgs?.clerk_org_name ||
+                          "Unknown";
       
-      // Debug logging
-      console.log("TO column debug:", {
-        txId: row.id,
-        amount: row.transaction_amount,
-        brexLink: row.brex_link,
-        brexTransfer: brexTransfer,
-        displayName: vendorName
-      });
-      
-      // Check transaction amount direction
       const amount = row.transaction_amount ? Number(row.transaction_amount) : 0;
       
       if (amount > 0) {
-        // Outgoing: Brrrr sends to INVESTOR
-        return vendorName || "Unknown Recipient";
+        // Outgoing (Distribution/Redemption): Brrrr sends to INVESTOR
+        return investorName;
       } else {
-        // Incoming: Investor sends to BRRRR
+        // Incoming (Contribution): Investor sends to BRRRR
         return "Brrrr Loans 1 LLC";
       }
     },
@@ -232,53 +219,37 @@ export const createTransactionColumns = (
     },
   },
 
-  // Column 5: Transaction Type - Use Brex payment_type
+  // Column 5: Transaction Type - Use transaction_method for now
   {
     id: "transaction_type",
+    accessorKey: "transaction_method",
     header: "Transaction Type",
-    accessorFn: (row) => {
-      const brexTransfer = row.brex_link?.[0]?.brex_transfer;
-      return brexTransfer?.payment_type || "Unknown";
-    },
     cell: ({ row }) => {
-      const type = row.getValue("transaction_type") as string;
+      const method = row.getValue("transaction_type") as string | null;
       const variant =
-        type === "DOMESTIC_WIRE" ? "default" :
-        type === "ACH" ? "secondary" :
-        type === "BOOK_TRANSFER" ? "outline" : "secondary";
+        method === "wire" ? "default" :
+        method === "ach" ? "secondary" : "outline";
       
-      const displayText =
-        type === "DOMESTIC_WIRE" ? "Wire" :
-        type === "ACH" ? "ACH" :
-        type === "BOOK_TRANSFER" ? "Book Transfer" : type;
-      
-      return <Badge variant={variant}>{displayText}</Badge>;
+      return (
+        <Badge variant={variant}>
+          {method?.toUpperCase() || "N/A"}
+        </Badge>
+      );
     },
   },
 
-  // Column 6: Status - Use Brex status
+  // Column 6: Status - Use transaction_status
   {
     id: "status",
+    accessorKey: "transaction_status",
     header: "Status",
-    accessorFn: (row) => {
-      const brexTransfer = row.brex_link?.[0]?.brex_transfer;
-      return brexTransfer?.status || row.transaction_status || "Unknown";
-    },
     cell: ({ row }) => {
-      const status = row.getValue("status") as string;
-      const variant =
-        status === "PROCESSED" ? "default" :
-        status === "PENDING" ? "secondary" :
-        status === "CANCELLED" ? "destructive" :
-        status === "FAILED" ? "destructive" : "outline";
-      
-      const displayText =
-        status === "PROCESSED" ? "Processed" :
-        status === "PENDING" ? "Pending" :
-        status === "CANCELLED" ? "Cancelled" :
-        status === "FAILED" ? "Failed" : status;
-      
-      return <Badge variant={variant}>{displayText}</Badge>;
+      const status = row.getValue("status") as string | null;
+      return (
+        <Badge variant={getStatusBadgeVariant(status)}>
+          {status || "N/A"}
+        </Badge>
+      );
     },
   },
 
