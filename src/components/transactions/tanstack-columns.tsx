@@ -165,9 +165,15 @@ export const createTransactionColumns = (
       const brexTransfer = row.brex_link?.[0]?.brex_transfer;
       const vendorName = brexTransfer?.display_name;
       
-      // Check if Brrrr is the originator (outgoing transfer)
-      // Note: originating_account.id stored in raw_payload
-      // If amount is positive OR we can check originating account ID
+      console.log("FROM column - Row data:", {
+        txId: row.id,
+        amount: row.transaction_amount,
+        brex_link: row.brex_link,
+        brex_transfer: brexTransfer,
+        display_name: vendorName,
+        full_row: row
+      });
+      
       const amount = row.transaction_amount ? Number(row.transaction_amount) : 0;
       
       if (amount > 0) {
