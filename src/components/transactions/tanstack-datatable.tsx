@@ -168,22 +168,14 @@ export function TransactionsDataTable() {
     setError(null);
 
     try {
+      // Fetch transactions with all related data except nested Brex transfer
       const { data, error } = await supabase
         .from("bsi_transactions")
         .select(
           `
           *,
           brex_link:bsi_transactions_api_brex_transfers(
-            brex_transfer_id,
-            brex_transfer:api_brex_transfers!bsi_transactions_api_brex_transfers_brex_transfer_id_fkey(
-              brex_transfer_id,
-              display_name,
-              payment_type,
-              status,
-              process_date,
-              amount,
-              counterparty_id
-            )
+            brex_transfer_id
           ),
           deals:bsi_transactions_deals(
             id,
@@ -230,21 +222,32 @@ export function TransactionsDataTable() {
 
       if (error) {
         console.error("Error fetching transactions:", error);
-        console.error("Error details:", {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        });
-        setError(
-          error.message ||
-            "Unable to load transactions. Please check your permissions or try again later."
-        );
+        setError(error.message);
         setData([]);
         return;
       }
 
-      setData(isTransactionWithDetailsArray(data) ? data : []);
+      // Then fetch Brex transfer details separately for each transaction
+      const transactionsWithBrex = await Promise.all(
+        (data || []).map(async (tx) => {
+          if (!tx.brex_link?.[0]?.brex_transfer_id) return tx;
+
+          const { data: brexData } = await supabase
+            .from("api_brex_transfers")
+            .select("*")
+            .eq("brex_transfer_id", tx.brex_link[0].brex_transfer_id)
+            .single();
+
+          if (brexData) {
+            tx.brex_link[0].brex_transfer = brexData;
+          }
+
+          return tx;
+        })
+      );
+
+      console.log("Transactions with Brex data:", transactionsWithBrex.slice(0, 3));
+      setData(isTransactionWithDetailsArray(transactionsWithBrex) ? transactionsWithBrex : []);
     } catch (err) {
       console.error("Unexpected error fetching transactions:", err);
       const errorMessage =
