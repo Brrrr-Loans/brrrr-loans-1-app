@@ -126,12 +126,17 @@ export function TransactionDetailsSheet({
           investors:bsi_transactions_investors(
             id,
             clerk_user_id,
+            clerk_org_id,
             allocation_amount,
             transaction_id,
-            auth_clerk_users:auth_clerk_users!clerk_user_id(
+            auth_clerk_users:clerk_user_id(
               id,
               full_name,
               email
+            ),
+            auth_clerk_orgs:clerk_org_id(
+              id,
+              clerk_org_name
             )
           ),
           documents:bsi_transactions_document_files(
