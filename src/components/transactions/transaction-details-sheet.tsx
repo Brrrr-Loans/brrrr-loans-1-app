@@ -461,9 +461,12 @@ export function TransactionDetailsSheet({
                 {transaction.investors.length > 0 && (
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
+                      <CardTitle className="flex items-center gap-2 text-base">
                         <User className="h-5 w-5" />
-                        Investors ({transaction.investors.length})
+                        Investors
+                        <Badge variant="secondary" className="ml-auto">
+                          {transaction.investors.length}
+                        </Badge>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -478,18 +481,18 @@ export function TransactionDetailsSheet({
                                 <p className="font-medium">
                                   {investorAllocation.auth_clerk_users?.full_name || 
                                    investorAllocation.auth_clerk_orgs?.clerk_org_name || 
-                                   "N/A"}
+                                   "Unknown"}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
                                   {investorAllocation.auth_clerk_users?.email ||
                                    (investorAllocation.auth_clerk_orgs ? "Organization" : "")}
                                 </p>
                               </div>
-                              <p className="font-semibold">
-                                {formatCurrency(
-                                  investorAllocation.allocation_amount
-                                )}
-                              </p>
+                              {investorAllocation.allocation_amount != null && investorAllocation.allocation_amount > 0 && (
+                                <p className="font-semibold">
+                                  {formatCurrency(investorAllocation.allocation_amount)}
+                                </p>
+                              )}
                             </div>
                           )
                         )}
