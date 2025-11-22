@@ -224,12 +224,25 @@ export function TransactionsDataTable() {
           details: error.details,
           hint: error.hint,
           code: error.code,
+          fullError: JSON.stringify(error, null, 2),
         });
-        setError(
-          error.message ||
-            "Unable to load transactions. Please check your permissions or try again later."
-        );
-        setData([]);
+        
+        // Try simpler query if complex one fails
+        console.log("Attempting simpler query...");
+        const { data: simpleData, error: simpleError } = await supabase
+          .from("bsi_transactions")
+          .select("*")
+          .order("transaction_date", { ascending: false })
+          .limit(10);
+          
+        if (simpleError) {
+          console.error("Simple query also failed:", simpleError);
+          setError("Unable to load transactions. Please check permissions.");
+        } else {
+          console.log("Simple query succeeded, complex query has join issue");
+          setError("Complex join error - using simplified view");
+          setData(simpleData || []);
+        }
         return;
       }
 

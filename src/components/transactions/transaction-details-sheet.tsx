@@ -170,8 +170,10 @@ export function TransactionDetailsSheet({
           fullError: JSON.stringify(error, null, 2),
         });
         setError(
-          error.message || error.details || error.hint || 
-          "Failed to load transaction details"
+          error.message ||
+            error.details ||
+            error.hint ||
+            "Failed to load transaction details"
         );
         return;
       }
@@ -464,7 +466,7 @@ export function TransactionDetailsSheet({
                       <CardTitle className="flex items-center gap-2 text-base">
                         <User className="h-5 w-5" />
                         Investors
-                        <Badge variant="secondary" className="ml-auto">
+                        <Badge variant="secondary">
                           {transaction.investors.length}
                         </Badge>
                       </CardTitle>
@@ -479,20 +481,27 @@ export function TransactionDetailsSheet({
                             >
                               <div className="flex-1">
                                 <p className="font-medium">
-                                  {investorAllocation.auth_clerk_users?.full_name || 
-                                   investorAllocation.auth_clerk_orgs?.clerk_org_name || 
-                                   "Unknown"}
+                                  {investorAllocation.auth_clerk_users
+                                    ?.full_name ||
+                                    investorAllocation.auth_clerk_orgs
+                                      ?.clerk_org_name ||
+                                    "Unknown"}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
                                   {investorAllocation.auth_clerk_users?.email ||
-                                   (investorAllocation.auth_clerk_orgs ? "Organization" : "")}
+                                    (investorAllocation.auth_clerk_orgs
+                                      ? "Organization"
+                                      : "")}
                                 </p>
                               </div>
-                              {investorAllocation.allocation_amount != null && investorAllocation.allocation_amount > 0 && (
-                                <p className="font-semibold">
-                                  {formatCurrency(investorAllocation.allocation_amount)}
-                                </p>
-                              )}
+                              {investorAllocation.allocation_amount != null &&
+                                investorAllocation.allocation_amount > 0 && (
+                                  <p className="font-semibold">
+                                    {formatCurrency(
+                                      investorAllocation.allocation_amount
+                                    )}
+                                  </p>
+                                )}
                             </div>
                           )
                         )}
@@ -505,9 +514,12 @@ export function TransactionDetailsSheet({
                 <Card>
                   <CardHeader>
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg flex items-center gap-2">
+                      <CardTitle className="flex items-center gap-2 text-base">
                         <FileText className="h-5 w-5" />
-                        Documents ({transaction.documents.length})
+                        Documents
+                        <Badge variant="secondary">
+                          {transaction.documents.length}
+                        </Badge>
                       </CardTitle>
                       <Button
                         variant="outline"
