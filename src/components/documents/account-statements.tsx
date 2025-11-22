@@ -18,7 +18,7 @@ import {
 } from "@/components/ui";
 import { Button } from "@/components/ui";
 import { Badge } from "@/components/ui";
-import { Download, Receipt, Calendar } from "lucide-react";
+import { Download, FileSpreadsheet, Calendar } from "lucide-react";
 import { useSupabase } from "@/hooks/use-supabase";
 import { useUser } from "@clerk/nextjs";
 import type { InvestorStatement } from "@/types/investor-statements";
@@ -210,7 +210,7 @@ export function AccountStatements() {
             </div>
           ) : statements.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Receipt className="h-12 w-12 text-muted-foreground mb-4" />
+              <FileSpreadsheet className="h-12 w-12 text-muted-foreground mb-4" />
               <h4 className="text-lg font-medium mb-2">No statements found</h4>
               <p className="text-sm text-muted-foreground">
                 Your account statements will appear here once they are generated

@@ -8,7 +8,7 @@ import {
   Home,
   FileBarChart2,
   CircleDollarSign,
-  Receipt,
+  FileSpreadsheet,
   CreditCard,
   FileSignature,
   ArrowDownToLine,
@@ -58,7 +58,7 @@ export function AppSidebar(
         {
           name: "Statements",
           url: "/balance-sheet/documents?tab=statements",
-          icon: Receipt,
+          icon: FileSpreadsheet,
         },
         {
           name: "Payments",

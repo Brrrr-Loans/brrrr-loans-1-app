@@ -2,7 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { Receipt, CreditCard, FileSignature } from "lucide-react";
+import { FileSpreadsheet, CreditCard, FileSignature } from "lucide-react";
 import { PageHeader } from "@/components/ui/page-header";
 import { AccountStatements } from "@/components/documents/account-statements";
 import { PaymentRecords } from "@/components/documents/payment-records";
@@ -17,7 +17,7 @@ function DocumentsPageContent() {
       id: "statements",
       label: "Statements",
       href: "/balance-sheet/documents?tab=statements",
-      icon: Receipt,
+      icon: FileSpreadsheet,
       content: <AccountStatements />,
     },
     {
