@@ -29,20 +29,7 @@ interface TransactionWithDetails {
   reference_number: string | null;
   external_memo: string | null;
   ledger_entry_type: string;
-  // Brex transfer data
-  brex_link?: Array<{
-    brex_transfer_id: string;
-    brex_transfer: {
-      brex_transfer_id: string;
-      display_name: string;
-      payment_type: string;
-      status: string;
-      process_date: string;
-      amount: number;
-      counterparty_id: string | null;
-    };
-  }>;
-  // Internal allocations
+  // Relationships
   deals?: Array<{
     deal_id: number;
     allocation_amount: number;
