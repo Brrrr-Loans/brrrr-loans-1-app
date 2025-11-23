@@ -12,7 +12,6 @@ import {
   TabsList,
   TabsTrigger,
   Label,
-  Switch,
   Button,
   Separator,
   Checkbox,
@@ -129,7 +128,7 @@ export function TransactionTableSettingsSheet<TData>({
   tableDensity,
   setTableDensity,
 }: TableSettingsSheetProps<TData>) {
-  const [showDividers, setShowDividers] = useState(false);
+  // Note: Column dividers feature pending (no Switch component available)
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -216,11 +215,11 @@ export function TransactionTableSettingsSheet<TData>({
           <TabsContent value="columns" className="space-y-4 mt-4">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">Show/hide all</Label>
-              <Switch
+              <Checkbox
                 checked={draggableColumns.every((c) => c.getIsVisible())}
                 onCheckedChange={(checked) => {
                   draggableColumns.forEach((c) => {
-                    c.toggleVisibility(checked);
+                    c.toggleVisibility(!!checked);
                   });
                 }}
               />
@@ -297,15 +296,6 @@ export function TransactionTableSettingsSheet<TData>({
               </ToggleGroup>
             </div>
 
-            <Separator />
-
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">Column dividers</Label>
-              <Switch
-                checked={showDividers}
-                onCheckedChange={setShowDividers}
-              />
-            </div>
           </TabsContent>
         </Tabs>
       </SheetContent>
