@@ -35,32 +35,63 @@ export function TransactionFilterBar<TData>({
   };
 
   return (
-    <div className="flex items-center justify-between gap-4">
-      {/* Left: Search + Filter Pills */}
-      <div className="flex items-center gap-2 flex-1 flex-wrap">
-        {/* Search input - Brex style */}
-        <div className="relative max-w-md flex-1 min-w-[240px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-          <Input
-            placeholder="Search"
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            className="pl-9 h-8 text-sm"
-          />
-          {globalFilter && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
-              onClick={() => setGlobalFilter("")}
-            >
-              <X className="h-3 w-3" />
-            </Button>
-          )}
-        </div>
+    <div className="flex items-center gap-3">
+      {/* Left: Search */}
+      <div className="relative flex-1 min-w-[240px]">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+        <Input
+          placeholder="Search"
+          value={globalFilter}
+          onChange={(e) => setGlobalFilter(e.target.value)}
+          className="pl-9 h-8 text-sm"
+        />
+        {globalFilter && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
+            onClick={() => setGlobalFilter("")}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
 
-        {/* Add filter button */}
-        <DropdownMenu>
+      {/* Filter Pills (when active) */}
+      {activeFilters.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {activeFilters.map((filter) => (
+            <Badge
+              key={filter.id}
+              variant="secondary"
+              className="gap-1 pr-1 h-8 text-xs"
+            >
+              {formatFilterLabel(filter)}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-4 w-4 hover:bg-transparent"
+                onClick={() =>
+                  table.getColumn(filter.id)?.setFilterValue(undefined)
+                }
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </Badge>
+          ))}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 text-xs"
+            onClick={() => table.resetColumnFilters()}
+          >
+            Clear all
+          </Button>
+        </div>
+      )}
+
+      {/* Center: Add Filter button */}
+      <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="h-8">
               <Plus className="h-4 w-4 mr-2" />
@@ -70,71 +101,89 @@ export function TransactionFilterBar<TData>({
           <DropdownMenuContent align="start" className="w-48">
             <DropdownMenuItem
               onClick={() => {
-                // Date filter - to be implemented
+                const column = table.getColumn("status");
+                if (column) {
+                  column.setFilterValue("pending");
+                }
               }}
             >
-              Date
+              Status: Pending
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
-                // Transaction type filter
+                const column = table.getColumn("status");
+                if (column) {
+                  column.setFilterValue("processing");
+                }
               }}
             >
-              Transaction type
+              Status: Processing
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
-                // Status filter
+                const column = table.getColumn("status");
+                if (column) {
+                  column.setFilterValue("processed");
+                }
               }}
             >
-              Status
+              Status: Processed
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
-                // Amount filter
+                const column = table.getColumn("status");
+                if (column) {
+                  column.setFilterValue("failed");
+                }
               }}
             >
-              Amount
+              Status: Failed
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                const column = table.getColumn("transaction_type");
+                if (column) {
+                  column.setFilterValue("wire");
+                }
+              }}
+            >
+              Type: Wire
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                const column = table.getColumn("transaction_type");
+                if (column) {
+                  column.setFilterValue("ach");
+                }
+              }}
+            >
+              Type: ACH
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                const column = table.getColumn("ledger_type");
+                if (column) {
+                  column.setFilterValue("contribution");
+                }
+              }}
+            >
+              Ledger: Contribution
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => {
+                const column = table.getColumn("ledger_type");
+                if (column) {
+                  column.setFilterValue("distribution");
+                }
+              }}
+            >
+              Ledger: Distribution
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Active filter pills */}
-        {activeFilters.length > 0 && (
-          <>
-            {activeFilters.map((filter) => (
-              <Badge
-                key={filter.id}
-                variant="secondary"
-                className="gap-1 pr-1 h-8 text-xs"
-              >
-                {formatFilterLabel(filter)}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-4 w-4 hover:bg-transparent"
-                  onClick={() =>
-                    table.getColumn(filter.id)?.setFilterValue(undefined)
-                  }
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            ))}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() => table.resetColumnFilters()}
-            >
-              Clear all
-            </Button>
-          </>
-        )}
-      </div>
-
       {/* Right: Settings + Download */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3 shrink-0">
         <Button
           variant="outline"
           size="sm"

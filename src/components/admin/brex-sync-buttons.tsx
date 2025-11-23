@@ -150,7 +150,7 @@ export function BrexSyncButtons() {
       });
 
       toast.success("Transactions synced successfully", {
-        description: `Inserted: ${data.stats.inserted} transactions from matched transfers`,
+        description: `Inserted: ${data.stats.inserted}, Updated: ${data.stats.updated}`,
       });
     } catch (error) {
       const errorMessage =
@@ -363,7 +363,7 @@ export function BrexSyncButtons() {
               <div>
                 <h3 className="font-semibold">Sync to Transactions</h3>
                 <p className="text-sm text-muted-foreground">
-                  Copy matched transfers to bsi_transactions table
+                  Create new transactions and update existing ones with latest Brex data
                 </p>
               </div>
               <Button
@@ -396,7 +396,7 @@ export function BrexSyncButtons() {
               <Alert>
                 <CheckCircle2 className="h-4 w-4" />
                 <AlertDescription>
-                  Synced {transactionSyncStatus.stats.inserted} transactions
+                  Synced {transactionSyncStatus.stats.inserted} new, {transactionSyncStatus.stats.updated} updated
                   {transactionSyncStatus.stats.errors > 0 &&
                     `, Errors: ${transactionSyncStatus.stats.errors}`}
                 </AlertDescription>

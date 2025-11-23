@@ -21,9 +21,6 @@ import { Button } from "@/components/ui/forms/button";
 import { Separator } from "@/components/ui/layout/separator";
 import { ScrollArea } from "@/components/ui/layout/scroll-area";
 import {
-  Calendar,
-  DollarSign,
-  CreditCard,
   FileText,
   Building,
   User,
@@ -42,48 +39,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/overlays/dialog";
-
-interface TransactionWithDetails {
-  id: number;
-  transaction_amount: number | null;
-  transaction_date: string;
-  transaction_method: string | null;
-  transaction_status: string | null;
-  reference_number: string | null;
-  external_memo: string | null;
-  ledger_entry_type: string;
-  deals: Array<{
-    deal_id: number;
-    allocation_amount: number;
-    deal: {
-      deal_name: string;
-      loan_number: string;
-      loan_amount_total: number;
-    };
-  }>;
-  investors: Array<{
-    clerk_user_id: number | null;
-    clerk_org_id: number | null;
-    allocation_amount: number;
-    auth_clerk_users: {
-      full_name: string;
-      email: string;
-    } | null;
-    auth_clerk_orgs: {
-      id: number;
-      clerk_org_name: string;
-    } | null;
-  }>;
-  documents: Array<{
-    document_file_id: number;
-    document_files: {
-      id: number;
-      document_name: string;
-      document_category: string;
-      uploaded_at: string;
-    };
-  }>;
-}
+import { TransactionWithDetails } from "@/types/transactions";
 
 interface TransactionDetailsSheetProps {
   transactionId: number | null;
@@ -105,7 +61,9 @@ export function TransactionDetailsSheet({
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
 
   const fetchTransaction = useCallback(async () => {
-    if (!supabase || !transactionId) return;
+    if (!supabase || !transactionId) {
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -162,20 +120,20 @@ export function TransactionDetailsSheet({
 
       if (error) {
         console.error("Error fetching transaction with joins:", error);
-        
+
         // Try simpler query without nested joins
         const { data: simpleData, error: simpleError } = await supabase
           .from("bsi_transactions")
           .select("*")
           .eq("id", transactionId)
           .maybeSingle();
-        
+
         if (simpleError || !simpleData) {
           console.error("Simple query also failed:", simpleError);
           setError("Transaction not found or you don't have access");
           return;
         }
-        
+
         console.log("Using simple transaction data without relationships");
         setTransaction({
           ...simpleData,
@@ -208,8 +166,21 @@ export function TransactionDetailsSheet({
   }, [supabase, transactionId]);
 
   useEffect(() => {
-    if (open && transactionId && supabase) {
-      fetchTransaction();
+    if (open && transactionId) {
+      // Small delay to ensure Supabase client is ready
+      const timer = setTimeout(() => {
+        if (supabase) {
+          fetchTransaction();
+        } else {
+          console.warn("Supabase client not ready, retrying...");
+          // Retry after a short delay
+          setTimeout(() => {
+            if (supabase) fetchTransaction();
+          }, 500);
+        }
+      }, 100);
+
+      return () => clearTimeout(timer);
     } else {
       setTransaction(null);
       setError(null);
@@ -227,13 +198,14 @@ export function TransactionDetailsSheet({
   const getStatusBadgeVariant = (status: string | null) => {
     switch (status) {
       case "completed":
-        return "default";
+      case "processed": // Brex uses "PROCESSED" to mean complete
+        return "success";
       case "pending":
-        return "secondary";
+        return "warning";
       case "failed":
-        return "destructive";
+        return "danger";
       case "processing":
-        return "outline";
+        return "info";
       default:
         return "secondary";
     }
@@ -361,7 +333,7 @@ export function TransactionDetailsSheet({
             <ScrollArea className="flex-1 py-6">
               <div className="space-y-6 pr-4">
                 {/* Transaction Overview */}
-                <Card>
+                <Card className="border-2">
                   <CardHeader>
                     <CardTitle className="text-lg">
                       Transaction Overview
@@ -370,17 +342,13 @@ export function TransactionDetailsSheet({
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground flex items-center gap-2">
-                          <DollarSign className="h-4 w-4" />
-                          Amount
-                        </p>
+                        <p className="text-sm text-muted-foreground">Amount</p>
                         <p className="text-2xl font-bold">
                           {formatCurrency(transaction.transaction_amount)}
                         </p>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground flex items-center gap-2">
-                          <CreditCard className="h-4 w-4" />
+                        <p className="text-sm text-muted-foreground">
                           Payment Method
                         </p>
                         <Badge
@@ -394,10 +362,7 @@ export function TransactionDetailsSheet({
                         </Badge>
                       </div>
                       <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground flex items-center gap-2">
-                          <Calendar className="h-4 w-4" />
-                          Date
-                        </p>
+                        <p className="text-sm text-muted-foreground">Date</p>
                         <p className="font-medium">
                           {format(
                             new Date(transaction.transaction_date),
@@ -434,12 +399,18 @@ export function TransactionDetailsSheet({
                 </Card>
 
                 {/* Deals */}
-                {transaction.deals.length > 0 && (
-                  <Card>
+                {transaction.deals && transaction.deals.length > 0 && (
+                  <Card className="border-2">
                     <CardHeader>
                       <CardTitle className="text-lg flex items-center gap-2">
                         <Building className="h-5 w-5" />
-                        Related Deals ({transaction.deals.length})
+                        Related Deals
+                        <Badge
+                          variant="outline"
+                          className="h-5 min-w-5 rounded-full px-1 font-mono text-xs tabular-nums"
+                        >
+                          {transaction.deals.length}
+                        </Badge>
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -468,13 +439,16 @@ export function TransactionDetailsSheet({
                 )}
 
                 {/* Investors */}
-                {transaction.investors.length > 0 && (
-                  <Card>
+                {transaction.investors && transaction.investors.length > 0 && (
+                  <Card className="border-2">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2 text-base">
                         <User className="h-5 w-5" />
                         Investors
-                        <Badge variant="secondary">
+                        <Badge
+                          variant="outline"
+                          className="h-5 min-w-5 rounded-full px-1 font-mono text-xs tabular-nums"
+                        >
                           {transaction.investors.length}
                         </Badge>
                       </CardTitle>
@@ -519,14 +493,17 @@ export function TransactionDetailsSheet({
                 )}
 
                 {/* Documents */}
-                <Card>
+                <Card className="border-2">
                   <CardHeader>
                     <div className="flex items-center justify-between">
                       <CardTitle className="flex items-center gap-2 text-base">
                         <FileText className="h-5 w-5" />
                         Documents
-                        <Badge variant="secondary">
-                          {transaction.documents.length}
+                        <Badge
+                          variant="outline"
+                          className="h-5 min-w-5 rounded-full px-1 font-mono text-xs tabular-nums"
+                        >
+                          {transaction.documents?.length || 0}
                         </Badge>
                       </CardTitle>
                       <Button
@@ -540,7 +517,8 @@ export function TransactionDetailsSheet({
                     </div>
                   </CardHeader>
                   <CardContent>
-                    {transaction.documents.length > 0 ? (
+                    {transaction.documents &&
+                    transaction.documents.length > 0 ? (
                       <div className="space-y-2">
                         {transaction.documents.map((doc) => (
                           <div

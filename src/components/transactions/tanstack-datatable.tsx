@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useSupabase } from "@/hooks/use-supabase";
 import {
   ColumnFiltersState,
@@ -17,6 +17,7 @@ import {
   ColumnOrderState,
   ExpandedState,
   getExpandedRowModel,
+  ColumnResizeMode,
 } from "@tanstack/react-table";
 import {
   Table,
@@ -47,79 +48,7 @@ import { exportToCSV, formatTransactionsForExport } from "@/lib/csv-export";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
-
-interface TransactionWithDetails {
-  id: number;
-  transaction_amount: number | null;
-  transaction_date: string;
-  transaction_method: string | null;
-  transaction_status: string | null;
-  reference_number: string | null;
-  external_memo: string | null;
-  ledger_entry_type: string;
-  // Brex transfer data
-  brex_link?: Array<{
-    brex_transfer_id: string;
-    brex_transfer: {
-      brex_transfer_id: string;
-      display_name: string;
-      payment_type: string;
-      status: string;
-      process_date: string;
-      amount: number;
-      counterparty_id: string | null;
-    };
-  }>;
-  // Vendor matches to investors
-  vendor_org_match?: Array<{
-    brex_vendor: {
-      name: string;
-      brex_vendor_id: string;
-    };
-    clerk_org: {
-      id: number;
-      clerk_org_name: string;
-    } | null;
-  }>;
-  vendor_user_match?: Array<{
-    brex_vendor: {
-      name: string;
-      brex_vendor_id: string;
-    };
-    clerk_user: {
-      id: number;
-      full_name: string;
-      email: string;
-    } | null;
-  }>;
-  // Internal allocations (for expanded view)
-  deals?: Array<{
-    deal_id: number;
-    allocation_amount: number;
-    deal: {
-      deal_name: string;
-      loan_number: string;
-      loan_amount_total: number;
-    };
-  }>;
-  investors?: Array<{
-    clerk_user_id: number;
-    allocation_amount: number;
-    auth_clerk_users: {
-      full_name: string;
-      email: string;
-    };
-  }>;
-  documents?: Array<{
-    document_file_id: number;
-    document_files: {
-      id: number;
-      document_name: string;
-      document_category: string;
-      uploaded_at: string;
-    };
-  }>;
-}
+import { TransactionWithDetails } from "@/types/transactions";
 
 const isTransactionWithDetailsArray = (
   value: unknown
@@ -144,17 +73,18 @@ export function TransactionsDataTable() {
     "to",
     "transaction_type",
     "status",
+    "ledger_type",
     "amount",
     "actions",
   ]);
   const [tableDensity, setTableDensity] = useState<
     "compact" | "simple" | "detailed"
   >("simple");
+  const [columnResizeMode] = useState<ColumnResizeMode>("onChange");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [detailsSheetOpen, setDetailsSheetOpen] = useState(false);
   const [selectedTxId, setSelectedTxId] = useState<number | null>(null);
 
-  const router = useRouter();
   const supabase = useSupabase();
   const searchParams = useSearchParams();
   const activeTab = searchParams.get("tab") || "all";
@@ -229,7 +159,7 @@ export function TransactionsDataTable() {
           code: error.code,
           fullError: JSON.stringify(error, null, 2),
         });
-        
+
         // Try simpler query if complex one fails
         console.log("Attempting simpler query...");
         const { data: simpleData, error: simpleError } = await supabase
@@ -237,7 +167,7 @@ export function TransactionsDataTable() {
           .select("*")
           .order("transaction_date", { ascending: false })
           .limit(10);
-          
+
         if (simpleError) {
           console.error("Simple query also failed:", simpleError);
           setError("Unable to load transactions. Please check permissions.");
@@ -332,6 +262,8 @@ export function TransactionsDataTable() {
   const table = useReactTable({
     data: filteredData,
     columns,
+    columnResizeMode,
+    enableColumnResizing: true,
     state: {
       sorting,
       columnFilters,
@@ -456,25 +388,38 @@ export function TransactionsDataTable() {
 
       {/* Table */}
       <div className="rounded-md border overflow-hidden">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="bg-muted">
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="h-12">
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
+        <div className="overflow-x-auto">
+          <Table style={{ width: "100%", minWidth: table.getTotalSize() }}>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id} className="bg-muted">
+                  {headerGroup.headers.map((header) => (
+                    <TableHead 
+                      key={header.id} 
+                      className="h-12 relative"
+                      style={{ width: header.getSize() }}
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                      <div
+                        className={cn(
+                          "absolute top-0 right-0 h-full w-1 cursor-col-resize touch-none select-none bg-border opacity-0 hover:opacity-100",
+                          header.column.getIsResizing() && "bg-primary opacity-100"
                         )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows?.length ? (
+                        onMouseDown={header.getResizeHandler()}
+                        onTouchStart={header.getResizeHandler()}
+                      />
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <Fragment key={row.id}>
                   {/* Clickable row */}
@@ -487,7 +432,10 @@ export function TransactionsDataTable() {
                     onClick={() => handleRowClick(row.original.id)}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
+                      <TableCell 
+                        key={cell.id}
+                        style={{ width: cell.column.getSize() }}
+                      >
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext()
@@ -499,24 +447,23 @@ export function TransactionsDataTable() {
                   {/* Inline expanded details (chevron toggle) */}
                   {row.getIsExpanded() && (
                     <TableRow>
-                      <TableCell colSpan={8} className="p-0">
-                        <InlineTransactionDetails
-                          transaction={row.original}
-                        />
+                      <TableCell colSpan={9} className="p-0">
+                        <InlineTransactionDetails transaction={row.original} />
                       </TableCell>
                     </TableRow>
                   )}
                 </Fragment>
               ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center">
-                  No transactions found.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={9} className="h-24 text-center">
+                    No transactions found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {/* Pagination */}
@@ -614,4 +561,3 @@ export function TransactionsDataTable() {
     </div>
   );
 }
-

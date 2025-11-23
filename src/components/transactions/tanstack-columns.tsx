@@ -19,49 +19,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-
-interface TransactionWithDetails {
-  id: number;
-  transaction_amount: number | null;
-  transaction_date: string;
-  transaction_method: string | null;
-  transaction_status: string | null;
-  reference_number: string | null;
-  external_memo: string | null;
-  ledger_entry_type: string;
-  // Relationships
-  deals?: Array<{
-    deal_id: number;
-    allocation_amount: number;
-    deal: {
-      deal_name: string;
-      loan_number: string;
-      loan_amount_total: number;
-    };
-  }>;
-  investors?: Array<{
-    clerk_user_id: number | null;
-    clerk_org_id: number | null;
-    allocation_amount: number;
-    auth_clerk_users: {
-      full_name: string;
-      email: string;
-    } | null;
-    auth_clerk_orgs: {
-      id: number;
-      clerk_org_name: string;
-    } | null;
-  }>;
-  documents?: Array<{
-    document_file_id: number;
-    document_files: {
-      id: number;
-      document_name: string;
-      document_category: string;
-      uploaded_at: string;
-    };
-  }>;
-}
+import { TransactionWithDetails } from "@/types/transactions";
 
 const formatCurrency = (amount: number | null) => {
   if (amount === null) return "N/A";
@@ -74,13 +32,14 @@ const formatCurrency = (amount: number | null) => {
 const getStatusBadgeVariant = (status: string | null) => {
   switch (status) {
     case "completed":
-      return "default";
+    case "processed": // Brex uses "PROCESSED" to mean complete
+      return "success";
     case "pending":
-      return "secondary";
+      return "warning";
     case "failed":
-      return "destructive";
+      return "danger";
     case "processing":
-      return "outline";
+      return "info";
     default:
       return "secondary";
   }
@@ -119,6 +78,7 @@ export const createTransactionColumns = (
   // Column 2: Date (sortable) - Use Brex process_date, date only
   {
     id: "transaction_date",
+    size: 130,
     accessorFn: (row) => {
       const brexTransfer = row.brex_link?.[0]?.brex_transfer;
       return brexTransfer?.process_date || row.transaction_date;
@@ -135,7 +95,8 @@ export const createTransactionColumns = (
     ),
     cell: ({ row }) => {
       const brexTransfer = row.original.brex_link?.[0]?.brex_transfer;
-      const dateStr = brexTransfer?.process_date || row.original.transaction_date;
+      const dateStr =
+        brexTransfer?.process_date || row.original.transaction_date;
       return (
         <div className="text-sm text-muted-foreground">
           {format(new Date(dateStr), "MMM d, yyyy")}
@@ -147,16 +108,20 @@ export const createTransactionColumns = (
   // Column 3: From - Use matched investor name
   {
     id: "from",
+    size: 180,
     header: "From",
     accessorFn: (row) => {
       // Get matched investor/org name
       const investor = row.investors?.[0];
-      const investorName = investor?.auth_clerk_users?.full_name || 
-                          investor?.auth_clerk_orgs?.clerk_org_name ||
-                          "Unknown";
-      
-      const amount = row.transaction_amount ? Number(row.transaction_amount) : 0;
-      
+      const investorName =
+        investor?.auth_clerk_users?.full_name ||
+        investor?.auth_clerk_orgs?.clerk_org_name ||
+        "Unknown";
+
+      const amount = row.transaction_amount
+        ? Number(row.transaction_amount)
+        : 0;
+
       if (amount > 0) {
         // Outgoing (Distribution/Redemption): Brrrr sends TO investor
         return "Brrrr Loans 1 LLC";
@@ -178,16 +143,20 @@ export const createTransactionColumns = (
   // Column 4: To - Use matched investor name (opposite of FROM)
   {
     id: "to",
+    size: 180,
     header: "To",
     accessorFn: (row) => {
       // Get matched investor/org name
       const investor = row.investors?.[0];
-      const investorName = investor?.auth_clerk_users?.full_name || 
-                          investor?.auth_clerk_orgs?.clerk_org_name ||
-                          "Unknown";
-      
-      const amount = row.transaction_amount ? Number(row.transaction_amount) : 0;
-      
+      const investorName =
+        investor?.auth_clerk_users?.full_name ||
+        investor?.auth_clerk_orgs?.clerk_org_name ||
+        "Unknown";
+
+      const amount = row.transaction_amount
+        ? Number(row.transaction_amount)
+        : 0;
+
       if (amount > 0) {
         // Outgoing (Distribution/Redemption): Brrrr sends to INVESTOR
         return investorName;
@@ -206,21 +175,18 @@ export const createTransactionColumns = (
     },
   },
 
-  // Column 5: Transaction Type - Use transaction_method for now
+  // Column 5: Transaction Type - Simple text display
   {
     id: "transaction_type",
+    size: 150,
     accessorKey: "transaction_method",
     header: "Transaction Type",
     cell: ({ row }) => {
       const method = row.getValue("transaction_type") as string | null;
-      const variant =
-        method === "wire" ? "default" :
-        method === "ach" ? "secondary" : "outline";
-      
       return (
-        <Badge variant={variant}>
+        <span className="text-sm text-muted-foreground">
           {method?.toUpperCase() || "N/A"}
-        </Badge>
+        </span>
       );
     },
   },
@@ -228,23 +194,42 @@ export const createTransactionColumns = (
   // Column 6: Status - Use transaction_status
   {
     id: "status",
+    size: 120,
     accessorKey: "transaction_status",
     header: "Status",
     cell: ({ row }) => {
       const status = row.getValue("status") as string | null;
       return (
-        <Badge variant={getStatusBadgeVariant(status)}>
-          {status || "N/A"}
+        <Badge variant={getStatusBadgeVariant(status)}>{status || "N/A"}</Badge>
+      );
+    },
+  },
+
+  // Column 7: Ledger Type
+  {
+    id: "ledger_type",
+    size: 140,
+    accessorKey: "ledger_entry_type",
+    header: "Ledger Type",
+    cell: ({ row }) => {
+      const type = row.getValue("ledger_type") as string | null;
+      const label = type === "contribution" ? "Contribution" :
+                    type === "distribution" ? "Distribution" :
+                    type === "redemption" ? "Redemption" : type;
+      return (
+        <Badge variant="outline" className="text-sm">
+          {label || "N/A"}
         </Badge>
       );
     },
   },
 
-  // Column 7: Amount (sortable, right-aligned) - Use absolute value
+  // Column 8: Amount (sortable, right-aligned) - Use absolute value
   {
     id: "amount",
+    size: 150,
     accessorKey: "transaction_amount",
-    header: ({ column }) => (
+    header: ({ column}) => (
       <div className="text-right">
         <Button
           variant="ghost"
@@ -268,7 +253,7 @@ export const createTransactionColumns = (
     },
   },
 
-  // Column 8: Actions dropdown (MoreHorizontal)
+  // Column 9: Actions dropdown (MoreHorizontal)
   {
     id: "actions",
     enableHiding: false,
@@ -314,4 +299,3 @@ export const createTransactionColumns = (
     },
   },
 ];
-
