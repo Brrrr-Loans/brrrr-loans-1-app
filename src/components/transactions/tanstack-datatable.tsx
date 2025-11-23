@@ -326,27 +326,6 @@ export function TransactionsDataTable() {
     }
   }, []);
 
-  // Handle CSV export
-  const handleExport = useCallback(() => {
-    try {
-      const exportData = formatTransactionsForExport(
-        table.getFilteredRowModel().rows.map((row) => row.original)
-      );
-
-      const timestamp = format(new Date(), "yyyy-MM-dd-HHmmss");
-      const filename = `transactions-${activeTab}-${timestamp}.csv`;
-
-      exportToCSV(exportData, filename);
-
-      toast.success(
-        `Exported ${exportData.length} transaction(s) to ${filename}`
-      );
-    } catch (error) {
-      console.error("Error exporting transactions:", error);
-      toast.error("Failed to export transactions");
-    }
-  }, [table, activeTab]);
-
   // Create table with columns
   const columns = createTransactionColumns(handleDownloadPDF, handlePrint);
 
@@ -373,6 +352,27 @@ export function TransactionsDataTable() {
     getSortedRowModel: getSortedRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
   });
+
+  // Handle CSV export (after table is defined)
+  const handleExport = useCallback(() => {
+    try {
+      const exportData = formatTransactionsForExport(
+        table.getFilteredRowModel().rows.map((row) => row.original)
+      );
+
+      const timestamp = format(new Date(), "yyyy-MM-dd-HHmmss");
+      const filename = `transactions-${activeTab}-${timestamp}.csv`;
+
+      exportToCSV(exportData, filename);
+
+      toast.success(
+        `Exported ${exportData.length} transaction(s) to ${filename}`
+      );
+    } catch (error) {
+      console.error("Error exporting transactions:", error);
+      toast.error("Failed to export transactions");
+    }
+  }, [table, activeTab]);
 
   // Row height based on density
   const rowHeight = {
