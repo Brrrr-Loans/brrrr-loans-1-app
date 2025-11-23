@@ -1,12 +1,7 @@
 -- Migration: Update Brex sync to support updating existing transactions
--- Adds missing columns to bsi_transactions and modifies sync function to update existing records
+-- Only updates essential fields, avoids data duplication
 
--- Step 1: Add missing columns to bsi_transactions table
-ALTER TABLE "public"."bsi_transactions"
-ADD COLUMN IF NOT EXISTS "cancellation_reason" text,
-ADD COLUMN IF NOT EXISTS "estimated_delivery_date" date;
-
--- Step 2: Update the sync function to support both inserts and updates
+-- Update the sync function to support both inserts and updates
 CREATE OR REPLACE FUNCTION sync_matched_api_brex_transfers_to_bsi_transactions()
 RETURNS TABLE (
     inserted_count bigint,
@@ -34,7 +29,6 @@ DECLARE
     v_amount_dollars numeric;
 BEGIN
     -- Loop through all transfers that have matched vendors
-    -- REMOVED: The NOT EXISTS clause to allow processing of existing transactions
     FOR v_transfer_record IN
         SELECT DISTINCT
             at.id as transfer_db_id,
@@ -46,10 +40,8 @@ BEGIN
             at.external_memo,
             at.payment_type,
             at.fed_reference_number,
-            at.cancellation_reason,
-            at.estimated_delivery_date,
             at.raw_payload,
-            -- Get matched clerk_user_id (prefer user match over org match)
+            -- Get matched clerk_user_id
             COALESCE(
                 (SELECT avcu.clerk_user_id 
                  FROM api_brex_vendors_clerk_users avcu
@@ -69,7 +61,6 @@ BEGIN
             ) as clerk_org_id
         FROM api_brex_transfers at
         WHERE at.counterparty_id IS NOT NULL
-        -- Only process transfers with matched vendors
         AND (
             EXISTS (
                 SELECT 1 FROM api_brex_vendors av
@@ -84,35 +75,27 @@ BEGIN
         )
     LOOP
         BEGIN
-            -- Fix #1: Extract fed_reference_number from column or raw_payload
+            -- Extract fed_reference_number
             v_fed_reference_number := COALESCE(
                 v_transfer_record.fed_reference_number,
                 (v_transfer_record.raw_payload->'counterparty'->>'fed_reference_number')::text
             );
 
-            -- Fix #2: Convert amount from cents to dollars
-            -- Brex returns amounts in cents (smallest denomination), so always divide by 100
-            -- IMPORTANT: Preserve negative signs if Brex provides them
+            -- Convert amount from cents to dollars
             IF v_transfer_record.amount_cents IS NOT NULL THEN
                 v_amount_dollars := v_transfer_record.amount_cents / 100.0;
             ELSIF v_transfer_record.amount IS NOT NULL THEN
-                -- amount column should also be in cents from Brex API, convert to dollars
                 v_amount_dollars := v_transfer_record.amount / 100.0;
             ELSE
                 v_amount_dollars := NULL;
             END IF;
             
-            -- If amount is positive, check if this is an outgoing transfer
-            -- Transfers with matched vendors (counterparties) are payments TO vendors,
-            -- which means they're outgoing FROM the Brex account and should be negative.
-            -- Only negate if amount is currently positive (preserve negative signs from Brex)
+            -- Negate for outgoing transfers
             IF v_amount_dollars IS NOT NULL AND v_amount_dollars > 0 THEN
-                -- For transfers with matched vendors, these are outgoing payments
-                -- Make the amount negative to represent outgoing transfer
                 v_amount_dollars := -1 * v_amount_dollars;
             END IF;
 
-            -- Map payment_type to transaction_method enum
+            -- Map payment_type to transaction_method
             CASE v_transfer_record.payment_type
                 WHEN 'ACH' THEN v_transaction_method := 'ach';
                 WHEN 'DOMESTIC_WIRE' THEN v_transaction_method := 'wire';
@@ -121,7 +104,7 @@ BEGIN
                 ELSE v_transaction_method := 'other';
             END CASE;
 
-            -- Fix #3: Map status to transaction_status enum (case-insensitive)
+            -- Map status to transaction_status
             CASE UPPER(TRIM(v_transfer_record.status))
                 WHEN 'PROCESSING' THEN v_transaction_status := 'processing';
                 WHEN 'COMPLETED' THEN v_transaction_status := 'completed';
@@ -132,16 +115,13 @@ BEGIN
                 WHEN 'INITIATED' THEN v_transaction_status := 'initiated';
                 WHEN 'PROCESSED' THEN v_transaction_status := 'processed';
                 ELSE 
-                    -- Try to extract from raw_payload if status column is NULL
                     v_transaction_status := COALESCE(
                         LOWER((v_transfer_record.raw_payload->>'status')::text),
                         'pending'
                     );
             END CASE;
 
-            -- Fix #4: Determine ledger_entry_type based on amount sign
-            -- Negative amount = distribution (outgoing transfer)
-            -- Positive amount = contribution (incoming transfer)
+            -- Determine ledger_entry_type based on amount
             IF v_amount_dollars IS NOT NULL THEN
                 IF v_amount_dollars < 0 THEN
                     v_ledger_entry_type := 'distribution';
@@ -149,7 +129,6 @@ BEGIN
                     v_ledger_entry_type := 'contribution';
                 END IF;
             ELSE
-                -- Default to contribution if amount is NULL
                 v_ledger_entry_type := 'contribution';
             END IF;
 
@@ -161,11 +140,10 @@ BEGIN
 
             IF v_existing_transaction_id IS NOT NULL THEN
                 -- UPDATE existing transaction with latest Brex data
+                -- Only update status and date - cancellation info stays in api_brex_transfers
                 UPDATE bsi_transactions SET
                     transaction_status = v_transaction_status::transaction_status,
                     transaction_date = COALESCE(v_transfer_record.process_date::timestamp with time zone, transaction_date),
-                    cancellation_reason = v_transfer_record.cancellation_reason,
-                    estimated_delivery_date = v_transfer_record.estimated_delivery_date,
                     updated_at = NOW()
                 WHERE id = v_existing_transaction_id;
                 
@@ -180,8 +158,6 @@ BEGIN
                     reference_number,
                     external_memo,
                     ledger_entry_type,
-                    cancellation_reason,
-                    estimated_delivery_date,
                     created_at,
                     updated_at
                 )
@@ -193,14 +169,12 @@ BEGIN
                     v_fed_reference_number,
                     v_transfer_record.external_memo,
                     v_ledger_entry_type::ledger_entry_type,
-                    v_transfer_record.cancellation_reason,
-                    v_transfer_record.estimated_delivery_date,
                     NOW(),
                     NOW()
                 )
                 RETURNING id INTO v_transaction_id;
 
-                -- Create investor allocation if clerk_user_id exists
+                -- Create investor allocation if needed
                 IF v_transfer_record.clerk_user_id IS NOT NULL THEN
                     INSERT INTO bsi_transactions_investors (
                         transaction_id,
@@ -240,7 +214,6 @@ BEGIN
                 'brex_transfer_id', v_transfer_record.brex_transfer_id,
                 'error', v_error_message
             );
-            -- Continue processing other transfers
         END;
     END LOOP;
 
@@ -253,5 +226,4 @@ GRANT EXECUTE ON FUNCTION sync_matched_api_brex_transfers_to_bsi_transactions() 
 
 -- Update comment
 COMMENT ON FUNCTION sync_matched_api_brex_transfers_to_bsi_transactions() IS 
-'Syncs matched Brex transfers to bsi_transactions. Inserts new transactions and updates existing ones with latest status, dates, and cancellation info from Brex.';
-
+'Syncs matched Brex transfers to bsi_transactions. Inserts new transactions and updates existing ones with latest status and dates from Brex. Cancellation info stays in api_brex_transfers.';
