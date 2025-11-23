@@ -161,25 +161,33 @@ export function TransactionDetailsSheet({
         .maybeSingle();
 
       if (error) {
-        console.error("Error fetching transaction:", error);
-        console.error("Error details:", {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-          fullError: JSON.stringify(error, null, 2),
-        });
-        setError(
-          error.message ||
-            error.details ||
-            error.hint ||
-            "Failed to load transaction details"
-        );
+        console.error("Error fetching transaction with joins:", error);
+        
+        // Try simpler query without nested joins
+        const { data: simpleData, error: simpleError } = await supabase
+          .from("bsi_transactions")
+          .select("*")
+          .eq("id", transactionId)
+          .maybeSingle();
+        
+        if (simpleError || !simpleData) {
+          console.error("Simple query also failed:", simpleError);
+          setError("Transaction not found or you don't have access");
+          return;
+        }
+        
+        console.log("Using simple transaction data without relationships");
+        setTransaction({
+          ...simpleData,
+          deals: [],
+          investors: [],
+          documents: [],
+        } as TransactionWithDetails);
         return;
       }
 
       if (!data) {
-        setError("Transaction not found or you don't have access");
+        setError("Transaction not found");
         return;
       }
 
