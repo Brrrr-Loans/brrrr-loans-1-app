@@ -42,8 +42,11 @@ import { createTransactionColumns } from "./tanstack-columns";
 import { TransactionFilterBar } from "./filter-bar";
 import { InlineTransactionDetails } from "./inline-transaction-details";
 import { TransactionDetailsSheet } from "./transaction-details-sheet";
+import { TransactionTableSettingsSheet } from "./tanstack-settings-sheet";
+import { exportToCSV, formatTransactionsForExport } from "@/lib/csv-export";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 interface TransactionWithDetails {
   id: number;
@@ -325,8 +328,24 @@ export function TransactionsDataTable() {
 
   // Handle CSV export
   const handleExport = useCallback(() => {
-    toast.info("Export functionality coming soon");
-  }, []);
+    try {
+      const exportData = formatTransactionsForExport(
+        table.getFilteredRowModel().rows.map((row) => row.original)
+      );
+
+      const timestamp = format(new Date(), "yyyy-MM-dd-HHmmss");
+      const filename = `transactions-${activeTab}-${timestamp}.csv`;
+
+      exportToCSV(exportData, filename);
+
+      toast.success(
+        `Exported ${exportData.length} transaction(s) to ${filename}`
+      );
+    } catch (error) {
+      console.error("Error exporting transactions:", error);
+      toast.error("Failed to export transactions");
+    }
+  }, [table, activeTab]);
 
   // Create table with columns
   const columns = createTransactionColumns(handleDownloadPDF, handlePrint);
@@ -580,6 +599,17 @@ export function TransactionsDataTable() {
           setDetailsSheetOpen(open);
           if (!open) setSelectedTxId(null);
         }}
+      />
+
+      {/* Table Settings Sheet */}
+      <TransactionTableSettingsSheet
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        table={table}
+        columnOrder={columnOrder}
+        setColumnOrder={setColumnOrder}
+        tableDensity={tableDensity}
+        setTableDensity={setTableDensity}
       />
     </div>
   );
