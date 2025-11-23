@@ -16,8 +16,8 @@ import {
   Button,
   Separator,
   Checkbox,
-  RadioGroup,
-  RadioGroupItem,
+  ToggleGroup,
+  ToggleGroupItem,
 } from "@/components/ui";
 import {
   DndContext,
@@ -277,32 +277,24 @@ export function TransactionTableSettingsSheet<TData>({
           <TabsContent value="display" className="space-y-6 mt-4">
             <div className="space-y-4">
               <Label className="text-sm font-medium">Table density</Label>
-              <RadioGroup
+              <ToggleGroup
+                type="single"
                 value={tableDensity}
-                onValueChange={(value) =>
-                  setTableDensity(value as "compact" | "simple" | "detailed")
-                }
-                className="space-y-3"
+                onValueChange={(value) => {
+                  if (value) setTableDensity(value as "compact" | "simple" | "detailed");
+                }}
+                className="flex flex-col items-stretch gap-2"
               >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="compact" id="compact" />
-                  <Label htmlFor="compact" className="font-normal cursor-pointer">
-                    Compact
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="simple" id="simple" />
-                  <Label htmlFor="simple" className="font-normal cursor-pointer">
-                    Simple
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="detailed" id="detailed" />
-                  <Label htmlFor="detailed" className="font-normal cursor-pointer">
-                    Detailed
-                  </Label>
-                </div>
-              </RadioGroup>
+                <ToggleGroupItem value="compact" className="justify-start">
+                  Compact
+                </ToggleGroupItem>
+                <ToggleGroupItem value="simple" className="justify-start">
+                  Simple
+                </ToggleGroupItem>
+                <ToggleGroupItem value="detailed" className="justify-start">
+                  Detailed
+                </ToggleGroupItem>
+              </ToggleGroup>
             </div>
 
             <Separator />
