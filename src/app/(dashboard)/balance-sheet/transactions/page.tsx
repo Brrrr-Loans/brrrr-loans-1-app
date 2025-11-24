@@ -16,7 +16,7 @@ function TransactionsPageContent() {
   const tabs = [
     {
       id: "all",
-      label: "All",
+      label: "All Transactions",
       href: "/balance-sheet/transactions?tab=all",
       icon: ListTree,
     },
@@ -38,8 +38,11 @@ function TransactionsPageContent() {
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       {/* Page Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
+          <p className="text-muted-foreground">
+            View and manage all your investment and distribution transactions.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <Button

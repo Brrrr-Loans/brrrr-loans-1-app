@@ -77,7 +77,7 @@ export function AppSidebar(
       icon: CircleDollarSign,
       items: [
         {
-          name: "All",
+          name: "All Transactions",
           url: "/balance-sheet/transactions?tab=all",
           icon: ListTree,
         },
