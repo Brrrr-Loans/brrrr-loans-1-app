@@ -45,6 +45,29 @@ export function SignInLayout({ children }: SignInLayoutProps) {
         <div className="relative items-center justify-center px-6 py-24 md:flex min-h-screen">
           {/* Sign-in form container */}
           <div className="m-auto w-full max-w-sm">{children}</div>
+
+          {/* Footer with Copyright and Links */}
+          <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center gap-2 text-xs text-muted-foreground">
+            <p>Copyright © 2025 Brrrr Loans 1 LLC</p>
+            <div className="flex gap-4">
+              <Link
+                href="https://www.brrrr.com/terms-of-use"
+                className="hover:text-foreground underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Terms of Use
+              </Link>
+              <Link
+                href="https://www.brrrr.com/privacy-policy"
+                className="hover:text-foreground underline"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Privacy Policy
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
 
