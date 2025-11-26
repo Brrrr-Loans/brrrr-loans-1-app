@@ -1,9 +1,11 @@
 "use client";
 
+import { RouteProtection } from "@/components/auth/route-protection";
 import { BrexSyncButtons } from "@/components/admin/brex-sync-buttons";
 import { BrexVendorMatcher } from "@/components/admin/brex-vendor-matcher";
+import { UnmatchedTransfersTable } from "@/components/admin/unmatched-transfers-table";
 
-export default function BrexPage() {
+function BrexPageContent() {
   return (
     <div className="flex flex-1 flex-col space-y-6">
       <div>
@@ -15,6 +17,15 @@ export default function BrexPage() {
 
       <BrexSyncButtons />
       <BrexVendorMatcher />
+      <UnmatchedTransfersTable />
     </div>
+  );
+}
+
+export default function BrexPage() {
+  return (
+    <RouteProtection requiredRoles={["admin"]}>
+      <BrexPageContent />
+    </RouteProtection>
   );
 }

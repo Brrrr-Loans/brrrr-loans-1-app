@@ -243,11 +243,19 @@ export const createTransactionColumns = (
     ),
     cell: ({ row }) => {
       const amount = row.getValue("amount") as number | null;
-      // Use absolute value (distributions are positive, contributions are negative)
-      const absAmount = amount ? Math.abs(Number(amount)) : null;
+      
+      // Keep the sign - negative for outgoing, positive for incoming
+      // Color code like Brex:
+      // Negative amounts (outgoing) = default color
+      // Positive amounts (incoming) = success color (theme-aware)
+      const isIncoming = amount !== null && amount > 0;
+      const colorClass = isIncoming
+        ? 'text-success-foreground' 
+        : ''; // Default color for outgoing
+      
       return (
-        <div className="text-right font-semibold">
-          {formatCurrency(absAmount)}
+        <div className={cn("text-right font-semibold", colorClass)}>
+          {formatCurrency(amount)}
         </div>
       );
     },
