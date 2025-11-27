@@ -258,17 +258,17 @@ export default function InvestorDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="h-[350px]">
-              <ChartContainer
-                config={{
-                  roi: {
-                    label: "ROI %",
-                    color: "#ff9500",
-                  },
-                }}
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={roiData}>
+            <ChartContainer
+              config={{
+                roi: {
+                  label: "ROI %",
+                  color: "#ff9500",
+                },
+              }}
+              className="h-[350px] w-full"
+            >
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={roiData}>
                     <defs>
                       <linearGradient id="orangeGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#ff9500" stopOpacity={0.3} />
@@ -302,7 +302,6 @@ export default function InvestorDashboard() {
                   </AreaChart>
                 </ResponsiveContainer>
               </ChartContainer>
-            </div>
           </CardContent>
         </Card>
 
