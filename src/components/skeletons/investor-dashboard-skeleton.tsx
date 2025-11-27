@@ -26,9 +26,9 @@ export function InvestorDashboardSkeleton() {
         <CardContent>
           <div className="h-[300px] flex flex-col gap-4">
             <div className="flex-1 grid grid-cols-12 gap-2">
-              {[...Array(12)].map((_, i) => (
+              {[60, 75, 45, 90, 55, 80, 70, 85, 50, 95, 65, 88].map((height, i) => (
                 <div key={i} className="flex items-end w-full">
-                  <Skeleton className={`w-full h-[${Math.random() * 100}%]`} />
+                  <Skeleton className="w-full" style={{ height: `${height}%` }} />
                 </div>
               ))}
             </div>

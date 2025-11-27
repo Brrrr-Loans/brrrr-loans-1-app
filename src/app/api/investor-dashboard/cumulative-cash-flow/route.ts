@@ -6,7 +6,7 @@ import { auth } from "@clerk/nextjs/server";
  * Get cumulative cash flow data for investor dashboard
  * GET /api/investor-dashboard/cumulative-cash-flow
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const supabase = createServiceRoleClient();
     
@@ -16,18 +16,41 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get user's database ID
-    const { data: currentUser } = await supabase
-      .from("auth_clerk_users")
-      .select("id")
-      .eq("clerk_user_id", clerkUserId)
-      .single();
+    // Check for impersonation (admin-only feature)
+    const url = new URL(request.url);
+    const impersonatedUserIdParam = url.searchParams.get("impersonate_user_id");
+    
+    let targetUserId: number;
 
-    if (!currentUser) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    if (impersonatedUserIdParam) {
+      // Admin is impersonating - verify they're admin first
+      const { data: adminUser } = await supabase
+        .from("auth_clerk_users")
+        .select("id, role")
+        .eq("clerk_user_id", clerkUserId)
+        .single();
+
+      if (!adminUser || adminUser.role !== "admin") {
+        return NextResponse.json({ error: "Forbidden - admin only" }, { status: 403 });
+      }
+
+      targetUserId = parseInt(impersonatedUserIdParam);
+    } else {
+      // Normal flow - use current user
+      const { data: currentUser } = await supabase
+        .from("auth_clerk_users")
+        .select("id")
+        .eq("clerk_user_id", clerkUserId)
+        .single();
+
+      if (!currentUser) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+
+      targetUserId = currentUser.id;
     }
 
-    console.log(`📊 Fetching cumulative cash flow for user ${currentUser.id}...`);
+    console.log(`📊 Fetching cumulative cash flow for user ${targetUserId}...`);
 
     // Get all transactions for this investor, ordered by date
     const { data: transactions, error } = await supabase
@@ -40,7 +63,7 @@ export async function GET() {
         bsi_transactions_investors!inner(clerk_user_id)
       `
       )
-      .eq("bsi_transactions_investors.clerk_user_id", currentUser.id)
+      .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
       .order("transaction_date", { ascending: true });
 
     if (error) {

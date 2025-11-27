@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
+import { useImpersonation } from "@/contexts/impersonation-context";
+import { ImpersonationSwitcher } from "@/components/admin/impersonation-switcher";
 import { InvestorDashboardSkeleton } from "@/components/skeletons/investor-dashboard-skeleton";
 import { PermissionErrorBoundary } from "@/components/error-boundary/permission-error-boundary";
 import {
@@ -51,6 +53,7 @@ interface CumulativeCashFlowData {
 }
 
 export default function InvestorDashboard() {
+  const { impersonatedUserId } = useImpersonation();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [contributions, setContributions] = useState<InvestorContribution[]>(
@@ -69,13 +72,16 @@ export default function InvestorDashboard() {
         setIsLoading(true);
         setError(null);
 
+        // Build query param for impersonation
+        const impersonateParam = impersonatedUserId ? `?impersonate_user_id=${impersonatedUserId}` : '';
+        
         // Fetch all data in parallel
         const [contributionsRes, distributionsRes, dealsRes, cashFlowRes] =
           await Promise.all([
-            fetch("/api/investor-summary/contributions"),
-            fetch("/api/investor-summary/distributions"),
-            fetch("/api/investor-summary/deals"),
-            fetch("/api/investor-dashboard/cumulative-cash-flow"),
+            fetch(`/api/investor-summary/contributions${impersonateParam}`),
+            fetch(`/api/investor-summary/distributions${impersonateParam}`),
+            fetch(`/api/investor-summary/deals${impersonateParam}`),
+            fetch(`/api/investor-dashboard/cumulative-cash-flow${impersonateParam}`),
           ]);
 
         if (!contributionsRes.ok || !distributionsRes.ok || !dealsRes.ok || !cashFlowRes.ok) {
@@ -105,7 +111,7 @@ export default function InvestorDashboard() {
     };
 
     fetchData();
-  }, []);
+  }, [impersonatedUserId]);
 
   // Calculate summary data
   const totalInvested = contributions.reduce(
@@ -188,6 +194,11 @@ export default function InvestorDashboard() {
   return (
     <PermissionErrorBoundary>
       <div className="container mx-auto py-6 space-y-6 animate-in fade-in-50">
+        {/* Admin Impersonation Switcher */}
+        <div className="flex items-center justify-end">
+          <ImpersonationSwitcher />
+        </div>
+        
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader>
