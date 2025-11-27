@@ -88,6 +88,16 @@ export function BrexVendorMatcher() {
   const [orgOpen, setOrgOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
 
+  // Close all popovers when dialog closes
+  const handleDialogChange = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      setVendorOpen(false);
+      setUserOpen(false);
+      setOrgOpen(false);
+    }
+  };
+
   useEffect(() => {
     if (supabase) {
       loadData();
@@ -279,12 +289,19 @@ export function BrexVendorMatcher() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Vendor Matching</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle>Match Vendors to Users or Companies</CardTitle>
+                {vendorMatches.length > 0 && (
+                  <Badge variant="secondary" className="rounded-full">
+                    {vendorMatches.length}
+                  </Badge>
+                )}
+              </div>
               <CardDescription>
-                Match Brex vendors to Clerk users and organizations
+                Link Brex vendors to Clerk users and organizations
               </CardDescription>
             </div>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <Dialog open={dialogOpen} onOpenChange={handleDialogChange}>
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="mr-2 h-4 w-4" />
@@ -494,7 +511,6 @@ export function BrexVendorMatcher() {
         <CardContent>
           {/* Existing Matches */}
           <div className="space-y-2">
-            <h3 className="font-semibold">Existing Matches ({vendorMatches.length})</h3>
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
