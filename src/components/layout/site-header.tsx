@@ -11,6 +11,8 @@ import { SearchForm } from "@/components/layout/search-form";
 import { ThemeDropdown } from "@/components/theme/theme-dropdown";
 import { PlatformSettingsPopover } from "@/components/layout/platform-settings-popover";
 import { TeamSwitcherV2 } from "@/components/layout/team-switcher-v2";
+import { ImpersonationSwitcher } from "@/components/admin/impersonation-switcher";
+import { useUser } from "@clerk/nextjs";
 import {
   Dialog,
   DialogContent,
@@ -220,6 +222,10 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [showTeamSwitcher, setShowTeamSwitcher] = React.useState(false);
+  const { user } = useUser();
+  
+  // Check if user is admin
+  const isAdmin = user?.publicMetadata?.role === "admin" || user?.organizationMemberships?.[0]?.role === "org:admin";
 
   const handleOpenTeamSwitcher = () => {
     setShowTeamSwitcher(true);
@@ -239,6 +245,7 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
             className="w-full max-w-56 xl:max-w-64"
             onOpenTeamSwitcher={handleOpenTeamSwitcher}
           />
+          {isAdmin && <ImpersonationSwitcher />}
           <PlatformSettingsPopover
             trigger={
               <Button variant="outline" size="icon" className="h-8 w-8">

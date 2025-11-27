@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
 import { useImpersonation } from "@/contexts/impersonation-context";
-import { ImpersonationSwitcher } from "@/components/admin/impersonation-switcher";
 import { InvestorDashboardSkeleton } from "@/components/skeletons/investor-dashboard-skeleton";
 import { PermissionErrorBoundary } from "@/components/error-boundary/permission-error-boundary";
 import {
@@ -194,11 +193,6 @@ export default function InvestorDashboard() {
   return (
     <PermissionErrorBoundary>
       <div className="container mx-auto py-6 space-y-6 animate-in fade-in-50">
-        {/* Admin Impersonation Switcher */}
-        <div className="flex items-center justify-end">
-          <ImpersonationSwitcher />
-        </div>
-        
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader>
