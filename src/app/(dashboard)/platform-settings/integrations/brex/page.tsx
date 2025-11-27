@@ -3,7 +3,7 @@
 import { RouteProtection } from "@/components/auth/route-protection";
 import { BrexSyncButtons } from "@/components/admin/brex-sync-buttons";
 import { BrexVendorMatcher } from "@/components/admin/brex-vendor-matcher";
-import { UnmatchedTransfersTable } from "@/components/admin/unmatched-transfers-table";
+import { TransferVendorMatchingTabs } from "@/components/admin/transfer-vendor-matching-tabs";
 
 function BrexPageContent() {
   return (
@@ -17,7 +17,7 @@ function BrexPageContent() {
 
       <BrexSyncButtons />
       <BrexVendorMatcher />
-      <UnmatchedTransfersTable />
+      <TransferVendorMatchingTabs />
     </div>
   );
 }

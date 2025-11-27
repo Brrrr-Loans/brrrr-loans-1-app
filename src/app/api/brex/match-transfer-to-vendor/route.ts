@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-server";
+import { auth } from "@clerk/nextjs/server";
 
 /**
  * Match Brex transfer(s) to a vendor
@@ -11,6 +12,24 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = createServiceRoleClient();
     const body = await request.json();
+
+    // Get current user for audit trail
+    const { userId: clerkUserId } = await auth();
+    if (!clerkUserId) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    // Get user's database ID
+    const { data: currentUser } = await supabase
+      .from("auth_clerk_users")
+      .select("id")
+      .eq("clerk_user_id", clerkUserId)
+      .single();
+
+    const currentUserDbId = currentUser?.id || null;
 
     // Support both bulk and single matching
     const transferIds = body.transfer_ids 
@@ -66,11 +85,12 @@ export async function POST(request: NextRequest) {
     // Process each transfer
     for (const transfer of transfers) {
       try {
-        // Check if match already exists
+        // Check if match already exists (excluding soft-deleted)
         const { data: existingMatch } = await supabase
           .from("api_brex_transfers_vendors")
           .select("id, brex_vendor_id")
           .eq("brex_transfer_id", transfer.brex_transfer_id)
+          .is("deleted_at", null) // Only check active matches
           .maybeSingle();
 
         if (existingMatch) {
@@ -81,6 +101,8 @@ export async function POST(request: NextRequest) {
               brex_vendor_id: vendor_id,
               match_notes: notes || null,
               match_method: "manual",
+              updated_at: new Date().toISOString(),
+              updated_by_user_id: currentUserDbId,
             })
             .eq("id", existingMatch.id);
 
@@ -95,6 +117,7 @@ export async function POST(request: NextRequest) {
               brex_vendor_id: vendor_id,
               match_method: "manual",
               match_notes: notes || null,
+              created_by_user_id: currentUserDbId,
             });
 
           if (insertError) throw insertError;
@@ -176,10 +199,11 @@ export async function GET() {
       throw allError;
     }
 
-    // Get all matched transfer IDs
+    // Get all matched transfer IDs (excluding soft-deleted)
     const { data: matches } = await supabase
       .from("api_brex_transfers_vendors")
-      .select("brex_transfer_id");
+      .select("brex_transfer_id")
+      .is("deleted_at", null); // Only active matches
 
     const matchedIds = new Set(
       matches?.map((m) => m.brex_transfer_id) || []

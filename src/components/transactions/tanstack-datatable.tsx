@@ -446,7 +446,7 @@ export function TransactionsDataTable() {
 
                   {/* Inline expanded details (chevron toggle) */}
                   {row.getIsExpanded() && (
-                    <TableRow>
+                    <TableRow className="hover:bg-transparent">
                       <TableCell colSpan={9} className="p-0">
                         <InlineTransactionDetails transaction={row.original} />
                       </TableCell>

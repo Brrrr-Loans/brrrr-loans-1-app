@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -53,6 +53,7 @@ import {
 import { Loader2, Link as LinkIcon, Check, ChevronsUpDown, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { MatchImpactDialog } from "./match-impact-dialog";
 
 interface Transfer {
   id: number;
@@ -185,17 +186,21 @@ const columns: ColumnDef<Transfer>[] = [
   },
 ];
 
-export function UnmatchedTransfersTable() {
+interface UnmatchedTransfersTableProps {
+  onMatchCreated?: () => void;
+}
+
+export function UnmatchedTransfersTable({ onMatchCreated }: UnmatchedTransfersTableProps) {
   const supabase = useSupabase();
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
-  const [matching, setMatching] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<string>("");
   const [vendorOpen, setVendorOpen] = useState(false);
   const [notes, setNotes] = useState("");
   const [rowSelection, setRowSelection] = useState({});
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const table = useReactTable({
     data: transfers,
@@ -217,13 +222,7 @@ export function UnmatchedTransfersTable() {
     },
   });
 
-  useEffect(() => {
-    if (supabase) {
-      loadData();
-    }
-  }, [supabase]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!supabase) return;
 
     setLoading(true);
@@ -253,9 +252,13 @@ export function UnmatchedTransfersTable() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase]);
 
-  const handleBulkMatch = async () => {
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const handleBulkMatch = () => {
     const selectedRows = table.getFilteredSelectedRowModel().rows;
     const selectedTransferIds = selectedRows.map((row) => row.original.id);
 
@@ -277,48 +280,62 @@ export function UnmatchedTransfersTable() {
       return;
     }
 
-    setMatching(true);
-    try {
-      const response = await fetch("/api/brex/match-transfer-to-vendor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          transfer_ids: selectedTransferIds,
-          vendor_id: parseInt(selectedVendor),
-          notes: notes.trim() || undefined,
-        }),
-      });
+    // Open the impact preview dialog
+    setDialogOpen(true);
+  };
 
-      const data = await response.json();
-
-      if (data.success) {
-        toast({
-          title: "✅ Success!",
-          description: data.message || `Matched ${selectedTransferIds.length} transfer(s)`,
-        });
-
-        // Reset selections and reload data
-        setRowSelection({});
-        setSelectedVendor("");
-        setNotes("");
-        await loadData();
-      } else {
-        throw new Error(data.error || "Failed to match transfers");
-      }
-    } catch (error) {
-      console.error("Error matching transfers:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to match transfers",
-      });
-    } finally {
-      setMatching(false);
-    }
+  const handleMatchComplete = async () => {
+    // Reset selections and reload data
+    setRowSelection({});
+    setSelectedVendor("");
+    setNotes("");
+    setVendorOpen(false);
+    await loadData();
+    onMatchCreated?.(); // Notify parent to refresh counts
   };
 
   const selectedCount = table.getFilteredSelectedRowModel().rows.length;
+  const selectedTransferIds = table.getFilteredSelectedRowModel().rows.map((row) => row.original.id);
+
+  // Auto-suggest vendors based on selected transfers
+  const suggestedVendors = (() => {
+    if (selectedCount === 0) return [];
+
+    const selectedRows = table.getFilteredSelectedRowModel().rows;
+    const suggestions: Array<{ vendor: Vendor; confidence: number; reason: string }> = [];
+
+    // Get counterparty names and emails from selected transfers
+    const transferNames = selectedRows
+      .map((r) => r.original.display_name || r.original.counterparty_name)
+      .filter(Boolean);
+
+    vendors.forEach((vendor) => {
+      if (!vendor.name && !vendor.email) return;
+
+      let confidence = 0;
+      let reason = "";
+
+      // Name match (simple contains check)
+      if (vendor.name) {
+        const vendorNameLower = vendor.name.toLowerCase();
+        transferNames.forEach((transferName) => {
+          if (transferName && vendorNameLower.includes(transferName.toLowerCase())) {
+            confidence += 0.7;
+            reason = `Name match: "${transferName}"`;
+          }
+        });
+      }
+
+      // Email match would go here (if we had counterparty email)
+
+      if (confidence > 0) {
+        suggestions.push({ vendor, confidence, reason });
+      }
+    });
+
+    // Sort by confidence and take top 3
+    return suggestions.sort((a, b) => b.confidence - a.confidence).slice(0, 3);
+  })();
 
   if (loading) {
     return (
@@ -502,6 +519,37 @@ export function UnmatchedTransfersTable() {
             <div className="space-y-4 border-t pt-4">
               <h3 className="font-semibold">Match Selected to Vendor</h3>
 
+              {/* Auto-Suggest */}
+              {suggestedVendors.length > 0 && (
+                <div className="rounded-lg bg-muted/50 p-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Suggested Vendors:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestedVendors.map((suggestion, idx) => (
+                      <Button
+                        key={idx}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedVendor(suggestion.vendor.id.toString());
+                          toast({
+                            title: "Vendor Selected",
+                            description: `${suggestion.vendor.name} - ${suggestion.reason}`,
+                          });
+                        }}
+                        className="text-xs"
+                      >
+                        {suggestion.vendor.name}
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {Math.round(suggestion.confidence * 100)}%
+                        </span>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="vendor">Select Vendor</Label>
                 <Popover open={vendorOpen} onOpenChange={setVendorOpen}>
@@ -573,25 +621,26 @@ export function UnmatchedTransfersTable() {
 
               <Button
                 onClick={handleBulkMatch}
-                disabled={selectedCount === 0 || !selectedVendor || matching}
+                disabled={selectedCount === 0 || !selectedVendor}
                 className="w-full"
               >
-                {matching ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Matching...
-                  </>
-                ) : (
-                  <>
-                    <LinkIcon className="mr-2 h-4 w-4" />
-                    Match {selectedCount} Transfer{selectedCount !== 1 ? "s" : ""} to Vendor
-                  </>
-                )}
+                <LinkIcon className="mr-2 h-4 w-4" />
+                Match {selectedCount} Transfer{selectedCount !== 1 ? "s" : ""} to Vendor
               </Button>
             </div>
           </>
         )}
       </CardContent>
+
+      {/* Match Impact Dialog */}
+      <MatchImpactDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        transferIds={selectedTransferIds}
+        vendorId={selectedVendor ? parseInt(selectedVendor) : 0}
+        notes={notes}
+        onMatchComplete={handleMatchComplete}
+      />
     </Card>
   );
 }
