@@ -11,6 +11,8 @@ import {
 } from "@/components/ui";
 import {
   ResponsiveContainer,
+  AreaChart,
+  Area,
   LineChart,
   Line,
   XAxis,
@@ -42,6 +44,12 @@ interface InvestorDeal {
   status: string;
 }
 
+interface CumulativeCashFlowData {
+  date: string;
+  cumulative: number;
+  month: string;
+}
+
 export default function InvestorDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +60,8 @@ export default function InvestorDashboard() {
     []
   );
   const [deals, setDeals] = useState<InvestorDeal[]>([]);
+  const [cumulativeCashFlow, setCumulativeCashFlow] = useState<CumulativeCashFlowData[]>([]);
+  const [currentPosition, setCurrentPosition] = useState<number>(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -60,27 +70,31 @@ export default function InvestorDashboard() {
         setError(null);
 
         // Fetch all data in parallel
-        const [contributionsRes, distributionsRes, dealsRes] =
+        const [contributionsRes, distributionsRes, dealsRes, cashFlowRes] =
           await Promise.all([
             fetch("/api/investor-summary/contributions"),
             fetch("/api/investor-summary/distributions"),
             fetch("/api/investor-summary/deals"),
+            fetch("/api/investor-dashboard/cumulative-cash-flow"),
           ]);
 
-        if (!contributionsRes.ok || !distributionsRes.ok || !dealsRes.ok) {
+        if (!contributionsRes.ok || !distributionsRes.ok || !dealsRes.ok || !cashFlowRes.ok) {
           throw new Error("Failed to fetch investor data");
         }
 
-        const [contributionsData, distributionsData, dealsData] =
+        const [contributionsData, distributionsData, dealsData, cashFlowData] =
           await Promise.all([
             contributionsRes.json(),
             distributionsRes.json(),
             dealsRes.json(),
+            cashFlowRes.json(),
           ]);
 
         setContributions(contributionsData);
         setDistributions(distributionsData);
         setDeals(dealsData);
+        setCumulativeCashFlow(cashFlowData.data || []);
+        setCurrentPosition(cashFlowData.current_position || 0);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "An unexpected error occurred"
@@ -221,32 +235,63 @@ export default function InvestorDashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Monthly Distributions</CardTitle>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Capital Position Over Time</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Cumulative cash flow (contributions - distributions)
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Current Position</p>
+                <p className="text-2xl font-bold">
+                  {formatCurrency(currentPosition)}
+                </p>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="h-[300px]">
+            <div className="h-[350px]">
               <ChartContainer
                 config={{
-                  amount: {
-                    label: "Distribution Amount",
-                    color: "#0ea5e9",
+                  cumulative: {
+                    label: "Cumulative Position",
+                    color: "hsl(var(--chart-1))",
                   },
                 }}
               >
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis tickFormatter={(value) => formatCurrency(value)} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line
-                      type="monotone"
-                      dataKey="amount"
-                      stroke="#0ea5e9"
-                      strokeWidth={2}
-                      dot={false}
+                  <AreaChart data={cumulativeCashFlow}>
+                    <defs>
+                      <linearGradient id="orangeGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#ff9500" stopOpacity={0.3} />
+                        <stop offset="100%" stopColor="#f72121" stopOpacity={0.05} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis 
+                      dataKey="month" 
+                      className="text-xs"
+                      tick={{ fill: "hsl(var(--muted-foreground))" }}
                     />
-                  </LineChart>
+                    <YAxis 
+                      tickFormatter={(value) => formatCurrency(value)}
+                      className="text-xs"
+                      tick={{ fill: "hsl(var(--muted-foreground))" }}
+                    />
+                    <ChartTooltip 
+                      content={<ChartTooltipContent />}
+                      labelFormatter={(label) => `Month: ${label}`}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="cumulative"
+                      stroke="#ff9500"
+                      strokeWidth={2}
+                      fill="url(#orangeGradient)"
+                      fillOpacity={1}
+                    />
+                  </AreaChart>
                 </ResponsiveContainer>
               </ChartContainer>
             </div>
