@@ -30,6 +30,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/overlays/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/overlays/dialog";
 import { Loader2, X, Plus, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -78,6 +86,7 @@ export function BrexVendorMatcher() {
   const [vendorOpen, setVendorOpen] = useState(false);
   const [userOpen, setUserOpen] = useState(false);
   const [orgOpen, setOrgOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     if (supabase) {
@@ -175,6 +184,7 @@ export function BrexVendorMatcher() {
 
       setSelectedVendor(null);
       setSelectedUser(null);
+      setDialogOpen(false);
       loadData();
     } catch (error) {
       toast({
@@ -208,6 +218,7 @@ export function BrexVendorMatcher() {
 
       setSelectedVendor(null);
       setSelectedOrg(null);
+      setDialogOpen(false);
       loadData();
     } catch (error) {
       toast({
@@ -266,15 +277,28 @@ export function BrexVendorMatcher() {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Vendor Matching</CardTitle>
-          <CardDescription>
-            Manually match Brex vendors to Clerk users and organizations
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Create New Match */}
-          <div className="space-y-4 border-b pb-4">
-            <h3 className="font-semibold">Create New Match</h3>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Vendor Matching</CardTitle>
+              <CardDescription>
+                Match Brex vendors to Clerk users and organizations
+              </CardDescription>
+            </div>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Match Vendor
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Create New Match</DialogTitle>
+                  <DialogDescription>
+                    Match a Brex vendor to a Clerk user or organization
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
 
             {/* Vendor Selection */}
             <div className="space-y-2">
@@ -463,10 +487,14 @@ export function BrexVendorMatcher() {
               </div>
             </div>
           </div>
-
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent>
           {/* Existing Matches */}
           <div className="space-y-2">
-            <h3 className="font-semibold">Existing Matches</h3>
+            <h3 className="font-semibold">Existing Matches ({vendorMatches.length})</h3>
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
