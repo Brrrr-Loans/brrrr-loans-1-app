@@ -285,6 +285,9 @@ export function UnmatchedTransfersTable({ onMatchCreated }: UnmatchedTransfersTa
   };
 
   const handleMatchComplete = async () => {
+    // Close dialog first
+    setDialogOpen(false);
+    
     // Reset selections and reload data
     setRowSelection({});
     setSelectedVendor("");

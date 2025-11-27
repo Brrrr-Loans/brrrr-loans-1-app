@@ -85,29 +85,47 @@ export async function POST(request: NextRequest) {
     // Process each transfer
     for (const transfer of transfers) {
       try {
-        // Check if match already exists (excluding soft-deleted)
+        // Check if match already exists (including soft-deleted)
         const { data: existingMatch } = await supabase
           .from("api_brex_transfers_vendors")
-          .select("id, brex_vendor_id")
+          .select("id, brex_vendor_id, deleted_at")
           .eq("brex_transfer_id", transfer.brex_transfer_id)
-          .is("deleted_at", null) // Only check active matches
           .maybeSingle();
 
         if (existingMatch) {
-          // Update existing match (re-match to different vendor)
-          const { error: updateError } = await supabase
-            .from("api_brex_transfers_vendors")
-            .update({
-              brex_vendor_id: vendor_id,
-              match_notes: notes || null,
-              match_method: "manual",
-              updated_at: new Date().toISOString(),
-              updated_by_user_id: currentUserDbId,
-            })
-            .eq("id", existingMatch.id);
+          if (existingMatch.deleted_at) {
+            // Un-delete and update soft-deleted match
+            const { error: updateError } = await supabase
+              .from("api_brex_transfers_vendors")
+              .update({
+                brex_vendor_id: vendor_id,
+                match_notes: notes || null,
+                match_method: "manual",
+                deleted_at: null, // Un-delete
+                deleted_by_user_id: null,
+                updated_at: new Date().toISOString(),
+                updated_by_user_id: currentUserDbId,
+              })
+              .eq("id", existingMatch.id);
 
-          if (updateError) throw updateError;
-          updatedCount++;
+            if (updateError) throw updateError;
+            updatedCount++;
+          } else {
+            // Update existing active match (re-match to different vendor)
+            const { error: updateError } = await supabase
+              .from("api_brex_transfers_vendors")
+              .update({
+                brex_vendor_id: vendor_id,
+                match_notes: notes || null,
+                match_method: "manual",
+                updated_at: new Date().toISOString(),
+                updated_by_user_id: currentUserDbId,
+              })
+              .eq("id", existingMatch.id);
+
+            if (updateError) throw updateError;
+            updatedCount++;
+          }
         } else {
           // Create new match
           const { error: insertError } = await supabase

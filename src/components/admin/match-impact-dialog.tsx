@@ -55,11 +55,14 @@ export function MatchImpactDialog({
   const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Only load preview when dialog first opens, not when selections change
-    if (open && transferIds.length > 0 && vendorId && step === "preview" && !preview) {
+    if (open && transferIds.length > 0 && vendorId) {
+      // Reset to preview step and load data when dialog opens
+      setStep("preview");
+      setPreview(null);
+      setSyncError(null);
       loadPreview();
     }
-  }, [open]);
+  }, [open, transferIds.length, vendorId]);
 
   const loadPreview = async () => {
     if (transferIds.length === 0 || !vendorId) {
