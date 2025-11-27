@@ -102,6 +102,7 @@ export function BrexVendorMatcher() {
     if (supabase) {
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase]);
 
   const loadData = async () => {
