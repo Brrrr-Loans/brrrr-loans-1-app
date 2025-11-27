@@ -80,52 +80,82 @@ export async function GET(request: Request) {
       });
     }
 
-    // Calculate cumulative cash flow by month
-    const monthlyData: Map<string, number> = new Map();
-    let runningTotal = 0;
+    // Calculate ROI month over month
+    const monthlyData: Map<
+      string,
+      { contributions: number; distributions: number }
+    > = new Map();
 
+    // Group transactions by month
     transactions.forEach((tx) => {
       const amount = parseFloat(tx.transaction_amount || "0");
-      runningTotal += amount;
-
       const date = new Date(tx.transaction_date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
-      
-      // Keep the last cumulative value for each month
-      monthlyData.set(monthKey, runningTotal);
+
+      const existing = monthlyData.get(monthKey) || {
+        contributions: 0,
+        distributions: 0,
+      };
+
+      if (amount < 0) {
+        // Contribution (investment)
+        existing.contributions += Math.abs(amount);
+      } else {
+        // Distribution (return)
+        existing.distributions += amount;
+      }
+
+      monthlyData.set(monthKey, existing);
     });
 
-    // Convert to array format for chart
+    // Calculate cumulative contributions and ROI for each month
+    let cumulativeContributions = 0;
     const chartData = Array.from(monthlyData.entries())
-      .map(([dateStr, cumulative]) => {
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([dateStr, { contributions, distributions }]) => {
+        cumulativeContributions += contributions;
+
+        // ROI = (Total Distributions to Date / Total Contributions to Date) * 100
+        const roi =
+          cumulativeContributions > 0
+            ? (distributions / cumulativeContributions) * 100
+            : 0;
+
         const date = new Date(dateStr);
         return {
           date: dateStr,
-          cumulative: cumulative,
+          roi: roi,
+          contributions: cumulativeContributions,
+          distributions: distributions,
           month: date.toLocaleDateString("en-US", {
             month: "short",
             year: "2-digit",
           }),
         };
-      })
-      .sort((a, b) => a.date.localeCompare(b.date));
+      });
 
-    // Calculate summary stats
+    // Calculate overall ROI
     const totalInvested = transactions
       .filter((tx) => parseFloat(tx.transaction_amount || "0") < 0)
-      .reduce((sum, tx) => sum + Math.abs(parseFloat(tx.transaction_amount || "0")), 0);
+      .reduce(
+        (sum, tx) => sum + Math.abs(parseFloat(tx.transaction_amount || "0")),
+        0
+      );
 
     const totalReturned = transactions
       .filter((tx) => parseFloat(tx.transaction_amount || "0") > 0)
       .reduce((sum, tx) => sum + parseFloat(tx.transaction_amount || "0"), 0);
 
+    const currentROI =
+      totalInvested > 0 ? (totalReturned / totalInvested) * 100 : 0;
+
     console.log(
-      `✅ Generated ${chartData.length} data points, current position: $${runningTotal.toFixed(2)}`
+      `✅ Generated ${chartData.length} data points, current ROI: ${currentROI.toFixed(2)}%`
     );
 
     return NextResponse.json({
       data: chartData,
-      current_position: runningTotal,
+      current_roi: currentROI,
       total_invested: totalInvested,
       total_returned: totalReturned,
     });

@@ -45,10 +45,12 @@ interface InvestorDeal {
   status: string;
 }
 
-interface CumulativeCashFlowData {
+interface ROIData {
   date: string;
-  cumulative: number;
+  roi: number;
   month: string;
+  contributions: number;
+  distributions: number;
 }
 
 export default function InvestorDashboard() {
@@ -62,8 +64,8 @@ export default function InvestorDashboard() {
     []
   );
   const [deals, setDeals] = useState<InvestorDeal[]>([]);
-  const [cumulativeCashFlow, setCumulativeCashFlow] = useState<CumulativeCashFlowData[]>([]);
-  const [currentPosition, setCurrentPosition] = useState<number>(0);
+  const [roiData, setRoiData] = useState<ROIData[]>([]);
+  const [currentROI, setCurrentROI] = useState<number>(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -98,8 +100,8 @@ export default function InvestorDashboard() {
         setContributions(contributionsData);
         setDistributions(distributionsData);
         setDeals(dealsData);
-        setCumulativeCashFlow(cashFlowData.data || []);
-        setCurrentPosition(cashFlowData.current_position || 0);
+        setRoiData(cashFlowData.data || []);
+        setCurrentROI(cashFlowData.current_roi || 0);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "An unexpected error occurred"
@@ -242,15 +244,15 @@ export default function InvestorDashboard() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Capital Position Over Time</CardTitle>
+                <CardTitle>Return on Investment Over Time</CardTitle>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Cumulative cash flow (contributions - distributions)
+                  Monthly ROI percentage trend
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs text-muted-foreground">Current Position</p>
+                <p className="text-xs text-muted-foreground">Current ROI</p>
                 <p className="text-2xl font-bold">
-                  {formatCurrency(currentPosition)}
+                  {currentROI.toFixed(2)}%
                 </p>
               </div>
             </div>
@@ -259,14 +261,14 @@ export default function InvestorDashboard() {
             <div className="h-[350px]">
               <ChartContainer
                 config={{
-                  cumulative: {
-                    label: "Cumulative Position",
-                    color: "hsl(var(--chart-1))",
+                  roi: {
+                    label: "ROI %",
+                    color: "#ff9500",
                   },
                 }}
               >
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={cumulativeCashFlow}>
+                  <AreaChart data={roiData}>
                     <defs>
                       <linearGradient id="orangeGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#ff9500" stopOpacity={0.3} />
@@ -280,17 +282,18 @@ export default function InvestorDashboard() {
                       tick={{ fill: "hsl(var(--muted-foreground))" }}
                     />
                     <YAxis 
-                      tickFormatter={(value) => formatCurrency(value)}
+                      tickFormatter={(value) => `${value.toFixed(1)}%`}
                       className="text-xs"
                       tick={{ fill: "hsl(var(--muted-foreground))" }}
                     />
                     <ChartTooltip 
                       content={<ChartTooltipContent />}
                       labelFormatter={(label) => `Month: ${label}`}
+                      formatter={(value: number) => [`${value.toFixed(2)}%`, "ROI"]}
                     />
                     <Area
                       type="monotone"
-                      dataKey="cumulative"
+                      dataKey="roi"
                       stroke="#ff9500"
                       strokeWidth={2}
                       fill="url(#orangeGradient)"
