@@ -34,29 +34,14 @@ export async function POST(request: NextRequest) {
       throw new Error("Failed to fetch transfers");
     }
 
-    // Get vendor with clerk matches
+    // Get vendor (use left joins, not inner joins)
     const { data: vendor, error: vendorError } = await supabase
       .from("api_brex_vendors")
       .select(
         `
         id,
         name,
-        email,
-        api_brex_vendors_clerk_users!inner (
-          clerk_user_id,
-          auth_clerk_users!inner (
-            id,
-            full_name,
-            email
-          )
-        ),
-        api_brex_vendors_clerk_orgs!inner (
-          clerk_org_id,
-          auth_clerk_orgs!inner (
-            id,
-            clerk_org_name
-          )
-        )
+        email
       `
       )
       .eq("id", vendor_id)
@@ -65,6 +50,35 @@ export async function POST(request: NextRequest) {
     if (vendorError || !vendor) {
       throw new Error("Failed to fetch vendor");
     }
+
+    // Get clerk user matches separately
+    const { data: userMatches } = await supabase
+      .from("api_brex_vendors_clerk_users")
+      .select(
+        `
+        clerk_user_id,
+        auth_clerk_users!inner (
+          id,
+          full_name,
+          email
+        )
+      `
+      )
+      .eq("brex_vendor_id", vendor_id);
+
+    // Get clerk org matches separately
+    const { data: orgMatches } = await supabase
+      .from("api_brex_vendors_clerk_orgs")
+      .select(
+        `
+        clerk_org_id,
+        auth_clerk_orgs!inner (
+          id,
+          clerk_org_name
+        )
+      `
+      )
+      .eq("brex_vendor_id", vendor_id);
 
     // Determine allocations
     const clerkAllocations: Array<{
@@ -77,8 +91,8 @@ export async function POST(request: NextRequest) {
     let willSkipTransactions = 0;
     const warnings: string[] = [];
 
-    const hasUserMatch = vendor.api_brex_vendors_clerk_users && vendor.api_brex_vendors_clerk_users.length > 0;
-    const hasOrgMatch = vendor.api_brex_vendors_clerk_orgs && vendor.api_brex_vendors_clerk_orgs.length > 0;
+    const hasUserMatch = userMatches && userMatches.length > 0;
+    const hasOrgMatch = orgMatches && orgMatches.length > 0;
 
     if (!hasUserMatch && !hasOrgMatch) {
       willSkipTransactions = transfers.length;
@@ -96,35 +110,35 @@ export async function POST(request: NextRequest) {
           ? transfer.amount / 100.0
           : 0;
 
-        // Use absolute value for display
-        const absAmount = Math.abs(amountDollars);
+        // Keep the sign - negative for contributions, positive for distributions
+        const amount = amountDollars;
 
         if (hasUserMatch) {
-          const userMatch = vendor.api_brex_vendors_clerk_users[0];
+          const userMatch = userMatches[0];
           const userName = userMatch.auth_clerk_users.full_name || "Unknown User";
           
           const existing = clerkAllocations.find((a) => a.name === userName && a.type === "user");
           if (existing) {
-            existing.amount += absAmount;
+            existing.amount += amount;
           } else {
             clerkAllocations.push({
               type: "user",
               name: userName,
-              amount: absAmount,
+              amount: amount,
             });
           }
         } else if (hasOrgMatch) {
-          const orgMatch = vendor.api_brex_vendors_clerk_orgs[0];
+          const orgMatch = orgMatches[0];
           const orgName = orgMatch.auth_clerk_orgs.clerk_org_name || "Unknown Org";
           
           const existing = clerkAllocations.find((a) => a.name === orgName && a.type === "org");
           if (existing) {
-            existing.amount += absAmount;
+            existing.amount += amount;
           } else {
             clerkAllocations.push({
               type: "org",
               name: orgName,
-              amount: absAmount,
+              amount: amount,
             });
           }
         }

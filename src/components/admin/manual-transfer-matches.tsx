@@ -309,9 +309,9 @@ export function ManualTransferMatches({ onMatchDeleted }: ManualTransferMatchesP
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Manual Matches</CardTitle>
+          <CardTitle>Matched Transfers</CardTitle>
           <CardDescription>
-            View and manage manual transfer-vendor matches
+            View audit trail and manage matched transfers
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -327,16 +327,16 @@ export function ManualTransferMatches({ onMatchDeleted }: ManualTransferMatchesP
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Manual Matches</CardTitle>
+          <CardTitle>Matched Transfers</CardTitle>
           <CardDescription>
-            View and manage manual transfer-vendor matches ({matches.length} matches)
+            View audit trail and manage matched transfers ({matches.length} matches)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {matches.length === 0 ? (
             <div className="rounded-lg border border-dashed p-8 text-center">
               <p className="text-sm text-muted-foreground">
-                No manual matches yet. Switch to the Unmatched tab to create matches.
+                No matched transfers yet. Switch to the Unmatched Transfers tab to create matches.
               </p>
             </div>
           ) : (

@@ -51,7 +51,7 @@ export function TransferVendorMatchingTabs() {
           )}
         </TabsTrigger>
         <TabsTrigger value="matched">
-          Manual Matches
+          Matched Transfers
           {matchedCount > 0 && (
             <span className="ml-2 rounded-md bg-muted px-2 py-0.5 text-xs">
               {matchedCount}

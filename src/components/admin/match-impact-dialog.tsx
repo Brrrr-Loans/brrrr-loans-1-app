@@ -55,15 +55,22 @@ export function MatchImpactDialog({
   const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open && transferIds.length > 0 && vendorId) {
+    // Only load preview when dialog first opens, not when selections change
+    if (open && transferIds.length > 0 && vendorId && step === "preview" && !preview) {
       loadPreview();
     }
-  }, [open, transferIds, vendorId]);
+  }, [open]);
 
   const loadPreview = async () => {
+    if (transferIds.length === 0 || !vendorId) {
+      onOpenChange(false);
+      return;
+    }
+    
     setLoading(true);
     setSyncError(null);
     setStep("preview");
+    setPreview(null);
     
     try {
       const response = await fetch("/api/brex/match-impact-preview", {
@@ -111,8 +118,8 @@ export function MatchImpactDialog({
       const data = await response.json();
 
       if (data.success) {
+        onMatchComplete(); // Clear selections and reload
         setStep("sync-prompt");
-        onMatchComplete();
       } else {
         throw new Error(data.error || "Failed to match transfers");
       }
