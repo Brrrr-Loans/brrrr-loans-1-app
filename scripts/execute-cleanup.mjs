@@ -2,8 +2,22 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_KEY;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL) {
+  console.error('❌ Missing required environment variable');
+  console.error('Set either NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL in your .env.local file');
+  console.error('Find it in: Supabase Dashboard > Project Settings > API > Project URL');
+  process.exit(1);
+}
+
+if (!SUPABASE_ANON_KEY) {
+  console.error('❌ Missing required environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  console.error('Add it to your .env.local file');
+  console.error('Find it in: Supabase Dashboard > Project Settings > API > anon/public key');
+  process.exit(1);
+}
 
 console.log('🧹 Database Cleanup Execution');
 console.log('=============================\n');

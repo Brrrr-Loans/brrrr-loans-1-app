@@ -9,15 +9,20 @@ console.log("==================================\n");
 // Check for required environment variables
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.NEXT_PUBLIC_SUPABASE_KEY ||
-  process.env.SUPABASE_ANON_KEY;
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.log("❌ Missing required environment variables!");
-  console.log("Please run: node database-cleanup.mjs for setup instructions.");
+if (!SUPABASE_URL) {
+  console.error('❌ Missing required environment variable');
+  console.error('Set either NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL in your .env.local file');
+  console.error('Find it in: Supabase Dashboard > Project Settings > API > Project URL');
+  process.exit(1);
+}
+
+if (!SUPABASE_ANON_KEY) {
+  console.error('❌ Missing required environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  console.error('Add it to your .env.local file');
+  console.error('Find it in: Supabase Dashboard > Project Settings > API > anon/public key');
   process.exit(1);
 }
 
