@@ -13,9 +13,6 @@
   },
   "dependencies": {
     "@1771technologies/lytenyte-pro": "^1.0.18",
-    "@builder.io/dev-tools": "^1.18.33",
-    "@builder.io/react": "^8.2.4",
-    "@builder.io/sdk": "^6.1.0",
     "@clerk/elements": "^0.23.87",
     "@clerk/nextjs": "^6.35.6",
     "@clerk/themes": "^2.4.21",
