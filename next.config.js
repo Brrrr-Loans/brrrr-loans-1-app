@@ -1,47 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Explicitly set turbopack root to prevent detecting parent directory lockfiles
-  turbopack: {
-    root: '.',
-  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "shadcnblocks.com" },
       { protocol: "https", hostname: "api.app.brrrrloans.com" },
       { protocol: "https", hostname: "assets.vercel.com" },
       { protocol: "https", hostname: "supabase.com" },
-      { protocol: "https", hostname: "cdn.builder.io" },
       { protocol: "https", hostname: "img.clerk.com" },
       { protocol: "https", hostname: "images.clerk.dev" },
     ],
-  },
-  allowedDevOrigins: [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://192.168.1.237:3001",
-    "https://f0187fe17a45.ngrok-free.app",
-    "https://4082e8a3624e.ngrok-free.app",
-    "https://builder.io",
-    "https://*.builder.io",
-    "https://fusion-development.builder.io",
-  ],
-  // Additional headers for Builder.io integration
-  async headers() {
-    return [
-      {
-        source: "/(.*)",
-        headers: [
-          {
-            key: "X-Frame-Options",
-            value: "SAMEORIGIN",
-          },
-          {
-            key: "Access-Control-Allow-Origin",
-            value: "https://builder.io",
-          },
-        ],
-      },
-    ];
   },
   async redirects() {
     return [
@@ -96,9 +63,6 @@ const nextConfig = {
         permanent: true,
       },
     ];
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
   },
   typescript: {
     // !! WARN !!
