@@ -1,10 +1,6 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import {
-  ClerkProvider,
-  ClerkLoading,
-  ClerkFailed,
-} from "@clerk/nextjs";
+import { ClerkProvider, ClerkLoading, ClerkFailed } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { SonnerToaster as Toaster } from "@/components/ui";
 import { ThemeFavicon } from "@/components/layout/theme-favicon";
@@ -25,8 +21,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BL1 OS",
-  description: "BL1 Loan Origination System",
+  title: {
+    default: "Repeat", // Fallback title
+    template: "%s | Repeat", // Page titles become "Page Name | BL1 OS"
+  },
+  description:
+    "The enterprise operating system for business-purpose lending at scale — open source, white-label, infinitely flexible",
   icons: {
     apple: "/logos/brrrr-icon-sq-black-192.png",
   },
