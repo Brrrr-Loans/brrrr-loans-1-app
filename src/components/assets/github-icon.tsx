@@ -22,7 +22,7 @@ export function GitHubIcon({ className = "", size = 16 }: GitHubIconProps) {
   if (!mounted) {
     return (
       <Image
-        src="/logos/github-invertocat-black.svg"
+        src="/assets/logos/github-invertocat-black.svg"
         alt="GitHub"
         width={size}
         height={size}
@@ -37,8 +37,8 @@ export function GitHubIcon({ className = "", size = 16 }: GitHubIconProps) {
     theme === "dark" || (theme === "system" && systemTheme === "dark");
 
   const logoSrc = isDark
-    ? "/logos/github-invertocat-white.svg"
-    : "/logos/github-invertocat-black.svg";
+    ? "/assets/logos/github-invertocat-white.svg"
+    : "/assets/logos/github-invertocat-black.svg";
 
   return (
     <Image

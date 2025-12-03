@@ -21,14 +21,14 @@ export function SignUpLayout({ children }: SignUpLayoutProps) {
         >
           <div className="flex h-8 w-8 items-center justify-center">
             <Image
-              src="/logos/brrrr-icon-sq-gradient-black-2.svg"
+              src="/assets/logos/brrrr-icon-sq-gradient-black-2.svg"
               alt="Brrrr Loans Logo Light Mode"
               width={32}
               height={32}
               className="block dark:hidden"
             />
             <Image
-              src="/logos/brrrr-icon-sq-gradient-white-2.svg"
+              src="/assets/logos/brrrr-icon-sq-gradient-white-2.svg"
               alt="Brrrr Loans Logo Dark Mode"
               width={32}
               height={32}
@@ -84,7 +84,7 @@ export function SignUpLayout({ children }: SignUpLayoutProps) {
           {/* BRRRR Logo and tagline positioned on top of gradient */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <Image
-              src="/logos/brrrr-mark-white.svg"
+              src="/assets/logos/brrrr-mark-white.svg"
               alt="BRRRR Logo"
               width="324"
               height="56"

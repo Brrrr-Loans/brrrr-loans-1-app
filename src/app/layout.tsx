@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   description:
     "The enterprise operating system for business-purpose lending at scale — open source, white-label, infinitely flexible",
   icons: {
-    apple: "/logos/brrrr-icon-sq-black-192.png",
+    apple: "/assets/logos/brrrr-icon-sq-black-192.png",
   },
 };
 

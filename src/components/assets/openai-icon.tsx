@@ -22,7 +22,7 @@ export function OpenAIIcon({ className = "", size = 16 }: OpenAIIconProps) {
   if (!mounted) {
     return (
       <Image
-        src="/logos/openai-logo-icon-lightmode.svg"
+        src="/assets/logos/openai-logo-icon-lightmode.svg"
         alt="OpenAI"
         width={size}
         height={size}
@@ -37,8 +37,8 @@ export function OpenAIIcon({ className = "", size = 16 }: OpenAIIconProps) {
     theme === "dark" || (theme === "system" && systemTheme === "dark");
 
   const logoSrc = isDark
-    ? "/logos/openai-logo-icon-darkmode.svg"
-    : "/logos/openai-logo-icon-lightmode.svg";
+    ? "/assets/logos/openai-logo-icon-darkmode.svg"
+    : "/assets/logos/openai-logo-icon-lightmode.svg";
 
   return (
     <Image
