@@ -14,6 +14,9 @@ import {
   ArrowDownToLine,
   ArrowUpToLine,
   ListTree,
+  PieChart,
+  Lightbulb,
+  FileText,
 } from "lucide-react";
 import { NavSearch } from "./nav-search";
 import { NavMain } from "./nav-main";
@@ -51,6 +54,22 @@ export function AppSidebar(
   ];
 
   const balanceSheetItems = [
+    {
+      name: "Portfolio",
+      icon: PieChart,
+      items: [
+        {
+          name: "Insights",
+          url: "/balance-sheet/investor",
+          icon: Lightbulb,
+        },
+        {
+          name: "Reports",
+          url: "/balance-sheet/investor",
+          icon: FileText,
+        },
+      ],
+    },
     {
       name: "Documents",
       icon: FileBarChart2,
