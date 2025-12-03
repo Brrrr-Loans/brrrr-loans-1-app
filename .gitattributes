@@ -1,0 +1,24 @@
+# Auto-detect text files and perform LF normalization
+* text=auto
+
+# Generated files - exclude from language statistics and diffs
+tsconfig.tsbuildinfo linguist-generated=true
+package-lock.json linguist-generated=true
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+
+# Mark documentation as documentation
+*.md linguist-documentation=true
+
+# Ensure shell scripts use LF line endings
+*.sh text eol=lf
+
+# Ensure batch scripts use CRLF line endings
+*.bat text eol=crlf
+
