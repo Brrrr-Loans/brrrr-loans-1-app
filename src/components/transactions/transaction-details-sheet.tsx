@@ -16,7 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/layout/card";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/feedback/badge";
 import { Button } from "@/components/ui/forms/button";
 import { Separator } from "@/components/ui/layout/separator";
 import { ScrollArea } from "@/components/ui/layout/scroll-area";

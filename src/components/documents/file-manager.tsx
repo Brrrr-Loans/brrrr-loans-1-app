@@ -25,7 +25,7 @@ import {
   Dropzone,
   DropzoneContent,
   DropzoneEmptyState,
-} from "@/components/ui/supabase-dropzone";
+} from "@/components/ui/forms/supabase-dropzone";
 import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
 import {
   Search,
@@ -47,7 +47,7 @@ import {
   Grid3X3,
   List,
 } from "lucide-react";
-import { formatBytes } from "@/components/ui/supabase-dropzone";
+import { formatBytes } from "@/components/ui/forms/supabase-dropzone";
 import { format } from "date-fns";
 
 interface FileItem {

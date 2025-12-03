@@ -13,7 +13,7 @@
 
 import { LyteNyte } from "@/components/lytenyte-pro";
 import { useLyteNyte, useClientRowDataSource } from "@/hooks/use-lytenyte-pro";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/feedback/badge";
 
 // Example deal type - replace with your actual Deal type
 interface Deal {

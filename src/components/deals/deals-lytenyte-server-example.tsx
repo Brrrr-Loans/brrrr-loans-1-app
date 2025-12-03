@@ -13,7 +13,7 @@
 
 import { LyteNyte } from "@/components/lytenyte-pro";
 import { useLyteNyte, useServerDataSource } from "@/hooks/use-lytenyte-pro";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/feedback/badge";
 
 interface Deal {
   id: string;

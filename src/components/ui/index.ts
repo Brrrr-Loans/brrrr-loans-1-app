@@ -1,8 +1,6 @@
-// Core components
-export * from "./badge";
-
 // Feedback components
 export * from "./feedback/alert";
+export * from "./feedback/badge";
 export * from "./feedback/progress";
 export * from "./feedback/skeleton";
 export { Toaster as SonnerToaster } from "./feedback/sonner";
@@ -20,12 +18,16 @@ export * from "./forms/input";
 export * from "./forms/label";
 export * from "./forms/login-form";
 export * from "./forms/select";
+export * from "./forms/supabase-dropzone";
 export * from "./forms/textarea";
 export * from "./forms/toggle";
 export * from "./forms/toggle-group";
 
 // Layout components
 export * from "./layout/card";
+export * from "./layout/collapsible";
+export * from "./layout/page-header";
+export * from "./layout/pagination";
 export * from "./layout/scroll-area";
 export * from "./layout/separator";
 export * from "./layout/sidebar";
@@ -40,9 +42,6 @@ export * from "./overlays/popover";
 export * from "./overlays/sheet";
 export * from "./overlays/tooltip";
 
-// Interaction components
-export * from "./collapsible";
-
 // Data components
 export * from "./data/chart";
 export * from "./data/data-table";
@@ -53,6 +52,4 @@ export * from "./navigation/breadcrumb";
 
 // Media components
 export * from "./media/avatar";
-export * from "./layout/pagination";
-export * from "./stacked-avatars";
-export * from "./supabase-dropzone";
+export * from "./media/stacked-avatars";

@@ -7,7 +7,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+} from "@/components/ui/layout/collapsible";
 import { FileText, Eye, Building, User, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";

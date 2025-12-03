@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { FileSpreadsheet, CreditCard, FileSignature } from "lucide-react";
-import { PageHeader } from "@/components/ui/page-header";
+import { PageHeader } from "@/components/ui/layout/page-header";
 import { AccountStatements } from "@/components/documents/account-statements";
 import { PaymentRecords } from "@/components/documents/payment-records";
 import { ParticipationAgreements } from "@/components/documents/participation-agreements";
