@@ -1,9 +1,9 @@
 "use client";
 
 import { RouteProtection } from "@/components/auth/route-protection";
-import { BrexSyncButtons } from "@/components/admin/brex-sync-buttons";
-import { BrexVendorMatcher } from "@/components/admin/brex-vendor-matcher";
-import { TransferVendorMatchingTabs } from "@/components/admin/transfer-vendor-matching-tabs";
+import { BrexSyncButtons } from "../../components/brex-sync-buttons";
+import { BrexVendorMatcher } from "../../components/brex-vendor-matcher";
+import { TransferVendorMatchingTabs } from "../../components/transfer-vendor-matching-tabs";
 
 function BrexPageContent() {
   return (

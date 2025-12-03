@@ -1,7 +1,7 @@
 "use client";
 
 import { withInvestorPermission } from "@/components/auth/with-investor-permission";
-import { DealDetails } from "@/components/deals/deal-details";
+import { DealDetails } from "./deal-details";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui";
 import { AlertCircle } from "lucide-react";
 

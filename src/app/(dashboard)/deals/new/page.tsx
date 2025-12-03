@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui";
-import { CreateDealForm } from "@/components/deals/form-create-deal";
+import { CreateDealForm } from "../components/form-create-deal";
 
 export default function NewDealPage() {
   return (

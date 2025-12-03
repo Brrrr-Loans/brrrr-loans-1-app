@@ -22,7 +22,7 @@ import {
 } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { DistributionsListWrapper } from "@/components/distributions/list-protected-distributions";
-import { ActiveDealsListWrapper } from "@/components/deals/list-active-deals";
+import { ActiveDealsListWrapper } from "@/app/(dashboard)/deals/components/list-active-deals";
 
 interface MonthlyDistribution {
   month: string;

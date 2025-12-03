@@ -1,7 +1,7 @@
 "use client";
 
-import { DealsDataTable } from "@/components/deals";
-import { SectionCards } from "@/components/dashboard/section-cards";
+import { DealsDataTable } from "@/app/(dashboard)/deals/components";
+import { SectionCards } from "./components/section-cards";
 
 export default function Page() {
   return (

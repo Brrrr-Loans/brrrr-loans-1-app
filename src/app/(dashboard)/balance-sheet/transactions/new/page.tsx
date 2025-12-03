@@ -1,6 +1,6 @@
 "use client";
 
-import { CreateTransactionForm } from "@/components/transactions/create-transaction-form";
+import { CreateTransactionForm } from "../components/create-transaction-form";
 import { useRouter } from "next/navigation";
 
 export default function CreateTransactionPage() {

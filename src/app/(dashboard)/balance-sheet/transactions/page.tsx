@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui";
 import { Plus, ArrowDownToLine, ArrowUpToLine, ListTree } from "lucide-react";
-import { TransactionsDataTable } from "@/components/transactions/tanstack-datatable";
+import { TransactionsDataTable } from "./components/tanstack-datatable";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 

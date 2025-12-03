@@ -2,8 +2,8 @@ export const dynamic = "force-dynamic";
 
 import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
-import { DealDetailsWrapper } from "@/components/deals/deal-details-protected";
-import { DocumentsListWrapper } from "@/components/deals/list-protected-documents";
+import { DealDetailsWrapper } from "../components/deal-details-protected";
+import { DocumentsListWrapper } from "../components/list-protected-documents";
 import { DistributionsListWrapper } from "@/components/distributions/list-protected-distributions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { notFound } from "next/navigation";

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { TransactionDetailsSheet } from "@/components/transactions/transaction-details-sheet";
+import { TransactionDetailsSheet } from "../components/transaction-details-sheet";
 
 export default function TransactionDetailPage() {
   const params = useParams();

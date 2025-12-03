@@ -1,7 +1,7 @@
 "use client";
 
 import { RouteProtection } from "@/components/auth/route-protection";
-import { DealsDataTable } from "@/components/deals/components/deals-data-table";
+import { DealsDataTable } from "./components/deals-data-table";
 
 function DealsPageContent() {
   return (
