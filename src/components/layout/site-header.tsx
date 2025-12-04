@@ -129,6 +129,38 @@ function generateBreadcrumbs(
     );
   };
 
+  // Handle Balance Sheet / Investor route
+  const renderInvestorBreadcrumb = (currentPage: string) => {
+    return (
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/balance-sheet/investor">Balance Sheet</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator>
+            <SlashIcon />
+          </BreadcrumbSeparator>
+          <BreadcrumbItem>
+            <BreadcrumbPage>{currentPage}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+    );
+  };
+
+  // Handle Balance Sheet / Transactions / New route
+  if (path === "/balance-sheet/transactions/new") {
+    return renderTransactionsBreadcrumb("New Transaction");
+  }
+
+  // Handle Balance Sheet / Transactions / [id] route (transaction details)
+  if (path.startsWith("/balance-sheet/transactions/") && path !== "/balance-sheet/transactions/new") {
+    const transactionId = path.split("/").pop();
+    return renderTransactionsBreadcrumb(`Transaction #${transactionId}`);
+  }
+
   // Handle Balance Sheet / Transactions routes with tab parameter
   if (path === "/balance-sheet/transactions") {
     const tab = searchParams?.get("tab") || "all";
@@ -140,6 +172,11 @@ function generateBreadcrumbs(
         : "All Transactions";
 
     return renderTransactionsBreadcrumb(tabLabel);
+  }
+
+  // Handle Balance Sheet / Investor route
+  if (path === "/balance-sheet/investor") {
+    return renderInvestorBreadcrumb("Investor Portfolio");
   }
 
   // Handle Balance Sheet / Documents routes with tab parameter
@@ -223,7 +260,14 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [showTeamSwitcher, setShowTeamSwitcher] = React.useState(false);
+  const [mounted, setMounted] = React.useState(false);
   const { user } = useUser();
+
+  // Ensure breadcrumbs only render on client to prevent hydration mismatch
+  // useSearchParams() can return different values during SSR vs client hydration
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Check if user is admin
   const isAdmin =
@@ -242,7 +286,10 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
           orientation="vertical"
           className="bg-border shrink-0 w-[1px] mr-2 h-4"
         />
-        {breadcrumb || generateBreadcrumbs(pathname, searchParams, dealName)}
+        {mounted 
+          ? (breadcrumb || generateBreadcrumbs(pathname, searchParams, dealName))
+          : <div className="h-4 w-32 bg-muted/50 animate-pulse rounded" />
+        }
         <div className="flex items-center gap-4 ml-auto flex-shrink-0">
           <SearchForm
             className="w-full max-w-56 xl:max-w-64"

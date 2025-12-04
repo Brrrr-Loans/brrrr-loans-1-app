@@ -1,17 +1,35 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/ui";
+import {
+  Button,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui";
 import { Plus, ArrowDownLeft, ArrowUpRight, ListTree } from "lucide-react";
 import { TransactionsDataTable } from "./components/tanstack-datatable";
+import { CreateTransactionForm } from "./components/create-transaction-form";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 function TransactionsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const activeTab = searchParams.get("tab") || "all";
+  const [mounted, setMounted] = useState(false);
+
+  // Ensure client-only rendering for searchParams-dependent UI to prevent hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const activeTab = mounted ? (searchParams.get("tab") || "all") : "all";
+
+  // Control sheet via URL query param for shareable state
+  const isCreateSheetOpen = mounted && searchParams.get("create") === "true";
 
   const tabs = [
     {
@@ -34,6 +52,27 @@ function TransactionsPageContent() {
     },
   ];
 
+  const handleOpenCreateSheet = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("create", "true");
+    router.push(`/balance-sheet/transactions?${params.toString()}`, {
+      scroll: false,
+    });
+  };
+
+  const handleCloseCreateSheet = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("create");
+    router.push(`/balance-sheet/transactions?${params.toString()}`, {
+      scroll: false,
+    });
+  };
+
+  const handleTransactionSuccess = () => {
+    handleCloseCreateSheet();
+    // Table will automatically refetch due to useEffect dependencies
+  };
+
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       {/* Page Header */}
@@ -45,9 +84,7 @@ function TransactionsPageContent() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            onClick={() => router.push("/balance-sheet/transactions/new")}
-          >
+          <Button onClick={handleOpenCreateSheet}>
             <Plus className="mr-2 h-4 w-4" />
             Create Transaction
           </Button>
@@ -78,8 +115,30 @@ function TransactionsPageContent() {
         </nav>
       </div>
 
-      {/* NEW: TanStack Table Component */}
+      {/* TanStack Table Component */}
       <TransactionsDataTable />
+
+      {/* Create Transaction Sheet */}
+      <Sheet
+        open={isCreateSheetOpen}
+        onOpenChange={(open) => !open && handleCloseCreateSheet()}
+      >
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-xl md:max-w-2xl overflow-y-auto"
+        >
+          <SheetHeader className="sr-only">
+            <SheetTitle>Create Transaction</SheetTitle>
+            <SheetDescription>
+              Create a new transaction with deal and investor allocations.
+            </SheetDescription>
+          </SheetHeader>
+          <CreateTransactionForm
+            onSuccess={handleTransactionSuccess}
+            onCancel={handleCloseCreateSheet}
+          />
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
