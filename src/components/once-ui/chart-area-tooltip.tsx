@@ -16,6 +16,10 @@ interface ChartAreaTooltipProps {
     name: string;
     value: number;
     dataKey: string;
+    payload?: {
+      date?: string;
+      month?: string;
+    };
   }>;
   label?: string;
   /** Map of dataKey to display label */
@@ -26,6 +30,39 @@ interface ChartAreaTooltipProps {
   primaryColorVar?: string;
   /** CSS variable name for secondary data series color (without --) */
   secondaryColorVar?: string;
+}
+
+/**
+ * Format a month label (e.g., "Aug 2025") into a date range with styled year
+ * Returns { range: "Aug 1 - 31", year: "2025" }
+ */
+function formatDateRange(label: string, dateKey?: string): { range: string; year: string } {
+  // Try to parse from dateKey (YYYY-MM format) first
+  if (dateKey && /^\d{4}-\d{2}$/.test(dateKey)) {
+    const [year, month] = dateKey.split("-").map(Number);
+    const lastDay = new Date(year, month, 0).getDate(); // Get last day of month
+    const monthName = new Date(year, month - 1, 1).toLocaleDateString("en-US", { month: "short" });
+    return {
+      range: `${monthName} 1 - ${lastDay}`,
+      year: year.toString(),
+    };
+  }
+
+  // Fallback: parse from label (e.g., "Aug 2025")
+  const match = label?.match(/^([A-Za-z]+)\s+(\d{4})$/);
+  if (match) {
+    const [, monthName, year] = match;
+    // Parse the month to get last day
+    const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth();
+    const lastDay = new Date(Number(year), monthIndex + 1, 0).getDate();
+    return {
+      range: `${monthName} 1 - ${lastDay}`,
+      year,
+    };
+  }
+
+  // If parsing fails, return original label
+  return { range: label || "", year: "" };
 }
 
 export function ChartAreaTooltip({
@@ -46,10 +83,21 @@ export function ChartAreaTooltip({
     return index === 0 ? primaryColorVar : secondaryColorVar;
   };
 
+  // Get date key from payload for more accurate parsing
+  const dateKey = payload[0]?.payload?.date;
+  const { range, year } = formatDateRange(label || "", dateKey);
+
   return (
     <div className="rounded-xl border border-[rgb(var(--chart-grid)_/_0.15)] bg-background px-4 py-3 shadow-lg">
-      {/* Header - Label */}
-      <div className="mb-2 text-sm font-semibold">{label}</div>
+      {/* Header - Date Range with styled year */}
+      <div className="mb-2 text-sm font-semibold">
+        {range}
+        {year && (
+          <span className="ml-1 text-[11px] font-medium text-muted-foreground align-baseline">
+            {year}
+          </span>
+        )}
+      </div>
 
       {/* Data rows */}
       <div className="flex flex-col gap-2">
