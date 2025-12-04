@@ -52,26 +52,71 @@ export async function GET(request: Request) {
 
     console.log(`📊 Fetching cumulative cash flow for user ${targetUserId}...`);
 
-    // Get all transactions for this investor, ordered by date
-    const { data: transactions, error } = await supabase
+    // Get the user's organization memberships
+    const { data: orgMemberships } = await supabase
+      .from("auth_clerk_orgs_members")
+      .select("clerk_org_id")
+      .eq("auth_clerk_users_id", targetUserId);
+
+    const userOrgIds = (orgMemberships || [])
+      .map((m) => m.clerk_org_id)
+      .filter((id): id is number => id !== null);
+
+    // Get transactions linked directly to user
+    const { data: userTransactions, error: userError } = await supabase
       .from("bsi_transactions")
       .select(
         `
+        id,
         transaction_date,
         transaction_amount,
         ledger_entry_type,
-        bsi_transactions_investors!inner(clerk_user_id)
+        bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
       `
       )
       .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
       .order("transaction_date", { ascending: true });
 
-    if (error) {
-      console.error("❌ Error fetching transactions:", error);
-      throw error;
+    if (userError) {
+      console.error("❌ Error fetching user transactions:", userError);
+      throw userError;
     }
 
-    if (!transactions || transactions.length === 0) {
+    // Get transactions linked via org membership
+    let orgTransactions: typeof userTransactions = [];
+    if (userOrgIds.length > 0) {
+      const { data: orgData, error: orgError } = await supabase
+        .from("bsi_transactions")
+        .select(
+          `
+          id,
+          transaction_date,
+          transaction_amount,
+          ledger_entry_type,
+          bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
+        `
+        )
+        .in("bsi_transactions_investors.clerk_org_id", userOrgIds)
+        .order("transaction_date", { ascending: true });
+
+      if (orgError) {
+        console.error("❌ Error fetching org transactions:", orgError);
+        throw orgError;
+      }
+      orgTransactions = orgData || [];
+    }
+
+    // Combine and deduplicate
+    const allTransactions = [...(userTransactions || []), ...orgTransactions];
+    const transactions = Array.from(
+      new Map(allTransactions.map((t) => [t.id, t])).values()
+    ).sort((a, b) => {
+      const dateA = a.transaction_date ? new Date(a.transaction_date).getTime() : 0;
+      const dateB = b.transaction_date ? new Date(b.transaction_date).getTime() : 0;
+      return dateA - dateB;
+    });
+
+    if (transactions.length === 0) {
       return NextResponse.json({
         data: [],
         current_position: 0,

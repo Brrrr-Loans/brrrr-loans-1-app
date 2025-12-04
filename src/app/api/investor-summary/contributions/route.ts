@@ -33,8 +33,19 @@ export async function GET(request: Request) {
       targetUserId = currentUser.id;
     }
 
-    // Get contributions for this user
-    const { data, error } = await supabase
+    // Get the user's organization memberships
+    const { data: orgMemberships } = await supabase
+      .from("auth_clerk_orgs_members")
+      .select("clerk_org_id")
+      .eq("auth_clerk_users_id", targetUserId);
+
+    const userOrgIds = (orgMemberships || [])
+      .map((m) => m.clerk_org_id)
+      .filter((id): id is number => id !== null);
+
+    // Get contributions for this user - either directly linked OR via org membership
+    // Query 1: Contributions linked directly to user
+    const { data: userContributions, error: userError } = await supabase
       .from("bsi_transactions")
       .select(
         `
@@ -42,17 +53,45 @@ export async function GET(request: Request) {
         transaction_amount,
         transaction_status,
         transaction_date,
-        bsi_transactions_investors!inner(clerk_user_id)
+        bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
       `
       )
       .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
       .eq("ledger_entry_type", "contribution")
       .order("transaction_date", { ascending: false });
 
-    if (error) throw error;
+    if (userError) throw userError;
+
+    // Query 2: Contributions linked via org membership
+    let orgContributions: typeof userContributions = [];
+    if (userOrgIds.length > 0) {
+      const { data: orgData, error: orgError } = await supabase
+        .from("bsi_transactions")
+        .select(
+          `
+          id,
+          transaction_amount,
+          transaction_status,
+          transaction_date,
+          bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
+        `
+        )
+        .in("bsi_transactions_investors.clerk_org_id", userOrgIds)
+        .eq("ledger_entry_type", "contribution")
+        .order("transaction_date", { ascending: false });
+
+      if (orgError) throw orgError;
+      orgContributions = orgData || [];
+    }
+
+    // Combine and deduplicate results
+    const allContributions = [...(userContributions || []), ...orgContributions];
+    const uniqueContributions = Array.from(
+      new Map(allContributions.map((d) => [d.id, d])).values()
+    );
 
     // Map to expected format
-    const contributions = (data || []).map((tx) => ({
+    const contributions = uniqueContributions.map((tx) => ({
       contribution_amount: Math.abs(parseFloat(tx.transaction_amount || "0")),
       contribution_status: tx.transaction_status || "pending",
       active: true,
