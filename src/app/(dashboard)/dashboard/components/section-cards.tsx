@@ -29,26 +29,32 @@ export function SectionCards() {
         // Fetch all deals
         const { data: deals, error } = await supabase
           .from("deal")
-          .select("id, deal_stage_2, loan_amount_total");
+          .select("id, deal_stage_2, deal_disposition_1, loan_amount_total");
 
-        if (error) {
-          console.error("Error fetching deals metrics:", error);
-          return;
+        if (error && error.message) {
+          console.error("Error fetching deals metrics:", {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+          });
+          // Continue with empty data rather than returning
         }
 
-        const totalDeals = deals?.length || 0;
-        const activeDeals =
-          deals?.filter(
-            (deal) =>
-              deal.deal_stage_2 === "active" ||
-              deal.deal_stage_2 === "closed_and_funded" ||
-              deal.deal_stage_2 === "clear_to_close"
-          ).length || 0;
+        const dealsList = deals || [];
+        const totalDeals = dealsList.length;
+        const activeDeals = dealsList.filter(
+          (deal) =>
+            deal.deal_disposition_1 === "active" ||
+            deal.deal_stage_2 === "active" ||
+            deal.deal_stage_2 === "closed_and_funded" ||
+            deal.deal_stage_2 === "clear_to_close"
+        ).length;
 
-        const totalVolume = deals?.reduce(
-          (sum, deal) => sum + (deal.loan_amount_total || 0),
+        const totalVolume = dealsList.reduce(
+          (sum, deal) => sum + (Number(deal.loan_amount_total) || 0),
           0
-        ) || 0;
+        );
 
         setMetrics({
           totalDeals,
