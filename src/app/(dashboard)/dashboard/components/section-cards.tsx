@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
-import { DollarSign, Building, TrendingUp, FileText } from "lucide-react";
+import { StatCard } from "@/components/once-ui";
 import { useSupabase } from "@/hooks/use-supabase";
 
 interface DashboardMetrics {
@@ -82,16 +81,15 @@ export function SectionCards() {
     return (
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[...Array(4)].map((_, i) => (
-          <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="h-4 w-24 bg-muted animate-pulse rounded" />
-              <div className="h-4 w-4 bg-muted animate-pulse rounded" />
-            </CardHeader>
-            <CardContent>
-              <div className="h-8 w-16 bg-muted animate-pulse rounded mb-1" />
-              <div className="h-3 w-32 bg-muted animate-pulse rounded" />
-            </CardContent>
-          </Card>
+          <div
+            key={i}
+            className="relative flex flex-col rounded-2xl border border-[rgb(var(--chart-grid)_/_0.15)] bg-transparent p-5 pb-20 min-w-48 animate-pulse"
+          >
+            <div className="flex flex-col gap-3">
+              <div className="h-4 w-24 bg-muted rounded" />
+              <div className="h-8 w-20 bg-muted rounded" />
+            </div>
+          </div>
         ))}
       </div>
     );
@@ -99,60 +97,30 @@ export function SectionCards() {
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Deals</CardTitle>
-          <Building className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{metrics.totalDeals}</div>
-          <p className="text-xs text-muted-foreground">
-            All deals in the system
-          </p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Active Deals</CardTitle>
-          <FileText className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{metrics.activeDeals}</div>
-          <p className="text-xs text-muted-foreground">
-            Currently active or funded
-          </p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Volume</CardTitle>
-          <DollarSign className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {formatCurrency(metrics.totalVolume)}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Combined loan amount
-          </p>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Avg Deal Size</CardTitle>
-          <TrendingUp className="h-4 w-4 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">
-            {metrics.totalDeals > 0
-              ? formatCurrency(metrics.totalVolume / metrics.totalDeals)
-              : "$0"}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Per deal average
-          </p>
-        </CardContent>
-      </Card>
+      <StatCard
+        label="Total Deals"
+        value={metrics.totalDeals.toString()}
+        trendDirection="up"
+      />
+      <StatCard
+        label="Active Deals"
+        value={metrics.activeDeals.toString()}
+        trendDirection="up"
+      />
+      <StatCard
+        label="Total Volume"
+        value={formatCurrency(metrics.totalVolume)}
+        trendDirection="up"
+      />
+      <StatCard
+        label="Avg Deal Size"
+        value={
+          metrics.totalDeals > 0
+            ? formatCurrency(metrics.totalVolume / metrics.totalDeals)
+            : "$0"
+        }
+        trendDirection="up"
+      />
     </div>
   );
 }
