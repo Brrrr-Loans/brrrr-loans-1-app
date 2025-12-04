@@ -60,7 +60,7 @@ function getLast12Months(): Array<{ key: string; label: string }> {
  * ChartAreaInvestorROI - Once UI styled area chart for investor contributions vs distributions
  *
  * Displays a dual-series area chart comparing:
- * - Outstanding Principal Balance (primary color - orange) - point-in-time balance at month end
+ * - Principal Balance Owed (primary color - orange) - point-in-time balance at month end
  * - Distributions Paid (secondary color - gray) - sum of distributions paid during month
  *
  * Always shows the preceding 12 months on the X-axis
@@ -79,7 +79,7 @@ export function ChartAreaInvestorROI({
   }, []);
 
   const dataLabels: Record<string, string> = {
-    contributions: "Outstanding Principal Balance",
+    contributions: "Principal Balance Owed",
     distributions: "Distributions Paid",
   };
 
@@ -133,7 +133,7 @@ export function ChartAreaInvestorROI({
               }}
             />
             <span className="text-[13.2px] leading-4 whitespace-nowrap">
-              Outstanding Principal Balance
+              Principal Balance Owed
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -154,7 +154,7 @@ export function ChartAreaInvestorROI({
           <ChartContainer
             config={{
               contributions: {
-                label: "Outstanding Principal Balance",
+                label: "Principal Balance Owed",
                 color: "rgb(var(--chart-area-gradient-data-primary))",
               },
               distributions: {
