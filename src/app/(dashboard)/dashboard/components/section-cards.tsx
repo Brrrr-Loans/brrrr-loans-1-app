@@ -66,9 +66,6 @@ export function SectionCards() {
   }, [supabase]);
 
   const formatCurrency = (value: number) => {
-    if (value >= 1000000) {
-      return `$${(value / 1000000).toFixed(1)}M`;
-    }
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
