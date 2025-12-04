@@ -31,10 +31,26 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/navigation/command";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/forms/label";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { CalendarIcon, Plus, Trash2, AlertCircle } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, AlertCircle, Check, ChevronsUpDown, Building2, User } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui";
 
@@ -68,7 +84,9 @@ const transactionSchema = z.object({
   investorAllocations: z
     .array(
       z.object({
+        investorType: z.enum(["entity", "individual"]),
         investorId: z.string().min(1, "Investor is required"),
+        investorName: z.string(), // Display name for UI
         amount: z
           .string()
           .refine((val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
@@ -80,6 +98,7 @@ const transactionSchema = z.object({
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
+type InvestorType = "entity" | "individual";
 
 interface Deal {
   id: number;
@@ -87,11 +106,16 @@ interface Deal {
   loan_number: string;
 }
 
-interface Investor {
+interface Individual {
   id: number;
-  full_name: string;
-  email: string;
-  clerk_org_id?: number;
+  full_name: string | null;
+  email: string | null;
+}
+
+interface Entity {
+  id: number;
+  clerk_org_name: string | null;
+  clerk_org_slug: string | null;
 }
 
 interface CreateTransactionFormProps {
@@ -106,8 +130,14 @@ export function CreateTransactionForm({
   const supabase = useSupabase();
   const [loading, setLoading] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
-  const [investors, setInvestors] = useState<Investor[]>([]);
+  const [individuals, setIndividuals] = useState<Individual[]>([]);
+  const [entities, setEntities] = useState<Entity[]>([]);
   const [allocationError, setAllocationError] = useState<string | null>(null);
+  
+  // Dialog state for investor type selection
+  const [investorDialogOpen, setInvestorDialogOpen] = useState(false);
+  const [selectedInvestorType, setSelectedInvestorType] = useState<InvestorType>("individual");
+  const [investorSelectorOpen, setInvestorSelectorOpen] = useState(false);
 
   const form = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema),
@@ -119,7 +149,7 @@ export function CreateTransactionForm({
       referenceNumber: "",
       notes: "",
       dealAllocations: [{ dealId: "", amount: "" }],
-      investorAllocations: [{ investorId: "", amount: "" }],
+      investorAllocations: [],
     },
   });
 
@@ -141,7 +171,7 @@ export function CreateTransactionForm({
     name: "investorAllocations",
   });
 
-  // Fetch deals and investors
+  // Fetch deals, individuals, and entities
   useEffect(() => {
     if (!supabase) return;
 
@@ -153,18 +183,27 @@ export function CreateTransactionForm({
         .order("deal_name");
 
       if (dealsData) {
-        setDeals(dealsData as any);
+        setDeals(dealsData as Deal[]);
       }
 
-      // Fetch investors (users with BSI role)
-      const { data: investorsData } = await supabase
+      // Fetch individuals (users)
+      const { data: individualsData } = await supabase
         .from("auth_clerk_users")
         .select("id, full_name, email")
-        .in("role", ["balance_sheet_investor", "admin"])
         .order("full_name");
 
-      if (investorsData) {
-        setInvestors(investorsData as any);
+      if (individualsData) {
+        setIndividuals(individualsData as Individual[]);
+      }
+
+      // Fetch entities (organizations)
+      const { data: entitiesData } = await supabase
+        .from("auth_clerk_orgs")
+        .select("id, clerk_org_name, clerk_org_slug")
+        .order("clerk_org_name");
+
+      if (entitiesData) {
+        setEntities(entitiesData as Entity[]);
       }
     };
 
@@ -201,6 +240,18 @@ export function CreateTransactionForm({
     return true;
   };
 
+  // Handle adding an investor after type selection
+  const handleAddInvestor = (type: InvestorType, id: number, name: string) => {
+    appendInvestor({
+      investorType: type,
+      investorId: id.toString(),
+      investorName: name,
+      amount: "",
+    });
+    setInvestorDialogOpen(false);
+    setSelectedInvestorType("individual");
+  };
+
   const onSubmit = async (values: TransactionFormValues) => {
     if (!supabase) return;
 
@@ -227,14 +278,19 @@ export function CreateTransactionForm({
       }));
 
       const investorAllocations = values.investorAllocations.map((alloc) => {
-        const investor = investors.find(
-          (inv) => inv.id === parseInt(alloc.investorId)
-        );
-        return {
-          investorId: parseInt(alloc.investorId),
-          amount: parseFloat(alloc.amount),
-          orgId: investor?.clerk_org_id,
-        };
+        if (alloc.investorType === "entity") {
+          return {
+            investorId: undefined, // No user ID for entities
+            amount: parseFloat(alloc.amount),
+            orgId: parseInt(alloc.investorId),
+          };
+        } else {
+          return {
+            investorId: parseInt(alloc.investorId),
+            amount: parseFloat(alloc.amount),
+            orgId: undefined,
+          };
+        }
       });
 
       await createMultiPartyTransaction(
@@ -514,68 +570,61 @@ export function CreateTransactionForm({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => appendInvestor({ investorId: "", amount: "" })}
+                  onClick={() => setInvestorDialogOpen(true)}
                 >
                   <Plus className="h-4 w-4 mr-1" />
                   Add Investor
                 </Button>
               </div>
 
-              {investorFields.map((field, index) => (
-                <div key={field.id} className="flex gap-4 items-start">
-                  <FormField
-                    control={form.control}
-                    name={`investorAllocations.${index}.investorId`}
-                    render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormLabel>Investor</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
+              {investorFields.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-6 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    No investors added yet. Click &quot;Add Investor&quot; to add one.
+                  </p>
+                </div>
+              ) : (
+                investorFields.map((field, index) => (
+                  <div key={field.id} className="flex gap-4 items-start rounded-lg border p-4">
+                    {/* Investor Display */}
+                    <div className="flex-1 space-y-2">
+                      <FormLabel className="flex items-center gap-2">
+                        {form.watch(`investorAllocations.${index}.investorType`) === "entity" ? (
+                          <Building2 className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <User className="h-4 w-4 text-muted-foreground" />
+                        )}
+                        <span className="text-xs uppercase text-muted-foreground">
+                          {form.watch(`investorAllocations.${index}.investorType`)}
+                        </span>
+                      </FormLabel>
+                      <div className="font-medium">
+                        {form.watch(`investorAllocations.${index}.investorName`) || "Unknown"}
+                      </div>
+                    </div>
+
+                    {/* Amount Input */}
+                    <FormField
+                      control={form.control}
+                      name={`investorAllocations.${index}.amount`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel>Amount</FormLabel>
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select investor" />
-                            </SelectTrigger>
+                            <Input
+                              placeholder="0.00"
+                              {...field}
+                              onChange={(e) => {
+                                field.onChange(e);
+                                validateAllocations();
+                              }}
+                            />
                           </FormControl>
-                          <SelectContent>
-                            {investors.map((investor) => (
-                              <SelectItem
-                                key={investor.id}
-                                value={investor.id.toString()}
-                              >
-                                {investor.full_name} ({investor.email})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={form.control}
-                    name={`investorAllocations.${index}.amount`}
-                    render={({ field }) => (
-                      <FormItem className="flex-1">
-                        <FormLabel>Amount</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="0.00"
-                            {...field}
-                            onChange={(e) => {
-                              field.onChange(e);
-                              validateAllocations();
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {investorFields.length > 1 && (
                     <Button
                       type="button"
                       variant="ghost"
@@ -585,10 +634,164 @@ export function CreateTransactionForm({
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                  )}
-                </div>
-              ))}
+                  </div>
+                ))
+              )}
             </div>
+
+            {/* Investor Type Selection Dialog */}
+            <Dialog open={investorDialogOpen} onOpenChange={setInvestorDialogOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Add Investor</DialogTitle>
+                  <DialogDescription>
+                    Is this investor an entity or individual?
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-6 py-4">
+                  <RadioGroup
+                    value={selectedInvestorType}
+                    onValueChange={(value) => setSelectedInvestorType(value as InvestorType)}
+                    className="grid grid-cols-2 gap-4"
+                  >
+                    <div>
+                      <RadioGroupItem
+                        value="entity"
+                        id="entity"
+                        className="peer sr-only"
+                      />
+                      <Label
+                        htmlFor="entity"
+                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                      >
+                        <Building2 className="mb-3 h-6 w-6" />
+                        <span className="font-semibold">Entity</span>
+                        <span className="text-xs text-muted-foreground">LLC, Corporation, Trust</span>
+                      </Label>
+                    </div>
+                    <div>
+                      <RadioGroupItem
+                        value="individual"
+                        id="individual"
+                        className="peer sr-only"
+                      />
+                      <Label
+                        htmlFor="individual"
+                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                      >
+                        <User className="mb-3 h-6 w-6" />
+                        <span className="font-semibold">Individual</span>
+                        <span className="text-xs text-muted-foreground">Person, Natural Entity</span>
+                      </Label>
+                    </div>
+                  </RadioGroup>
+
+                  {/* Selector based on type */}
+                  <div className="space-y-2">
+                    <Label>
+                      {selectedInvestorType === "entity" ? "Select Entity" : "Select Individual"}
+                    </Label>
+                    <Popover open={investorSelectorOpen} onOpenChange={setInvestorSelectorOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={investorSelectorOpen}
+                          className="w-full justify-between"
+                        >
+                          {selectedInvestorType === "entity"
+                            ? "Search entities..."
+                            : "Search individuals..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[350px] p-0">
+                        <Command>
+                          <CommandInput
+                            placeholder={
+                              selectedInvestorType === "entity"
+                                ? "Search entities..."
+                                : "Search individuals..."
+                            }
+                          />
+                          <CommandList>
+                            <CommandEmpty>
+                              No {selectedInvestorType === "entity" ? "entities" : "individuals"} found.
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {selectedInvestorType === "entity"
+                                ? entities.map((entity) => (
+                                    <CommandItem
+                                      key={entity.id}
+                                      value={entity.clerk_org_name || ""}
+                                      onSelect={() => {
+                                        handleAddInvestor(
+                                          "entity",
+                                          entity.id,
+                                          entity.clerk_org_name || "Unnamed Entity"
+                                        );
+                                        setInvestorSelectorOpen(false);
+                                      }}
+                                    >
+                                      <Building2 className="mr-2 h-4 w-4" />
+                                      <div className="flex flex-col">
+                                        <span className="font-medium">
+                                          {entity.clerk_org_name || "Unnamed Entity"}
+                                        </span>
+                                        {entity.clerk_org_slug && (
+                                          <span className="text-xs text-muted-foreground">
+                                            @{entity.clerk_org_slug}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </CommandItem>
+                                  ))
+                                : individuals.map((individual) => (
+                                    <CommandItem
+                                      key={individual.id}
+                                      value={`${individual.full_name} ${individual.email}`}
+                                      onSelect={() => {
+                                        handleAddInvestor(
+                                          "individual",
+                                          individual.id,
+                                          individual.full_name || individual.email || "Unknown"
+                                        );
+                                        setInvestorSelectorOpen(false);
+                                      }}
+                                    >
+                                      <User className="mr-2 h-4 w-4" />
+                                      <div className="flex flex-col">
+                                        <span className="font-medium">
+                                          {individual.full_name || "Unnamed"}
+                                        </span>
+                                        {individual.email && (
+                                          <span className="text-xs text-muted-foreground">
+                                            {individual.email}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setInvestorDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             {allocationError && (
               <Alert variant="destructive">

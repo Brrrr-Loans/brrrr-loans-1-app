@@ -18,15 +18,24 @@ const SearchForm = dynamic(
   { ssr: false }
 );
 const ThemeDropdown = dynamic(
-  () => import("@/components/theme/theme-dropdown").then((mod) => mod.ThemeDropdown),
+  () =>
+    import("@/components/theme/theme-dropdown").then(
+      (mod) => mod.ThemeDropdown
+    ),
   { ssr: false }
 );
 const PlatformSettingsPopover = dynamic(
-  () => import("@/components/layout/platform-settings-popover").then((mod) => mod.PlatformSettingsPopover),
+  () =>
+    import("@/components/layout/platform-settings-popover").then(
+      (mod) => mod.PlatformSettingsPopover
+    ),
   { ssr: false }
 );
 const ImpersonationSwitcher = dynamic(
-  () => import("@/app/(dashboard)/platform-settings/components/impersonation-switcher").then((mod) => mod.ImpersonationSwitcher),
+  () =>
+    import(
+      "@/app/(dashboard)/platform-settings/components/impersonation-switcher"
+    ).then((mod) => mod.ImpersonationSwitcher),
   { ssr: false }
 );
 import {
@@ -104,7 +113,9 @@ function generateBreadcrumbs(
           </BreadcrumbSeparator>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/balance-sheet/transactions?tab=all">Transactions</Link>
+              <Link href="/balance-sheet/transactions?tab=all">
+                Transactions
+              </Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
@@ -125,8 +136,8 @@ function generateBreadcrumbs(
       tab === "investments"
         ? "Investments"
         : tab === "distributions"
-          ? "Distributions"
-          : "All Transactions";
+        ? "Distributions"
+        : "All Transactions";
 
     return renderTransactionsBreadcrumb(tabLabel);
   }
@@ -213,9 +224,11 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
   const searchParams = useSearchParams();
   const [showTeamSwitcher, setShowTeamSwitcher] = React.useState(false);
   const { user } = useUser();
-  
+
   // Check if user is admin
-  const isAdmin = user?.publicMetadata?.role === "admin" || user?.organizationMemberships?.[0]?.role === "org:admin";
+  const isAdmin =
+    user?.publicMetadata?.role === "admin" ||
+    user?.organizationMemberships?.[0]?.role === "org:admin";
 
   const handleOpenTeamSwitcher = () => {
     setShowTeamSwitcher(true);

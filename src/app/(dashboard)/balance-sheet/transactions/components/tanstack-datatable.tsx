@@ -4,6 +4,7 @@ import * as React from "react";
 import { useState, useEffect, useCallback, useMemo, Fragment } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSupabase } from "@/hooks/use-supabase";
+import { useImpersonation } from "@/contexts/impersonation-context";
 import {
   ColumnFiltersState,
   SortingState,
@@ -88,6 +89,7 @@ export function TransactionsDataTable() {
   const supabase = useSupabase();
   const searchParams = useSearchParams();
   const activeTab = searchParams.get("tab") || "all";
+  const { impersonatedUserId, isImpersonating } = useImpersonation();
 
   // Fetch transactions
   const fetchTransactions = useCallback(async () => {
@@ -101,6 +103,19 @@ export function TransactionsDataTable() {
     setError(null);
 
     try {
+      // If impersonating, fetch the user's organization memberships first
+      let impersonatedUserOrgIds: number[] = [];
+      if (isImpersonating && impersonatedUserId) {
+        const { data: orgMemberships } = await supabase
+          .from("auth_clerk_orgs_members")
+          .select("clerk_org_id")
+          .eq("auth_clerk_users_id", impersonatedUserId);
+        
+        impersonatedUserOrgIds = (orgMemberships || [])
+          .map((m) => m.clerk_org_id)
+          .filter((id): id is number => id !== null);
+      }
+
       // Fetch transactions with all related data
       const { data, error } = await supabase
         .from("bsi_transactions")
@@ -179,7 +194,23 @@ export function TransactionsDataTable() {
         return;
       }
 
-      setData(isTransactionWithDetailsArray(data) ? data : []);
+      // Filter by impersonated user if active
+      // Admin users see all transactions via RLS, so we need client-side filtering when impersonating
+      let filteredTransactions = isTransactionWithDetailsArray(data) ? data : [];
+      
+      if (isImpersonating && impersonatedUserId) {
+        filteredTransactions = filteredTransactions.filter((tx) => {
+          // Check if impersonated user is associated with this transaction via investors junction
+          // Either directly via clerk_user_id OR via an org they are a member of
+          return tx.investors?.some(
+            (inv) =>
+              inv.clerk_user_id === impersonatedUserId ||
+              (inv.clerk_org_id !== null && impersonatedUserOrgIds.includes(inv.clerk_org_id))
+          );
+        });
+      }
+
+      setData(filteredTransactions);
     } catch (err) {
       console.error("Unexpected error fetching transactions:", err);
       const errorMessage =
@@ -189,7 +220,7 @@ export function TransactionsDataTable() {
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [supabase, isImpersonating, impersonatedUserId]);
 
   useEffect(() => {
     fetchTransactions();
