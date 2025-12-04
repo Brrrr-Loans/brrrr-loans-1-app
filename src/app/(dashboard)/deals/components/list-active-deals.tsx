@@ -18,23 +18,39 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui";
-import { Eye, DollarSign, Calendar, TrendingUp } from "lucide-react";
+import { Eye, DollarSign, Calendar } from "lucide-react";
 import { format } from "date-fns";
+
+// Status badge variant helper (matching distributions table)
+const getStatusBadgeVariant = (status: string | null) => {
+  switch (status?.toLowerCase()) {
+    case "active":
+      return "success";
+    case "on_hold":
+    case "pending":
+      return "warning";
+    case "dead":
+    case "closed":
+      return "danger";
+    default:
+      return "secondary";
+  }
+};
 
 interface ActiveDeal {
   id: number;
   deal_name: string;
   loan_number: string;
-  property_address: string;
-  loan_amount: number;
-  interest_rate: number;
-  loan_term_months: number;
-  closing_date: string;
-  status: string;
-  investor_contributions?: Array<{
-    contribution_amount: number;
-    contribution_status: string;
-  }>;
+  loan_amount_total: number;
+  note_rate: number;
+  loan_term: string;
+  note_date: string;
+  deal_disposition_1: string;
+  property?: {
+    address_street: string;
+    address_city: string;
+    address_state: string;
+  };
 }
 
 interface ActiveDealsListProps {
@@ -57,26 +73,26 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
         setError(null);
 
         const { data, error } = await (supabase as any)
-          .from("bs_debt_instruments_deal")
+          .from("deal")
           .select(
             `
             id,
             deal_name,
             loan_number,
-            property_address,
-            loan_amount,
-            interest_rate,
-            loan_term_months,
-            closing_date,
-            status,
-            investor_contributions:bsi_investor_contributions(
-              contribution_amount,
-              contribution_status
+            loan_amount_total,
+            note_rate,
+            loan_term,
+            note_date,
+            deal_disposition_1,
+            property:property_id(
+              address_street,
+              address_city,
+              address_state
             )
           `
           )
-          .eq("status", "active")
-          .order("closing_date", { ascending: false });
+          .eq("deal_disposition_1", "active")
+          .order("note_date", { ascending: false });
 
         if (error) throw error;
 
@@ -101,14 +117,23 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
     }).format(amount);
   };
 
-  const getTotalInvestment = (deal: ActiveDeal) => {
-    return (
-      deal.investor_contributions?.reduce(
-        (sum, contribution) =>
-          sum + Number(contribution.contribution_amount || 0),
-        0
-      ) || 0
-    );
+  // Helper to format property address
+  const formatPropertyAddress = (deal: ActiveDeal) => {
+    if (!deal.property) return "-";
+    const { address_street, address_city, address_state } = deal.property;
+    const parts = [address_street, address_city, address_state].filter(Boolean);
+    return parts.join(", ") || "-";
+  };
+
+  // Helper to format loan term
+  const formatLoanTerm = (term: string) => {
+    const months = parseInt(term, 10);
+    if (isNaN(months)) return term;
+    const years = Math.floor(months / 12);
+    const remainingMonths = months % 12;
+    if (years === 0) return `${remainingMonths}m`;
+    if (remainingMonths === 0) return `${years}y`;
+    return `${years}y ${remainingMonths}m`;
   };
 
   if (loading) {
@@ -172,7 +197,6 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
                 <TableHead>Deal Name</TableHead>
                 <TableHead>Property</TableHead>
                 <TableHead>Loan Amount</TableHead>
-                <TableHead>Your Investment</TableHead>
                 <TableHead>Rate/Term</TableHead>
                 <TableHead>Closing Date</TableHead>
                 <TableHead>Status</TableHead>
@@ -180,51 +204,46 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {deals.map((deal) => {
-                const totalInvestment = getTotalInvestment(deal);
-                return (
+              {deals.map((deal) => (
                   <TableRow key={deal.id}>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{deal.deal_name}</div>
+                      <div className="font-medium">{deal.deal_name || "-"}</div>
                         <div className="text-sm text-muted-foreground">
-                          {deal.loan_number}
+                        {deal.loan_number || "-"}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate">
-                      {deal.property_address}
+                    {formatPropertyAddress(deal)}
                     </TableCell>
                     <TableCell className="font-medium">
-                      {formatCurrency(deal.loan_amount)}
-                    </TableCell>
-                    <TableCell>
-                      {totalInvestment > 0 ? (
-                        <div className="flex items-center gap-1">
-                          <TrendingUp className="h-4 w-4 text-green-600" />
-                          {formatCurrency(totalInvestment)}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
+                    {deal.loan_amount_total
+                      ? formatCurrency(deal.loan_amount_total)
+                      : "-"}
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        <div>{deal.interest_rate}%</div>
+                      <div>{deal.note_rate ? `${deal.note_rate}%` : "-"}</div>
                         <div className="text-muted-foreground">
-                          {Math.floor(deal.loan_term_months / 12)}y{" "}
-                          {deal.loan_term_months % 12}m
+                        {deal.loan_term ? formatLoanTerm(deal.loan_term) : "-"}
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
+                    {deal.note_date ? (
                       <div className="flex items-center gap-1 text-sm">
                         <Calendar className="h-3 w-3" />
-                        {format(new Date(deal.closing_date), "MMM d, yyyy")}
+                        {format(new Date(deal.note_date), "MMM d, yyyy")}
                       </div>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="default">{deal.status}</Badge>
+                    <Badge variant={getStatusBadgeVariant(deal.deal_disposition_1)}>
+                      {deal.deal_disposition_1 || "Unknown"}
+                    </Badge>
                     </TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -232,8 +251,7 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
                       </Button>
                     </TableCell>
                   </TableRow>
-                );
-              })}
+              ))}
             </TableBody>
           </Table>
         </div>

@@ -1,33 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui";
+import { Card, CardContent } from "@/components/ui";
 import { useImpersonation } from "@/contexts/impersonation-context";
 import { InvestorDashboardSkeleton } from "@/components/skeletons/investor-dashboard-skeleton";
 import { PermissionErrorBoundary } from "@/components/error-boundary/permission-error-boundary";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui";
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-} from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { DistributionsListWrapper } from "@/components/distributions/list-protected-distributions";
 import { ActiveDealsListWrapper } from "@/app/(dashboard)/deals/components/list-active-deals";
-
-interface MonthlyDistribution {
-  month: string;
-  amount: number;
-}
+import { ChartAreaInvestorROI, type InvestorROIDataPoint } from "./components";
+import { StatCard } from "@/components/once-ui";
 
 interface InvestorContribution {
   contribution_amount: string | number;
@@ -36,21 +18,13 @@ interface InvestorContribution {
 }
 
 interface InvestorDistribution {
-  total_payment_amount: string | number;
-  payment_date: string;
-  status: string;
+  transaction_amount: number;
+  transaction_date: string;
+  transaction_status: string;
 }
 
 interface InvestorDeal {
   status: string;
-}
-
-interface ROIData {
-  date: string;
-  roi: number;
-  month: string;
-  contributions: number;
-  distributions: number;
 }
 
 export default function InvestorDashboard() {
@@ -64,7 +38,7 @@ export default function InvestorDashboard() {
     []
   );
   const [deals, setDeals] = useState<InvestorDeal[]>([]);
-  const [roiData, setRoiData] = useState<ROIData[]>([]);
+  const [roiData, setRoiData] = useState<InvestorROIDataPoint[]>([]);
   const [currentROI, setCurrentROI] = useState<number>(0);
 
   useEffect(() => {
@@ -74,18 +48,27 @@ export default function InvestorDashboard() {
         setError(null);
 
         // Build query param for impersonation
-        const impersonateParam = impersonatedUserId ? `?impersonate_user_id=${impersonatedUserId}` : '';
-        
+        const impersonateParam = impersonatedUserId
+          ? `?impersonate_user_id=${impersonatedUserId}`
+          : "";
+
         // Fetch all data in parallel
         const [contributionsRes, distributionsRes, dealsRes, cashFlowRes] =
           await Promise.all([
             fetch(`/api/investor-summary/contributions${impersonateParam}`),
             fetch(`/api/investor-summary/distributions${impersonateParam}`),
             fetch(`/api/investor-summary/deals${impersonateParam}`),
-            fetch(`/api/investor-dashboard/cumulative-cash-flow${impersonateParam}`),
+            fetch(
+              `/api/investor-dashboard/cumulative-cash-flow${impersonateParam}`
+            ),
           ]);
 
-        if (!contributionsRes.ok || !distributionsRes.ok || !dealsRes.ok || !cashFlowRes.ok) {
+        if (
+          !contributionsRes.ok ||
+          !distributionsRes.ok ||
+          !dealsRes.ok ||
+          !cashFlowRes.ok
+        ) {
           throw new Error("Failed to fetch investor data");
         }
 
@@ -128,10 +111,7 @@ export default function InvestorDashboard() {
 
   const totalDistributions = distributions.reduce(
     (sum: number, item: InvestorDistribution) => {
-      const amount =
-        typeof item.total_payment_amount === "string"
-          ? Number(item.total_payment_amount)
-          : item.total_payment_amount;
+      const amount = item.transaction_amount || 0;
       return sum + (isNaN(amount) ? 0 : amount);
     },
     0
@@ -140,32 +120,6 @@ export default function InvestorDashboard() {
   const activeDeals = deals.filter(
     (deal: InvestorDeal) => deal.status.toLowerCase() === "active"
   ).length;
-
-  // Process monthly distribution data
-  const monthlyData = distributions.reduce(
-    (acc: MonthlyDistribution[], dist: InvestorDistribution) => {
-      const amount =
-        typeof dist.total_payment_amount === "string"
-          ? Number(dist.total_payment_amount)
-          : dist.total_payment_amount;
-
-      if (isNaN(amount)) return acc;
-
-      const month = new Date(dist.payment_date).toLocaleString("default", {
-        month: "short",
-        year: "2-digit",
-      });
-
-      const existingMonth = acc.find((m) => m.month === month);
-      if (existingMonth) {
-        existingMonth.amount += amount;
-      } else {
-        acc.push({ month, amount });
-      }
-      return acc;
-    },
-    []
-  );
 
   if (error) {
     return (
@@ -196,114 +150,42 @@ export default function InvestorDashboard() {
     <PermissionErrorBoundary>
       <div className="container mx-auto py-6 space-y-6 animate-in fade-in-50">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Total Invested</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">
-                {formatCurrency(totalInvested)}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Total Distributions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">
-                {formatCurrency(totalDistributions)}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Active Deals</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">{activeDeals}</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>ROI</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold">
-                {totalInvested > 0
-                  ? `${((totalDistributions / totalInvested) * 100).toFixed(
-                      2
-                    )}%`
-                  : "0%"}
-              </p>
-            </CardContent>
-          </Card>
+          <StatCard
+            label="Total Invested"
+            value={formatCurrency(totalInvested)}
+            trendDirection="up"
+          />
+          <StatCard
+            label="Total Distributions"
+            value={formatCurrency(totalDistributions)}
+            trendDirection="up"
+          />
+          <StatCard
+            label="Active Deals"
+            value={activeDeals.toString()}
+            trendDirection="up"
+          />
+          <StatCard
+            label="ROI"
+            value={
+              totalInvested > 0
+                ? `${((totalDistributions / totalInvested) * 100).toFixed(2)}%`
+                : "0%"
+            }
+            trendPercent={
+              totalInvested > 0 ? (totalDistributions / totalInvested) * 100 : 0
+            }
+            trendDirection={totalDistributions > 0 ? "up" : "neutral"}
+          />
         </div>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Return on Investment Over Time</CardTitle>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Monthly ROI percentage trend
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-muted-foreground">Current ROI</p>
-                <p className="text-2xl font-bold">
-                  {currentROI.toFixed(2)}%
-                </p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                roi: {
-                  label: "ROI %",
-                  color: "#ff9500",
-                },
-              }}
-              className="h-[350px] w-full"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={roiData}>
-                    <defs>
-                      <linearGradient id="orangeGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#ff9500" stopOpacity={0.3} />
-                        <stop offset="100%" stopColor="#f72121" stopOpacity={0.05} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis 
-                      dataKey="month" 
-                      className="text-xs"
-                      tick={{ fill: "hsl(var(--muted-foreground))" }}
-                    />
-                    <YAxis 
-                      tickFormatter={(value) => `${value.toFixed(1)}%`}
-                      className="text-xs"
-                      tick={{ fill: "hsl(var(--muted-foreground))" }}
-                    />
-                    <ChartTooltip 
-                      content={<ChartTooltipContent />}
-                      labelFormatter={(label) => `Month: ${label}`}
-                      formatter={(value: number) => [`${value.toFixed(2)}%`, "ROI"]}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="roi"
-                      stroke="#ff9500"
-                      strokeWidth={2}
-                      fill="url(#orangeGradient)"
-                      fillOpacity={1}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-          </CardContent>
-        </Card>
+        {/* Contributions vs Distributions Chart - Once UI Style */}
+        <ChartAreaInvestorROI
+          key="roi-chart"
+          data={roiData}
+          currentROI={currentROI}
+          formatCurrency={formatCurrency}
+        />
 
         <Tabs defaultValue="distributions" className="w-full">
           <TabsList>

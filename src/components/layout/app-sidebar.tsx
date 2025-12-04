@@ -7,16 +7,15 @@ import {
   Building,
   Home,
   FileBarChart2,
-  CircleDollarSign,
+  ArrowLeftRight,
   FileSpreadsheet,
   CreditCard,
   FileSignature,
-  ArrowDownToLine,
-  ArrowUpToLine,
+  ArrowDownLeft,
+  ArrowUpRight,
   ListTree,
   PieChart,
-  Lightbulb,
-  FileText,
+  BarChart3,
 } from "lucide-react";
 import { NavSearch } from "./nav-search";
 import { NavMain } from "./nav-main";
@@ -55,18 +54,13 @@ export function AppSidebar(
 
   const balanceSheetItems = [
     {
-      name: "Portfolio",
+      name: "Investor Portfolio",
       icon: PieChart,
       items: [
         {
           name: "Insights",
           url: "/balance-sheet/investor",
-          icon: Lightbulb,
-        },
-        {
-          name: "Reports",
-          url: "/balance-sheet/investor",
-          icon: FileText,
+          icon: BarChart3,
         },
       ],
     },
@@ -93,7 +87,7 @@ export function AppSidebar(
     },
     {
       name: "Transactions",
-      icon: CircleDollarSign,
+      icon: ArrowLeftRight,
       items: [
         {
           name: "All Transactions",
@@ -103,12 +97,12 @@ export function AppSidebar(
         {
           name: "Investments",
           url: "/balance-sheet/transactions?tab=investments",
-          icon: ArrowDownToLine,
+          icon: ArrowDownLeft,
         },
         {
           name: "Distributions",
           url: "/balance-sheet/transactions?tab=distributions",
-          icon: ArrowUpToLine,
+          icon: ArrowUpRight,
         },
       ],
     },

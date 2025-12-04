@@ -46,8 +46,8 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
-    --box-shadow:
-      0px 1px 3px 0px rgb(0 0 0 / 10%), 0px 1px 2px 0px rgb(0 0 0 / 6%);
+    --box-shadow: 0px 1px 3px 0px rgb(0 0 0 / 10%),
+      0px 1px 2px 0px rgb(0 0 0 / 6%);
     --brand-gradient-orange: radial-gradient(
       260.69 202.67% at -4.83% -37.67%,
       #f72121 24%,
@@ -69,6 +69,12 @@
       #0ebb3f 5.99%,
       #3df04e 91.59%
     );
+    --chart-area-gradient-data-primary: 255 149 0;
+    --chart-area-gradient-data-secondary: 89 89 89;
+    --chart-grid: 149 149 149;
+    --stat-card-trend-positive: 255 149 0; /* Orange to match chart contributions */
+    --stat-card-trend-negative: 239 68 68;
+    --stat-card-bg: 149 149 149;
   }
 
   .dark {
@@ -131,6 +137,12 @@
       #067e2f 5.99%,
       #2ac23c 91.59%
     );
+    --chart-area-gradient-data-primary: 224 123 0;
+    --chart-area-gradient-data-secondary: 149 149 149;
+    --chart-grid: 149 149 149;
+    --stat-card-trend-positive: 224 123 0; /* Orange to match chart contributions */
+    --stat-card-trend-negative: 239 68 68;
+    --stat-card-bg: 149 149 149;
   }
 }
 
@@ -260,9 +272,9 @@
 
 /* Fix sidebar menu button sizing to match reference design - exclude header and footer */
 [data-sidebar="menu-button"]:not(
-  [data-sidebar="header"] [data-sidebar="menu-button"],
-  [data-sidebar="footer"] [data-sidebar="menu-button"]
-) {
+    [data-sidebar="header"] [data-sidebar="menu-button"],
+    [data-sidebar="footer"] [data-sidebar="menu-button"]
+  ) {
   height: 2rem !important; /* h-8 equivalent */
   min-height: 2rem !important;
   padding: 0.375rem !important; /* p-1.5 equivalent */
@@ -331,10 +343,10 @@
 
 /* Sidebar menu button text styling - override component inline styles */
 [data-sidebar="menu-button"]:not(
-  [data-sidebar="header"] [data-sidebar="menu-button"],
-  [data-sidebar="footer"] [data-sidebar="menu-button"],
-  .bg-primary
-) {
+    [data-sidebar="header"] [data-sidebar="menu-button"],
+    [data-sidebar="footer"] [data-sidebar="menu-button"],
+    .bg-primary
+  ) {
   color: hsl(var(--sidebar-foreground)) !important;
 }
 

@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui";
-import { Plus, ArrowDownToLine, ArrowUpToLine, ListTree } from "lucide-react";
+import { Plus, ArrowDownLeft, ArrowUpRight, ListTree } from "lucide-react";
 import { TransactionsDataTable } from "./components/tanstack-datatable";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -24,13 +24,13 @@ function TransactionsPageContent() {
       id: "investments",
       label: "Investments",
       href: "/balance-sheet/transactions?tab=investments",
-      icon: ArrowDownToLine,
+      icon: ArrowDownLeft,
     },
     {
       id: "distributions",
       label: "Distributions",
       href: "/balance-sheet/transactions?tab=distributions",
-      icon: ArrowUpToLine,
+      icon: ArrowUpRight,
     },
   ];
 

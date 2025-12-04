@@ -141,6 +141,34 @@ export function useInvestorPermissions(): InvestorPermissions {
       return permissionCache.get(cacheKey)!;
     }
 
+    // For "all" distributions, check if user is logged in and has investor role
+    if (distributionId === "all") {
+      if (!user) {
+        permissionCache.set(cacheKey, false);
+        return false;
+      }
+
+      try {
+        const { data: userProfile, error: profileError } = await supabase
+          .from("auth_clerk_users")
+          .select("role")
+          .eq("clerk_user_id", user.id)
+          .single();
+
+        // Allow admins and balance sheet investors to view all their distributions
+        const hasAccess =
+          !profileError &&
+          (userProfile?.role === "admin" ||
+            userProfile?.role === "balance_sheet_investor");
+        permissionCache.set(cacheKey, hasAccess);
+        return hasAccess;
+      } catch (error) {
+        console.error("Error checking distribution permissions:", error);
+        permissionCache.set(cacheKey, false);
+        return false;
+      }
+    }
+
     try {
       const { data, error } = await supabase
         .from("bsi_transactions")

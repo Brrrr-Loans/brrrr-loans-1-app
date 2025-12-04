@@ -33,7 +33,16 @@ export async function GET(request: Request) {
       targetUserId = currentUser.id;
     }
 
-    // Get distributions for this user
+    // Get the investor's name for display
+    const { data: investorData } = await supabase
+      .from("auth_clerk_users")
+      .select("full_name")
+      .eq("id", targetUserId)
+      .single();
+
+    const investorName = investorData?.full_name || "Unknown";
+
+    // Get distributions for this user with all needed fields
     const { data, error } = await supabase
       .from("bsi_transactions")
       .select(
@@ -42,6 +51,8 @@ export async function GET(request: Request) {
         transaction_amount,
         transaction_status,
         transaction_date,
+        transaction_method,
+        ledger_entry_type,
         bsi_transactions_investors!inner(clerk_user_id)
       `
       )
@@ -51,11 +62,16 @@ export async function GET(request: Request) {
 
     if (error) throw error;
 
-    // Map to expected format
+    // Map to expected format with all columns matching the Transactions page
     const distributions = (data || []).map((tx) => ({
-      total_payment_amount: parseFloat(tx.transaction_amount || "0"),
-      payment_date: tx.transaction_date,
-      status: tx.transaction_status || "pending",
+      id: tx.id,
+      transaction_date: tx.transaction_date,
+      from: "Brrrr Loans 1 LLC", // Distributions always come FROM Brrrr
+      to: investorName, // Distributions always go TO the investor
+      transaction_method: tx.transaction_method || "wire",
+      transaction_status: tx.transaction_status || "pending",
+      ledger_entry_type: tx.ledger_entry_type || "distribution",
+      transaction_amount: Math.abs(parseFloat(tx.transaction_amount || "0")),
     }));
 
     return NextResponse.json(distributions);

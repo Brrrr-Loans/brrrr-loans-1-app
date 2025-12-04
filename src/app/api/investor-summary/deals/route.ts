@@ -33,23 +33,20 @@ export async function GET(request: Request) {
       targetUserId = currentUser.id;
     }
 
-    // Get deals for this user (via transactions)
+    // Get deals for this user via bsi_deals (links investors to deals)
     const { data, error } = await supabase
       .from("bsi_deals")
       .select(
         `
         id,
+        deal:deal_id(
+        id,
         deal_name,
-        status,
-        bsi_transactions_deals!inner(
-          transaction_id,
-          bsi_transactions!inner(
-            bsi_transactions_investors!inner(clerk_user_id)
-          )
+          deal_disposition_1
         )
       `
       )
-      .eq("bsi_transactions_deals.bsi_transactions.bsi_transactions_investors.clerk_user_id", targetUserId);
+      .eq("auth_clerk_users_id", targetUserId);
 
     if (error) {
       // Fallback: just return empty array if query fails
@@ -57,9 +54,11 @@ export async function GET(request: Request) {
       return NextResponse.json([]);
     }
 
-    // Map to expected format
-    const deals = (data || []).map((deal) => ({
-      status: deal.status || "active",
+    // Map to expected format - get status from the linked deal
+    const deals = (data || [])
+      .filter((row) => row.deal) // Filter out rows without a linked deal
+      .map((row) => ({
+        status: row.deal?.deal_disposition_1 || "unknown",
     }));
 
     return NextResponse.json(deals);
