@@ -60,8 +60,8 @@ function getLast12Months(): Array<{ key: string; label: string }> {
  * ChartAreaInvestorROI - Once UI styled area chart for investor contributions vs distributions
  *
  * Displays a dual-series area chart comparing:
- * - Contribution Balance (primary color - orange)
- * - Distributions Earned (secondary color - gray)
+ * - Principal Balance (primary color - orange) - point-in-time balance at month end
+ * - Monthly Distributions (secondary color - gray) - sum of distributions paid during month
  *
  * Always shows the preceding 12 months on the X-axis
  */
@@ -79,8 +79,8 @@ export function ChartAreaInvestorROI({
   }, []);
 
   const dataLabels: Record<string, string> = {
-    contributions: "Contribution Balance",
-    distributions: "Distributions Earned",
+    contributions: "Principal Balance",
+    distributions: "Monthly Distributions",
   };
 
   // Generate 12-month chart data, mapping incoming data to each month
@@ -133,7 +133,7 @@ export function ChartAreaInvestorROI({
               }}
             />
             <span className="text-[13.2px] leading-4 whitespace-nowrap">
-              Capital Contribution Ending Balance
+              Principal Balance
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -145,7 +145,7 @@ export function ChartAreaInvestorROI({
               }}
             />
             <span className="text-[13.2px] leading-4 whitespace-nowrap">
-              Total Distributions
+              Monthly Distributions
             </span>
           </div>
         </div>
@@ -154,11 +154,11 @@ export function ChartAreaInvestorROI({
           <ChartContainer
             config={{
               contributions: {
-                label: "Contribution Balance",
+                label: "Principal Balance",
                 color: "rgb(var(--chart-area-gradient-data-primary))",
               },
               distributions: {
-                label: "Distributions Earned",
+                label: "Monthly Distributions",
                 color: "rgb(var(--chart-area-gradient-data-secondary))",
               },
             }}
