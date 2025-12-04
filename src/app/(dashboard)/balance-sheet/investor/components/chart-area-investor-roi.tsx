@@ -60,8 +60,8 @@ function getLast12Months(): Array<{ key: string; label: string }> {
  * ChartAreaInvestorROI - Once UI styled area chart for investor contributions vs distributions
  *
  * Displays a dual-series area chart comparing:
- * - Principal Balance (primary color - orange) - point-in-time balance at month end
- * - Monthly Distributions (secondary color - gray) - sum of distributions paid during month
+ * - Outstanding Principal Balance (primary color - orange) - point-in-time balance at month end
+ * - Distributions Paid (secondary color - gray) - sum of distributions paid during month
  *
  * Always shows the preceding 12 months on the X-axis
  */
@@ -79,8 +79,8 @@ export function ChartAreaInvestorROI({
   }, []);
 
   const dataLabels: Record<string, string> = {
-    contributions: "Principal Balance",
-    distributions: "Monthly Distributions",
+    contributions: "Outstanding Principal Balance",
+    distributions: "Distributions Paid",
   };
 
   // Generate 12-month chart data, mapping incoming data to each month
@@ -133,7 +133,7 @@ export function ChartAreaInvestorROI({
               }}
             />
             <span className="text-[13.2px] leading-4 whitespace-nowrap">
-              Principal Balance
+              Outstanding Principal Balance
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -145,7 +145,7 @@ export function ChartAreaInvestorROI({
               }}
             />
             <span className="text-[13.2px] leading-4 whitespace-nowrap">
-              Monthly Distributions
+              Distributions Paid
             </span>
           </div>
         </div>
@@ -154,11 +154,11 @@ export function ChartAreaInvestorROI({
           <ChartContainer
             config={{
               contributions: {
-                label: "Principal Balance",
+                label: "Outstanding Principal Balance",
                 color: "rgb(var(--chart-area-gradient-data-primary))",
               },
               distributions: {
-                label: "Monthly Distributions",
+                label: "Distributions Paid",
                 color: "rgb(var(--chart-area-gradient-data-secondary))",
               },
             }}
