@@ -2,17 +2,33 @@
 
 import * as React from "react";
 import { Suspense } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { SlashIcon, ChevronDown, Settings } from "lucide-react";
+import { SlashIcon, Settings } from "lucide-react";
 import { Separator } from "@/components/ui";
 import { SidebarTrigger } from "@/components/ui";
-import { SearchForm } from "@/components/layout/search-form";
-import { ThemeDropdown } from "@/components/theme/theme-dropdown";
-import { PlatformSettingsPopover } from "@/components/layout/platform-settings-popover";
 import { TeamSwitcherV2 } from "@/components/layout/team-switcher-v2";
-import { ImpersonationSwitcher } from "@/app/(dashboard)/platform-settings/components/impersonation-switcher";
 import { useUser } from "@clerk/nextjs";
+
+// Dynamic imports with ssr: false to prevent hydration mismatches
+// These components use Radix UI primitives that generate IDs differently on server vs client
+const SearchForm = dynamic(
+  () => import("@/components/layout/search-form").then((mod) => mod.SearchForm),
+  { ssr: false }
+);
+const ThemeDropdown = dynamic(
+  () => import("@/components/theme/theme-dropdown").then((mod) => mod.ThemeDropdown),
+  { ssr: false }
+);
+const PlatformSettingsPopover = dynamic(
+  () => import("@/components/layout/platform-settings-popover").then((mod) => mod.PlatformSettingsPopover),
+  { ssr: false }
+);
+const ImpersonationSwitcher = dynamic(
+  () => import("@/app/(dashboard)/platform-settings/components/impersonation-switcher").then((mod) => mod.ImpersonationSwitcher),
+  { ssr: false }
+);
 import {
   Dialog,
   DialogContent,
@@ -28,12 +44,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/navigation/breadcrumb";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/overlays/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
@@ -93,29 +103,9 @@ function generateBreadcrumbs(
             <SlashIcon />
           </BreadcrumbSeparator>
           <BreadcrumbItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger className="flex items-center gap-1 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5">
-                Transactions
-                <ChevronDown />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem asChild>
-                  <Link href="/balance-sheet/transactions?tab=all">
-                    All Transactions
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/balance-sheet/transactions?tab=investments">
-                    Investments
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/balance-sheet/transactions?tab=distributions">
-                    Distributions
-                  </Link>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <BreadcrumbLink asChild>
+              <Link href="/balance-sheet/transactions?tab=all">Transactions</Link>
+            </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
             <SlashIcon />
@@ -283,16 +273,10 @@ export function SiteHeader({ breadcrumb, dealName }: SiteHeaderProps) {
             orientation="vertical"
             className="bg-border shrink-0 w-[1px] mr-2 h-4"
           />
+          {/* Placeholder for dynamically loaded components */}
           <div className="flex items-center gap-4 ml-auto flex-shrink-0">
-            <PlatformSettingsPopover
-              trigger={
-                <Button variant="outline" size="icon" className="h-8 w-8">
-                  <Settings className="h-4 w-4" />
-                  <span className="sr-only">Platform Settings</span>
-                </Button>
-              }
-            />
-            <ThemeDropdown />
+            <div className="h-8 w-8" />
+            <div className="h-8 w-8" />
           </div>
         </header>
       }

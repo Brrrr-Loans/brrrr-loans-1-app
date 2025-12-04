@@ -2,7 +2,7 @@
 
 import { useSession } from "@clerk/nextjs";
 import { useEffect, useMemo, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
 
 // Type-safe environment variables
@@ -11,7 +11,10 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
 
 /**
  * Hook to get a Supabase client configured with Clerk's native integration.
- * Uses the standard Clerk + Supabase integration pattern.
+ * Creates a new client when the token changes, with headers pre-configured.
+ * 
+ * Note: The "Multiple GoTrueClient instances" warning may appear but is harmless
+ * since we're using Clerk for auth and have disabled Supabase's session persistence.
  */
 export function useSupabase() {
   const { session } = useSession();
@@ -36,9 +39,10 @@ export function useSupabase() {
     };
   }, [session]);
 
-  const supabase = useMemo(() => {
-    const token = accessToken ?? supabaseAnonKey;
-
+  // Create client with current token - this is the pattern recommended for Clerk
+  const client = useMemo(() => {
+    const effectiveToken = accessToken ?? supabaseAnonKey;
+    
     return createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
         autoRefreshToken: false,
@@ -47,11 +51,11 @@ export function useSupabase() {
       },
       global: {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${effectiveToken}`,
         },
       },
     });
   }, [accessToken]);
 
-  return supabase;
+  return client;
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import React, { Suspense } from "react";
+import React from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import {
@@ -19,9 +20,18 @@ import {
 } from "lucide-react";
 import { NavSearch } from "./nav-search";
 import { NavMain } from "./nav-main";
-import { NavBalanceSheet } from "./nav-balancesheet";
-import { NavUser } from "./nav-user";
 import { TeamSwitcherV2 } from "./team-switcher-v2";
+
+// Dynamic imports with ssr: false to prevent hydration mismatches
+// These components use Radix UI primitives that generate IDs differently on server vs client
+const NavBalanceSheet = dynamic(
+  () => import("./nav-balancesheet").then((mod) => mod.NavBalanceSheet),
+  { ssr: false }
+);
+const NavUser = dynamic(
+  () => import("./nav-user").then((mod) => mod.NavUser),
+  { ssr: false }
+);
 
 import {
   Sidebar,
@@ -138,9 +148,7 @@ export function AppSidebar(
       <SidebarContent>
         <NavSearch />
         <NavMain items={mainNavItems} />
-        <Suspense fallback={null}>
           <NavBalanceSheet items={balanceSheetItems} />
-        </Suspense>
       </SidebarContent>
       <SidebarSeparator />
       <SidebarFooter className="mt-auto border-t border-sidebar-border pt-2">
