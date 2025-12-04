@@ -42,15 +42,24 @@ export async function GET(request: Request) {
 
     const investorName = investorData?.full_name || "Unknown";
 
-    // Get the user's organization memberships
+    // Get the user's organization memberships with org names
     const { data: orgMemberships } = await supabase
       .from("auth_clerk_orgs_members")
-      .select("clerk_org_id")
+      .select("clerk_org_id, auth_clerk_orgs:clerk_org_id(id, clerk_org_name)")
       .eq("auth_clerk_users_id", targetUserId);
 
     const userOrgIds = (orgMemberships || [])
       .map((m) => m.clerk_org_id)
       .filter((id): id is number => id !== null);
+
+    // Build a map of org ID to org name for quick lookup
+    const orgNameMap = new Map<number, string>();
+    (orgMemberships || []).forEach((m) => {
+      if (m.clerk_org_id && m.auth_clerk_orgs) {
+        const org = m.auth_clerk_orgs as { id: number; clerk_org_name: string };
+        orgNameMap.set(m.clerk_org_id, org.clerk_org_name || "Unknown Organization");
+      }
+    });
 
     // Get distributions for this user - either directly linked OR via org membership
     // We need two queries since Supabase doesn't support OR on junction table filters easily
@@ -112,12 +121,39 @@ export async function GET(request: Request) {
       return dateB - dateA;
     });
 
+    // Helper function to determine recipient name
+    const getRecipientName = (tx: typeof uniqueDistributions[0]): string => {
+      // Get the investor record from the transaction
+      const investors = tx.bsi_transactions_investors as Array<{
+        clerk_user_id: number | null;
+        clerk_org_id: number | null;
+      }>;
+      
+      if (!investors || investors.length === 0) {
+        return investorName;
+      }
+
+      const investor = investors[0];
+      
+      // If linked to an org, use org name
+      if (investor.clerk_org_id && orgNameMap.has(investor.clerk_org_id)) {
+        return orgNameMap.get(investor.clerk_org_id)!;
+      }
+      
+      // If linked directly to the user, use user name
+      if (investor.clerk_user_id === targetUserId) {
+        return investorName;
+      }
+
+      return investorName;
+    };
+
     // Map to expected format with all columns matching the Transactions page
     const distributions = uniqueDistributions.map((tx) => ({
       id: tx.id,
       transaction_date: tx.transaction_date,
       from: "Brrrr Loans 1 LLC", // Distributions always come FROM Brrrr
-      to: investorName, // Distributions always go TO the investor
+      to: getRecipientName(tx), // Use actual recipient (user or org)
       transaction_method: tx.transaction_method || "wire",
       transaction_status: tx.transaction_status || "pending",
       ledger_entry_type: tx.ledger_entry_type || "distribution",
