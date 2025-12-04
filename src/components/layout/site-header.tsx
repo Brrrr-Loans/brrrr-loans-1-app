@@ -129,14 +129,22 @@ function generateBreadcrumbs(
     );
   };
 
-  // Handle Balance Sheet / Investor route
-  const renderInvestorBreadcrumb = (currentPage: string) => {
+  // Handle Balance Sheet / Investor Portfolio routes
+  const renderInvestorPortfolioBreadcrumb = (currentPage: string) => {
     return (
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/balance-sheet/investor">Balance Sheet</Link>
+              <Link href="/balance-sheet/investor-portfolio/insights">Balance Sheet</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator>
+            <SlashIcon />
+          </BreadcrumbSeparator>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/balance-sheet/investor-portfolio/insights">Investor Portfolio</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
@@ -174,9 +182,9 @@ function generateBreadcrumbs(
     return renderTransactionsBreadcrumb(tabLabel);
   }
 
-  // Handle Balance Sheet / Investor route
-  if (path === "/balance-sheet/investor") {
-    return renderInvestorBreadcrumb("Investor Portfolio");
+  // Handle Balance Sheet / Investor Portfolio / Insights route
+  if (path === "/balance-sheet/investor-portfolio/insights") {
+    return renderInvestorPortfolioBreadcrumb("Insights");
   }
 
   // Handle Balance Sheet / Documents routes with tab parameter

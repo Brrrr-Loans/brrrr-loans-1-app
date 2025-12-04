@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useSupabase } from "@/hooks/use-supabase";
 import { useAuth } from "@/hooks/use-clerk-auth";
+import { useImpersonation } from "@/contexts/impersonation-context";
 import {
   Card,
   CardContent,
@@ -60,6 +61,7 @@ interface ActiveDealsListProps {
 export function ActiveDealsList({ className }: ActiveDealsListProps) {
   const supabase = useSupabase();
   const { userId } = useAuth();
+  const { impersonatedUserId, isImpersonating } = useImpersonation();
   const [deals, setDeals] = useState<ActiveDeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +74,26 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
         setLoading(true);
         setError(null);
 
-        const { data, error } = await (supabase as any)
+        // Determine target user ID (impersonated user or current user)
+        const targetUserId = isImpersonating && impersonatedUserId 
+          ? parseInt(impersonatedUserId) 
+          : null;
+
+        // Get user's organization memberships if impersonating
+        let userOrgIds: number[] = [];
+        if (targetUserId) {
+          const { data: orgMemberships } = await supabase
+            .from("auth_clerk_orgs_members")
+            .select("clerk_org_id")
+            .eq("auth_clerk_users_id", targetUserId);
+
+          userOrgIds = (orgMemberships || [])
+            .map((m) => m.clerk_org_id)
+            .filter((id): id is number => id !== null);
+        }
+
+        // Fetch all active deals
+        const { data: allDeals, error: dealsError } = await (supabase as any)
           .from("deal")
           .select(
             `
@@ -94,9 +115,39 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
           .eq("deal_disposition_1", "active")
           .order("note_date", { ascending: false });
 
-        if (error) throw error;
+        if (dealsError) throw dealsError;
 
-        setDeals((data as any) || []);
+        // If impersonating, filter deals based on user/org membership
+        if (targetUserId) {
+          // Get deals directly linked to user
+          const { data: userDeals } = await supabase
+            .from("bsi_deals")
+            .select("deal_id")
+            .eq("auth_clerk_users_id", targetUserId);
+
+          const userDealIds = new Set((userDeals || []).map((d) => d.deal_id));
+
+          // Get deals linked via org membership
+          let orgDealIds = new Set<number>();
+          if (userOrgIds.length > 0) {
+            const { data: orgDeals } = await supabase
+              .from("bsi_deals_orgs")
+              .select("deal_id")
+              .in("clerk_org_id", userOrgIds);
+
+            orgDealIds = new Set((orgDeals || []).map((d) => d.deal_id));
+          }
+
+          // Filter to only deals the user has access to
+          const filteredDeals = (allDeals || []).filter(
+            (deal: ActiveDeal) => userDealIds.has(deal.id) || orgDealIds.has(deal.id)
+          );
+
+          setDeals(filteredDeals);
+        } else {
+          // Not impersonating - show all active deals (admin view)
+          setDeals((allDeals as any) || []);
+        }
       } catch (err) {
         console.error("Error fetching active deals:", err);
         setError(err instanceof Error ? err.message : "Failed to load deals");
@@ -106,7 +157,7 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
     };
 
     fetchActiveDeals();
-  }, [supabase, userId]);
+  }, [supabase, userId, isImpersonating, impersonatedUserId]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {

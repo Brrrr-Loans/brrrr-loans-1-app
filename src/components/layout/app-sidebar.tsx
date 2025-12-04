@@ -69,7 +69,7 @@ export function AppSidebar(
       items: [
         {
           name: "Insights",
-          url: "/balance-sheet/investor",
+          url: "/balance-sheet/investor-portfolio/insights",
           icon: BarChart3,
         },
       ],
