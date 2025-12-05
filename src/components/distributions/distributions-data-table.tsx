@@ -18,6 +18,7 @@ import {
 import { Banknote } from "lucide-react";
 import { format } from "date-fns";
 import { useImpersonation } from "@/contexts/impersonation-context";
+import { useCurrentOrganization } from "@/contexts/organization-context";
 
 interface Distribution {
   id: number;
@@ -58,6 +59,7 @@ export function DistributionsDataTable({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { impersonatedUserId } = useImpersonation();
+  const { clerkOrgId } = useCurrentOrganization();
 
   useEffect(() => {
     const fetchDistributions = async () => {
@@ -65,9 +67,13 @@ export function DistributionsDataTable({
         setLoading(true);
         setError(null);
 
+        // When impersonating, don't apply org filter - show all impersonated user's data
         const params = new URLSearchParams();
         if (impersonatedUserId) {
           params.set("impersonate_user_id", impersonatedUserId);
+        } else if (clerkOrgId) {
+          // Only apply org filter when NOT impersonating
+          params.set("clerk_org_id", clerkOrgId);
         }
 
         const queryString = params.toString();
@@ -91,7 +97,7 @@ export function DistributionsDataTable({
     };
 
     fetchDistributions();
-  }, [impersonatedUserId]);
+  }, [impersonatedUserId, clerkOrgId]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {

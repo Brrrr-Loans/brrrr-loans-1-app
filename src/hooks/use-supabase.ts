@@ -42,7 +42,7 @@ export function useSupabase() {
   // Create client with current token - this is the pattern recommended for Clerk
   const client = useMemo(() => {
     const effectiveToken = accessToken ?? supabaseAnonKey;
-    
+
     return createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
         autoRefreshToken: false,

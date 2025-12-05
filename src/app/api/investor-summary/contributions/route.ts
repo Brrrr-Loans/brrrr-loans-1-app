@@ -11,10 +11,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check for impersonation
     const url = new URL(request.url);
     const impersonatedUserIdParam = url.searchParams.get("impersonate_user_id");
+    const clerkOrgIdParam = url.searchParams.get("clerk_org_id");
     
+    // Get target user ID (for impersonation or current user)
     let targetUserId: number;
 
     if (impersonatedUserIdParam) {
@@ -33,19 +34,22 @@ export async function GET(request: Request) {
       targetUserId = currentUser.id;
     }
 
-    // Get the user's organization memberships
-    const { data: orgMemberships } = await supabase
-      .from("auth_clerk_orgs_members")
-      .select("clerk_org_id")
-      .eq("auth_clerk_users_id", targetUserId);
+    let contributions: Array<{
+      contribution_amount: number;
+      contribution_status: string;
+      active: boolean;
+    }> = [];
 
-    const userOrgIds = (orgMemberships || [])
-      .map((m) => m.clerk_org_id)
-      .filter((id): id is number => id !== null);
+    if (clerkOrgIdParam) {
+      // User has an org selected - only show data for that org
+      const { data: dbOrg } = await supabase
+        .from("auth_clerk_orgs")
+        .select("id")
+        .eq("clerk_org_id", clerkOrgIdParam)
+        .single();
 
-    // Get contributions for this user - either directly linked OR via org membership
-    // Query 1: Contributions linked directly to user
-    const { data: userContributions, error: userError } = await supabase
+      if (dbOrg) {
+    const { data, error } = await supabase
       .from("bsi_transactions")
       .select(
         `
@@ -53,19 +57,88 @@ export async function GET(request: Request) {
         transaction_amount,
         transaction_status,
         transaction_date,
-        bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
+            bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
+          `
+          )
+          .eq("bsi_transactions_investors.clerk_org_id", dbOrg.id)
+          .eq("ledger_entry_type", "contribution")
+          .order("transaction_date", { ascending: false });
+
+        if (error) throw error;
+
+        contributions = (data || []).map((tx) => ({
+          contribution_amount: Math.abs(parseFloat(tx.transaction_amount || "0")),
+          contribution_status: tx.transaction_status || "pending",
+          active: true,
+        }));
+      }
+    } else if (impersonatedUserIdParam) {
+      // Impersonating without org filter - show ALL data for impersonated user
+      // Get user's org memberships where they have INVESTMENT interest (not just viewer/employee)
+      const { data: orgMemberships } = await supabase
+        .from("auth_clerk_orgs_members")
+        .select("clerk_org_id, clerk_org_role")
+        .eq("auth_clerk_users_id", targetUserId)
+        .neq("clerk_org_role", "viewer"); // Exclude viewer role (employees with no investment interest)
+
+      const userOrgIds = (orgMemberships || [])
+        .map((m) => m.clerk_org_id)
+        .filter((id): id is number => id !== null);
+
+      // Get direct user contributions
+      const { data: userContributions, error: userError } = await supabase
+        .from("bsi_transactions")
+        .select(
+          `
+          id,
+          transaction_amount,
+          transaction_status,
+          transaction_date,
+          bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
       `
       )
       .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
       .eq("ledger_entry_type", "contribution")
       .order("transaction_date", { ascending: false });
 
-    if (userError) throw userError;
+      if (userError) throw userError;
 
-    // Query 2: Contributions linked via org membership
-    let orgContributions: typeof userContributions = [];
-    if (userOrgIds.length > 0) {
-      const { data: orgData, error: orgError } = await supabase
+      // Get org contributions
+      let orgContributions: typeof userContributions = [];
+      if (userOrgIds.length > 0) {
+        const { data: orgData, error: orgError } = await supabase
+          .from("bsi_transactions")
+          .select(
+            `
+            id,
+            transaction_amount,
+            transaction_status,
+            transaction_date,
+            bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
+          `
+          )
+          .in("bsi_transactions_investors.clerk_org_id", userOrgIds)
+          .eq("ledger_entry_type", "contribution")
+          .order("transaction_date", { ascending: false });
+
+        if (orgError) throw orgError;
+        orgContributions = orgData || [];
+      }
+
+      // Combine and deduplicate
+      const allContributions = [...(userContributions || []), ...orgContributions];
+      const uniqueContributions = Array.from(
+        new Map(allContributions.map((d) => [d.id, d])).values()
+      );
+
+      contributions = uniqueContributions.map((tx) => ({
+        contribution_amount: Math.abs(parseFloat(tx.transaction_amount || "0")),
+        contribution_status: tx.transaction_status || "pending",
+        active: true,
+      }));
+    } else {
+      // No org selected, no impersonation - only show user's direct contributions
+      const { data, error } = await supabase
         .from("bsi_transactions")
         .select(
           `
@@ -76,26 +149,19 @@ export async function GET(request: Request) {
           bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
         `
         )
-        .in("bsi_transactions_investors.clerk_org_id", userOrgIds)
+        .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
+        .is("bsi_transactions_investors.clerk_org_id", null)
         .eq("ledger_entry_type", "contribution")
         .order("transaction_date", { ascending: false });
 
-      if (orgError) throw orgError;
-      orgContributions = orgData || [];
-    }
+    if (error) throw error;
 
-    // Combine and deduplicate results
-    const allContributions = [...(userContributions || []), ...orgContributions];
-    const uniqueContributions = Array.from(
-      new Map(allContributions.map((d) => [d.id, d])).values()
-    );
-
-    // Map to expected format
-    const contributions = uniqueContributions.map((tx) => ({
+      contributions = (data || []).map((tx) => ({
       contribution_amount: Math.abs(parseFloat(tx.transaction_amount || "0")),
       contribution_status: tx.transaction_status || "pending",
       active: true,
     }));
+    }
 
     return NextResponse.json(contributions);
   } catch (error) {

@@ -115,7 +115,7 @@ function generateBreadcrumbs(
             <BreadcrumbLink asChild>
               <Link href="/balance-sheet/transactions?tab=all">
                 Transactions
-              </Link>
+                  </Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
@@ -176,8 +176,8 @@ function generateBreadcrumbs(
       tab === "investments"
         ? "Investments"
         : tab === "distributions"
-        ? "Distributions"
-        : "All Transactions";
+          ? "Distributions"
+          : "All Transactions";
 
     return renderTransactionsBreadcrumb(tabLabel);
   }
@@ -276,7 +276,7 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
   React.useEffect(() => {
     setMounted(true);
   }, []);
-
+  
   // Check if user is admin
   const isAdmin =
     user?.publicMetadata?.role === "admin" ||

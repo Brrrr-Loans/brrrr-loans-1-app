@@ -285,11 +285,11 @@ export function CreateTransactionForm({
             orgId: parseInt(alloc.investorId),
           };
         } else {
-          return {
-            investorId: parseInt(alloc.investorId),
-            amount: parseFloat(alloc.amount),
+        return {
+          investorId: parseInt(alloc.investorId),
+          amount: parseFloat(alloc.amount),
             orgId: undefined,
-          };
+        };
         }
       });
 
@@ -604,26 +604,26 @@ export function CreateTransactionForm({
                     </div>
 
                     {/* Amount Input */}
-                    <FormField
-                      control={form.control}
-                      name={`investorAllocations.${index}.amount`}
-                      render={({ field }) => (
-                        <FormItem className="flex-1">
-                          <FormLabel>Amount</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="0.00"
-                              {...field}
-                              onChange={(e) => {
-                                field.onChange(e);
-                                validateAllocations();
-                              }}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={form.control}
+                    name={`investorAllocations.${index}.amount`}
+                    render={({ field }) => (
+                      <FormItem className="flex-1">
+                        <FormLabel>Amount</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="0.00"
+                            {...field}
+                            onChange={(e) => {
+                              field.onChange(e);
+                              validateAllocations();
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                     <Button
                       type="button"
@@ -636,7 +636,7 @@ export function CreateTransactionForm({
                     </Button>
                   </div>
                 ))
-              )}
+                  )}
             </div>
 
             {/* Investor Type Selection Dialog */}

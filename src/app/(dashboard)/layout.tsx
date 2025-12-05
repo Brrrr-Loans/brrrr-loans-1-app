@@ -4,6 +4,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { SiteHeader } from "@/components/layout/site-header";
 import { ImpersonationProvider } from "@/contexts/impersonation-context";
+import { OrganizationProvider } from "@/contexts/organization-context";
 
 export default function DashboardLayout({
   children,
@@ -11,6 +12,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
+    <OrganizationProvider>
     <ImpersonationProvider>
       <SidebarProvider
         style={
@@ -31,5 +33,6 @@ export default function DashboardLayout({
         </SidebarInset>
       </SidebarProvider>
     </ImpersonationProvider>
+    </OrganizationProvider>
   );
 }

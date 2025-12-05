@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui";
 import { useImpersonation } from "@/contexts/impersonation-context";
+import { useCurrentOrganization } from "@/contexts/organization-context";
 import { InvestorDashboardSkeleton } from "@/components/skeletons/investor-dashboard-skeleton";
 import { PermissionErrorBoundary } from "@/components/error-boundary/permission-error-boundary";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
@@ -29,6 +30,7 @@ interface InvestorDeal {
 
 export default function InvestorDashboard() {
   const { impersonatedUserId } = useImpersonation();
+  const { clerkOrgId } = useCurrentOrganization();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [contributions, setContributions] = useState<InvestorContribution[]>(
@@ -47,20 +49,25 @@ export default function InvestorDashboard() {
         setIsLoading(true);
         setError(null);
 
-        // Build query param for impersonation
-        const impersonateParam = impersonatedUserId
-          ? `?impersonate_user_id=${impersonatedUserId}`
-          : "";
+        // Build query params for impersonation and org filtering
+        // When impersonating, don't apply org filter - show all impersonated user's data
+        const params = new URLSearchParams();
+        if (impersonatedUserId) {
+          params.set("impersonate_user_id", impersonatedUserId);
+        } else if (clerkOrgId) {
+          // Only apply org filter when NOT impersonating
+          params.set("clerk_org_id", clerkOrgId);
+        }
+        const queryString = params.toString();
+        const queryParam = queryString ? `?${queryString}` : "";
 
         // Fetch all data in parallel
         const [contributionsRes, distributionsRes, dealsRes, cashFlowRes] =
           await Promise.all([
-            fetch(`/api/investor-summary/contributions${impersonateParam}`),
-            fetch(`/api/investor-summary/distributions${impersonateParam}`),
-            fetch(`/api/investor-summary/deals${impersonateParam}`),
-            fetch(
-              `/api/investor-dashboard/cumulative-cash-flow${impersonateParam}`
-            ),
+            fetch(`/api/investor-summary/contributions${queryParam}`),
+            fetch(`/api/investor-summary/distributions${queryParam}`),
+            fetch(`/api/investor-summary/deals${queryParam}`),
+            fetch(`/api/investor-dashboard/cumulative-cash-flow${queryParam}`),
           ]);
 
         if (
@@ -95,7 +102,7 @@ export default function InvestorDashboard() {
     };
 
     fetchData();
-  }, [impersonatedUserId]);
+  }, [impersonatedUserId, clerkOrgId]);
 
   // Calculate summary data
   const totalInvested = contributions.reduce(

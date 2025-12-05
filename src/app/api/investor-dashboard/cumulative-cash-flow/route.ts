@@ -16,9 +16,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check for impersonation (admin-only feature)
     const url = new URL(request.url);
     const impersonatedUserIdParam = url.searchParams.get("impersonate_user_id");
+    const clerkOrgIdParam = url.searchParams.get("clerk_org_id");
     
     let targetUserId: number;
 
@@ -50,42 +50,113 @@ export async function GET(request: Request) {
       targetUserId = currentUser.id;
     }
 
-    console.log(`📊 Fetching cumulative cash flow for user ${targetUserId}...`);
+    console.log(`📊 Fetching cumulative cash flow for user ${targetUserId}, org: ${clerkOrgIdParam || 'none'}, impersonating: ${!!impersonatedUserIdParam}...`);
 
-    // Get the user's organization memberships
-    const { data: orgMemberships } = await supabase
-      .from("auth_clerk_orgs_members")
-      .select("clerk_org_id")
-      .eq("auth_clerk_users_id", targetUserId);
+    let transactions: Array<{
+      id: number;
+      transaction_date: string;
+      transaction_amount: string;
+      ledger_entry_type: string;
+    }> = [];
 
-    const userOrgIds = (orgMemberships || [])
-      .map((m) => m.clerk_org_id)
-      .filter((id): id is number => id !== null);
+    if (clerkOrgIdParam) {
+      // User has an org selected - only show data for that org
+      const { data: dbOrg } = await supabase
+        .from("auth_clerk_orgs")
+        .select("id")
+        .eq("clerk_org_id", clerkOrgIdParam)
+        .single();
 
-    // Get transactions linked directly to user
-    const { data: userTransactions, error: userError } = await supabase
+      if (dbOrg) {
+        const { data, error } = await supabase
+          .from("bsi_transactions")
+          .select(
+            `
+            id,
+            transaction_date,
+            transaction_amount,
+            ledger_entry_type,
+            bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
+          `
+          )
+          .eq("bsi_transactions_investors.clerk_org_id", dbOrg.id)
+          .order("transaction_date", { ascending: true });
+
+        if (error) {
+          console.error("❌ Error fetching org transactions:", error);
+          throw error;
+        }
+        transactions = data || [];
+      }
+    } else if (impersonatedUserIdParam) {
+      // Impersonating without org filter - show ALL data for impersonated user
+      // Get user's org memberships where they have INVESTMENT interest (not just viewer/employee)
+      const { data: orgMemberships } = await supabase
+        .from("auth_clerk_orgs_members")
+        .select("clerk_org_id, clerk_org_role")
+        .eq("auth_clerk_users_id", targetUserId)
+        .neq("clerk_org_role", "viewer"); // Exclude viewer role (employees with no investment interest)
+
+      const userOrgIds = (orgMemberships || [])
+        .map((m) => m.clerk_org_id)
+        .filter((id): id is number => id !== null);
+
+      // Get direct user transactions
+      const { data: userTransactions, error: userError } = await supabase
       .from("bsi_transactions")
       .select(
         `
-        id,
+          id,
         transaction_date,
         transaction_amount,
         ledger_entry_type,
-        bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
+          bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
       `
       )
       .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
       .order("transaction_date", { ascending: true });
 
-    if (userError) {
-      console.error("❌ Error fetching user transactions:", userError);
-      throw userError;
-    }
+      if (userError) {
+        console.error("❌ Error fetching user transactions:", userError);
+        throw userError;
+      }
 
-    // Get transactions linked via org membership
-    let orgTransactions: typeof userTransactions = [];
-    if (userOrgIds.length > 0) {
-      const { data: orgData, error: orgError } = await supabase
+      // Get org transactions
+      let orgTransactions: typeof userTransactions = [];
+      if (userOrgIds.length > 0) {
+        const { data: orgData, error: orgError } = await supabase
+          .from("bsi_transactions")
+          .select(
+            `
+            id,
+            transaction_date,
+            transaction_amount,
+            ledger_entry_type,
+            bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
+          `
+          )
+          .in("bsi_transactions_investors.clerk_org_id", userOrgIds)
+          .order("transaction_date", { ascending: true });
+
+        if (orgError) {
+          console.error("❌ Error fetching org transactions:", orgError);
+          throw orgError;
+        }
+        orgTransactions = orgData || [];
+      }
+
+      // Combine and deduplicate
+      const allTransactions = [...(userTransactions || []), ...orgTransactions];
+      transactions = Array.from(
+        new Map(allTransactions.map((t) => [t.id, t])).values()
+      ).sort((a, b) => {
+        const dateA = a.transaction_date ? new Date(a.transaction_date).getTime() : 0;
+        const dateB = b.transaction_date ? new Date(b.transaction_date).getTime() : 0;
+        return dateA - dateB;
+      });
+    } else {
+      // No org selected, no impersonation - only show user's direct transactions
+      const { data, error } = await supabase
         .from("bsi_transactions")
         .select(
           `
@@ -96,25 +167,16 @@ export async function GET(request: Request) {
           bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
         `
         )
-        .in("bsi_transactions_investors.clerk_org_id", userOrgIds)
+        .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
+        .is("bsi_transactions_investors.clerk_org_id", null)
         .order("transaction_date", { ascending: true });
 
-      if (orgError) {
-        console.error("❌ Error fetching org transactions:", orgError);
-        throw orgError;
+    if (error) {
+        console.error("❌ Error fetching user transactions:", error);
+      throw error;
       }
-      orgTransactions = orgData || [];
+      transactions = data || [];
     }
-
-    // Combine and deduplicate
-    const allTransactions = [...(userTransactions || []), ...orgTransactions];
-    const transactions = Array.from(
-      new Map(allTransactions.map((t) => [t.id, t])).values()
-    ).sort((a, b) => {
-      const dateA = a.transaction_date ? new Date(a.transaction_date).getTime() : 0;
-      const dateB = b.transaction_date ? new Date(b.transaction_date).getTime() : 0;
-      return dateA - dateB;
-    });
 
     if (transactions.length === 0) {
       return NextResponse.json({

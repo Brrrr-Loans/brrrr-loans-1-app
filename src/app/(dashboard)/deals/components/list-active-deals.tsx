@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSupabase } from "@/hooks/use-supabase";
 import { useAuth } from "@/hooks/use-clerk-auth";
 import { useImpersonation } from "@/contexts/impersonation-context";
+import { useCurrentOrganization } from "@/contexts/organization-context";
 import {
   Card,
   CardContent,
@@ -62,6 +63,7 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
   const supabase = useSupabase();
   const { userId } = useAuth();
   const { impersonatedUserId, isImpersonating } = useImpersonation();
+  const { clerkOrgId } = useCurrentOrganization();
   const [deals, setDeals] = useState<ActiveDeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,20 +81,7 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
           ? parseInt(impersonatedUserId) 
           : null;
 
-        // Get user's organization memberships if impersonating
-        let userOrgIds: number[] = [];
-        if (targetUserId) {
-          const { data: orgMemberships } = await supabase
-            .from("auth_clerk_orgs_members")
-            .select("clerk_org_id")
-            .eq("auth_clerk_users_id", targetUserId);
-
-          userOrgIds = (orgMemberships || [])
-            .map((m) => m.clerk_org_id)
-            .filter((id): id is number => id !== null);
-        }
-
-        // Fetch all active deals
+        // Fetch all active deals first
         const { data: allDeals, error: dealsError } = await (supabase as any)
           .from("deal")
           .select(
@@ -117,9 +106,20 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
 
         if (dealsError) throw dealsError;
 
-        // If impersonating, filter deals based on user/org membership
         if (targetUserId) {
-          // Get deals directly linked to user
+          // Impersonating - show ALL deals for impersonated user (direct + org)
+          // Get user's org memberships where they have INVESTMENT interest (not just viewer/employee)
+          const { data: orgMemberships } = await supabase
+            .from("auth_clerk_orgs_members")
+            .select("clerk_org_id, clerk_org_role")
+            .eq("auth_clerk_users_id", targetUserId)
+            .neq("clerk_org_role", "viewer"); // Exclude viewer role (employees with no investment interest)
+
+          const userOrgIds = (orgMemberships || [])
+            .map((m) => m.clerk_org_id)
+            .filter((id): id is number => id !== null);
+
+          // Get user's direct deals
           const { data: userDeals } = await supabase
             .from("bsi_deals")
             .select("deal_id")
@@ -127,7 +127,7 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
 
           const userDealIds = new Set((userDeals || []).map((d) => d.deal_id));
 
-          // Get deals linked via org membership
+          // Get org deals
           let orgDealIds = new Set<number>();
           if (userOrgIds.length > 0) {
             const { data: orgDeals } = await supabase
@@ -138,14 +138,35 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
             orgDealIds = new Set((orgDeals || []).map((d) => d.deal_id));
           }
 
-          // Filter to only deals the user has access to
+          // Filter to all deals the user has access to
           const filteredDeals = (allDeals || []).filter(
             (deal: ActiveDeal) => userDealIds.has(deal.id) || orgDealIds.has(deal.id)
           );
-
           setDeals(filteredDeals);
+        } else if (clerkOrgId) {
+          // Not impersonating, has org selected - only show deals for that org
+          const { data: dbOrg } = await supabase
+            .from("auth_clerk_orgs")
+            .select("id")
+            .eq("clerk_org_id", clerkOrgId)
+            .single();
+
+          if (dbOrg) {
+            const { data: orgDeals } = await supabase
+              .from("bsi_deals_orgs")
+              .select("deal_id")
+              .eq("clerk_org_id", dbOrg.id);
+
+            const orgDealIds = new Set((orgDeals || []).map((d) => d.deal_id));
+            const filteredDeals = (allDeals || []).filter(
+              (deal: ActiveDeal) => orgDealIds.has(deal.id)
+            );
+            setDeals(filteredDeals);
+          } else {
+            setDeals([]);
+          }
         } else {
-          // Not impersonating - show all active deals (admin view)
+          // No org, not impersonating - admin view, show all
           setDeals((allDeals as any) || []);
         }
       } catch (err) {
@@ -157,7 +178,7 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
     };
 
     fetchActiveDeals();
-  }, [supabase, userId, isImpersonating, impersonatedUserId]);
+  }, [supabase, userId, isImpersonating, impersonatedUserId, clerkOrgId]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {

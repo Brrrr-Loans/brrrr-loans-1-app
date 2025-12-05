@@ -103,13 +103,14 @@ export function TransactionsDataTable() {
     setError(null);
 
     try {
-      // If impersonating, fetch the user's organization memberships first
+      // If impersonating, fetch the user's organization memberships where they have INVESTMENT interest
       let impersonatedUserOrgIds: number[] = [];
       if (isImpersonating && impersonatedUserId) {
         const { data: orgMemberships } = await supabase
           .from("auth_clerk_orgs_members")
-          .select("clerk_org_id")
-          .eq("auth_clerk_users_id", impersonatedUserId);
+          .select("clerk_org_id, clerk_org_role")
+          .eq("auth_clerk_users_id", impersonatedUserId)
+          .neq("clerk_org_role", "viewer"); // Exclude viewer role (employees with no investment interest)
         
         impersonatedUserOrgIds = (orgMemberships || [])
           .map((m) => m.clerk_org_id)

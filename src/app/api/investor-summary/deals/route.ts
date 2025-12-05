@@ -11,10 +11,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check for impersonation
     const url = new URL(request.url);
     const impersonatedUserIdParam = url.searchParams.get("impersonate_user_id");
+    const clerkOrgIdParam = url.searchParams.get("clerk_org_id");
     
+    // Get target user ID (for impersonation or current user)
     let targetUserId: number;
 
     if (impersonatedUserIdParam) {
@@ -33,41 +34,58 @@ export async function GET(request: Request) {
       targetUserId = currentUser.id;
     }
 
-    // Get the user's organization memberships
-    const { data: orgMemberships } = await supabase
-      .from("auth_clerk_orgs_members")
-      .select("clerk_org_id")
-      .eq("auth_clerk_users_id", targetUserId);
+    let deals: Array<{ status: string }> = [];
 
-    const userOrgIds = (orgMemberships || [])
-      .map((m) => m.clerk_org_id)
-      .filter((id): id is number => id !== null);
+    if (clerkOrgIdParam) {
+      // User has an org selected - only show deals for that org
+      const { data: dbOrg } = await supabase
+        .from("auth_clerk_orgs")
+        .select("id")
+        .eq("clerk_org_id", clerkOrgIdParam)
+        .single();
 
-    // Get deals for this user via bsi_deals (links individual users to deals)
-    const { data: userDeals, error: userError } = await supabase
-      .from("bsi_deals")
-      .select(
-        `
-        id,
-        deal_id,
-        deal:deal_id(
-          id,
-          deal_name,
-          deal_disposition_1
-        )
-      `
-      )
-      .eq("auth_clerk_users_id", targetUserId);
+      if (dbOrg) {
+        const { data, error } = await supabase
+          .from("bsi_deals_orgs")
+          .select(
+            `
+            id,
+            deal_id,
+            deal:deal_id(
+              id,
+              deal_name,
+              deal_disposition_1
+            )
+          `
+          )
+          .eq("clerk_org_id", dbOrg.id);
 
-    if (userError) {
-      console.error("Error fetching user deals:", userError);
-    }
+        if (error) {
+          console.error("Error fetching org deals:", error);
+        } else {
+          deals = (data || [])
+            .filter((row) => row.deal)
+            .map((row) => ({
+              status: row.deal?.deal_disposition_1 || "unknown",
+            }));
+        }
+      }
+    } else if (impersonatedUserIdParam) {
+      // Impersonating without org filter - show ALL deals for impersonated user
+      // Get user's org memberships where they have INVESTMENT interest (not just viewer/employee)
+      const { data: orgMemberships } = await supabase
+        .from("auth_clerk_orgs_members")
+        .select("clerk_org_id, clerk_org_role")
+        .eq("auth_clerk_users_id", targetUserId)
+        .neq("clerk_org_role", "viewer"); // Exclude viewer role (employees with no investment interest)
 
-    // Get deals for user's orgs via bsi_deals_orgs (links orgs to deals)
-    let orgDeals: typeof userDeals = [];
-    if (userOrgIds.length > 0) {
-      const { data: orgData, error: orgError } = await supabase
-        .from("bsi_deals_orgs")
+      const userOrgIds = (orgMemberships || [])
+        .map((m) => m.clerk_org_id)
+        .filter((id): id is number => id !== null);
+
+      // Get user's direct deals
+      const { data: userDeals, error: userError } = await supabase
+        .from("bsi_deals")
         .select(
           `
           id,
@@ -79,27 +97,75 @@ export async function GET(request: Request) {
           )
         `
         )
-        .in("clerk_org_id", userOrgIds);
+        .eq("auth_clerk_users_id", targetUserId);
 
-      if (orgError) {
-        console.error("Error fetching org deals:", orgError);
-      } else {
-        orgDeals = orgData || [];
+      if (userError) {
+        console.error("Error fetching user deals:", userError);
       }
-    }
 
-    // Combine and deduplicate by deal_id
-    const allDeals = [...(userDeals || []), ...orgDeals];
-    const uniqueDeals = Array.from(
-      new Map(allDeals.map((d) => [d.deal_id, d])).values()
-    );
+      // Get org deals
+      let orgDeals: typeof userDeals = [];
+      if (userOrgIds.length > 0) {
+        const { data: orgData, error: orgError } = await supabase
+          .from("bsi_deals_orgs")
+          .select(
+            `
+            id,
+            deal_id,
+            deal:deal_id(
+              id,
+              deal_name,
+              deal_disposition_1
+            )
+          `
+          )
+          .in("clerk_org_id", userOrgIds);
 
-    // Map to expected format - get status from the linked deal
-    const deals = uniqueDeals
-      .filter((row) => row.deal) // Filter out rows without a linked deal
+        if (orgError) {
+          console.error("Error fetching org deals:", orgError);
+        } else {
+          orgDeals = orgData || [];
+        }
+      }
+
+      // Combine and deduplicate
+      const allDeals = [...(userDeals || []), ...orgDeals];
+      const uniqueDeals = Array.from(
+        new Map(allDeals.map((d) => [d.deal_id, d])).values()
+      );
+
+      deals = uniqueDeals
+        .filter((row) => row.deal)
+        .map((row) => ({
+          status: row.deal?.deal_disposition_1 || "unknown",
+        }));
+    } else {
+      // No org selected, no impersonation - only show user's direct deals
+    const { data, error } = await supabase
+      .from("bsi_deals")
+      .select(
+        `
+        id,
+          deal_id,
+        deal:deal_id(
+        id,
+        deal_name,
+          deal_disposition_1
+        )
+      `
+      )
+      .eq("auth_clerk_users_id", targetUserId);
+
+    if (error) {
+        console.error("Error fetching user deals:", error);
+      } else {
+        deals = (data || [])
+          .filter((row) => row.deal)
       .map((row) => ({
         status: row.deal?.deal_disposition_1 || "unknown",
-      }));
+    }));
+      }
+    }
 
     return NextResponse.json(deals);
   } catch (error) {

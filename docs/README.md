@@ -2,6 +2,17 @@
 
 This directory contains all project documentation organized by purpose and relevance.
 
+## 🏗️ Architecture Overview
+
+**[ARCHITECTURE.md](ARCHITECTURE.md)** - Comprehensive documentation covering:
+- Database schema and entity relationships
+- Permissions model (org-based filtering, impersonation)
+- Client-side and server-side security measures
+- Calculation logic with formulas (ROI, contributions, distributions)
+- Data flow examples
+
+---
+
 ## 📁 Directory Structure
 
 ### `guides/` - Developer & User Guides
