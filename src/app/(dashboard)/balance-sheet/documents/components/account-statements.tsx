@@ -1,13 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui";
+import { Card, CardContent } from "@/components/ui";
 import {
   Table,
   TableBody,
@@ -194,13 +188,18 @@ export function AccountStatements() {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle>Account Statements</CardTitle>
-          <CardDescription>
+        {/* Header - matches FileManager styling */}
+        <div className="border-b bg-muted/20 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">Account Statements</h3>
+              <p className="text-sm text-muted-foreground">
             Monthly statements showing your balance sheet investments and returns
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+              </p>
+            </div>
+          </div>
+        </div>
+        <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
@@ -212,11 +211,12 @@ export function AccountStatements() {
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <FileSpreadsheet className="h-12 w-12 text-muted-foreground mb-4" />
               <h4 className="text-lg font-medium mb-2">No statements found</h4>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-muted-foreground mb-4">
                 Your account statements will appear here once they are generated
               </p>
             </div>
           ) : (
+            <div className="p-6">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -266,6 +266,7 @@ export function AccountStatements() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

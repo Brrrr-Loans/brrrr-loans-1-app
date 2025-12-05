@@ -169,7 +169,7 @@ export async function GET(request: Request) {
         )
         .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
         .is("bsi_transactions_investors.clerk_org_id", null)
-        .order("transaction_date", { ascending: true });
+      .order("transaction_date", { ascending: true });
 
     if (error) {
         console.error("❌ Error fetching user transactions:", error);

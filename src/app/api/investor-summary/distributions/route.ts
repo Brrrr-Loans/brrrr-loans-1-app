@@ -217,8 +217,8 @@ export async function GET(request: Request) {
         )
         .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
         .is("bsi_transactions_investors.clerk_org_id", null)
-        .eq("ledger_entry_type", "distribution")
-        .order("transaction_date", { ascending: false });
+      .eq("ledger_entry_type", "distribution")
+      .order("transaction_date", { ascending: false });
 
     if (error) throw error;
 
