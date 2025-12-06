@@ -192,7 +192,8 @@ export function StatementsTable() {
             <div>
               <h3 className="text-lg font-semibold">Account Statements</h3>
               <p className="text-sm text-muted-foreground">
-            Monthly statements showing your balance sheet investments and returns
+                Monthly statements showing your balance sheet investments and
+                returns
               </p>
             </div>
           </div>
@@ -202,7 +203,9 @@ export function StatementsTable() {
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Loading statements...</p>
+                <p className="text-sm text-muted-foreground">
+                  Loading statements...
+                </p>
               </div>
             </div>
           ) : statements.length === 0 ? (
@@ -215,55 +218,61 @@ export function StatementsTable() {
             </div>
           ) : (
             <div className="p-6">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Billing Period</TableHead>
-                  <TableHead>Statement Date</TableHead>
-                  <TableHead className="text-right">Opening Balance</TableHead>
-                  <TableHead className="text-right">Closing Balance</TableHead>
-                  <TableHead className="text-right">Interest</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {statements.map((statement) => (
-                  <TableRow key={statement.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        {getBillingPeriod(statement)}
-                      </div>
-                    </TableCell>
-                    <TableCell>{formatDate(statement.statement_date)}</TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(statement.total_upb_open)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(statement.total_upb_close)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatCurrency(statement.total_interest)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">Available</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleStatementDownload(statement)}
-                        disabled={!statement.file_path}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        Download
-                      </Button>
-                    </TableCell>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Billing Period</TableHead>
+                    <TableHead>Statement Date</TableHead>
+                    <TableHead className="text-right">
+                      Opening Balance
+                    </TableHead>
+                    <TableHead className="text-right">
+                      Closing Balance
+                    </TableHead>
+                    <TableHead className="text-right">Interest</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {statements.map((statement) => (
+                    <TableRow key={statement.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          {getBillingPeriod(statement)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {formatDate(statement.statement_date)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(statement.total_upb_open)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(statement.total_upb_close)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatCurrency(statement.total_interest)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">Available</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleStatementDownload(statement)}
+                          disabled={!statement.file_path}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           )}
         </CardContent>

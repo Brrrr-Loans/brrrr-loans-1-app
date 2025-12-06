@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
-import { createClient } from "@supabase/supabase-js";
+import { useSupabase } from "@/hooks/use-supabase";
 
 interface UseCanUploadReturn {
   canUpload: boolean;
@@ -16,9 +16,11 @@ interface UseCanUploadReturn {
  */
 export function useCanUpload(): UseCanUploadReturn {
   const { user, isLoaded: isUserLoaded } = useUser();
+  const supabase = useSupabase();
   const [canUpload, setCanUpload] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const hasChecked = useRef(false);
 
   useEffect(() => {
     async function checkPermission() {
@@ -30,17 +32,11 @@ export function useCanUpload(): UseCanUploadReturn {
         return;
       }
 
-      try {
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-          {
-            auth: {
-              persistSession: false,
-            },
-          }
-        );
+      // Prevent duplicate checks
+      if (hasChecked.current) return;
+      hasChecked.current = true;
 
+      try {
         const { data, error: queryError } = await supabase
           .from("auth_clerk_users")
           .select("role, is_internal_yn")
@@ -66,7 +62,7 @@ export function useCanUpload(): UseCanUploadReturn {
     }
 
     checkPermission();
-  }, [user, isUserLoaded]);
+  }, [user, isUserLoaded, supabase]);
 
   return { canUpload, isLoading, error };
 }
