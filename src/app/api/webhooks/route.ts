@@ -114,7 +114,9 @@ async function handleUserCreated(
     first_name,
     last_name,
     public_metadata,
-  } = data;
+    image_url,
+    has_image,
+  } = data as WebhookEvent["data"] & { image_url?: string; has_image?: boolean };
   const primaryEmail = email_addresses?.[0]?.email_address;
   const primaryPhone = phone_numbers?.[0]?.phone_number || null;
 
@@ -182,6 +184,8 @@ async function handleUserCreated(
       role: dbRole as Database["public"]["Enums"]["user_role_internal"],
       is_internal_yn: false,
       is_active_yn: true,
+      image_url: image_url || null,
+      has_image: has_image || false,
     })
     .select()
     .single();
@@ -194,7 +198,7 @@ async function handleUserCreated(
 }
 
 async function handleUserUpdated(
-  data: ClerkUser,
+  data: ClerkUser & { image_url?: string; has_image?: boolean },
   supabase: ReturnType<typeof createServiceRoleClient>
 ) {
   const {
@@ -204,6 +208,8 @@ async function handleUserUpdated(
     first_name,
     last_name,
     public_metadata,
+    image_url,
+    has_image,
   } = data;
   const primaryEmail = email_addresses?.[0]?.email_address;
   const primaryPhone = phone_numbers?.[0]?.phone_number || null;
@@ -251,6 +257,8 @@ async function handleUserUpdated(
       last_name: last_name || null,
       phone_number: primaryPhone,
       role: dbRole as Database["public"]["Enums"]["user_role_internal"],
+      image_url: image_url || null,
+      has_image: has_image || false,
       updated_at: new Date().toISOString(),
     })
     .eq("clerk_user_id", clerkId);
@@ -278,21 +286,22 @@ async function handleUserDeleted(
 // Session event handlers
 async function handleSessionCreated(
   data: ClerkSession,
-  _supabase: ReturnType<typeof createServiceRoleClient>
+  supabase: ReturnType<typeof createServiceRoleClient>
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { user_id, id: session_id } = data;
+  const { user_id } = data;
 
-  // TODO: The 'clerk_user_sessions' table does not exist in the Supabase types. Replace with a valid table or add to schema.
-  // const { error } = await supabase.from("clerk_user_sessions").insert({
-  //   clerk_user_id: user_id,
-  //   clerk_session_id: session_id,
-  //   status: "active",
-  //   created_at: new Date().toISOString(),
-  // });
-  const error = undefined;
+  // Update last_sign_in_at when user signs in
+  const { error } = await supabase
+    .from("auth_clerk_users")
+    .update({
+      last_sign_in_at: new Date().toISOString(),
+    })
+    .eq("clerk_user_id", user_id);
 
-  if (error) throw error;
+  if (error) {
+    console.error("Error updating last_sign_in_at:", error);
+    // Don't throw - this is not critical
+  }
 }
 
 async function handleSessionEnded(
