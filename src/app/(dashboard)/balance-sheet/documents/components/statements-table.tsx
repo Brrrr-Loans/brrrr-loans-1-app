@@ -17,7 +17,7 @@ import { useSupabase } from "@/hooks/use-supabase";
 import { useUser } from "@clerk/nextjs";
 import type { InvestorStatement } from "@/types/investor-statements";
 
-export function AccountStatements() {
+export function StatementsTable() {
   const [statements, setStatements] = useState<InvestorStatement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useUser();
@@ -80,7 +80,7 @@ export function AccountStatements() {
         (data || []).map((item: Record<string, string | number | null>) => ({
           id: String(item.id),
           created_at: String(item.created_at),
-          auth_clerk_users_id: userData.id, // Use the auth_clerk_users.id
+          auth_clerk_users_id: userData.id,
           clerk_org_id: item.clerk_org_id ? Number(item.clerk_org_id) : null,
           statement_date: String(item.statement_date),
           statement_period_start: String(item.statement_period_start),
@@ -90,15 +90,13 @@ export function AccountStatements() {
           total_interest: (item.total_interest as number) || 0,
           total_principal: item.total_principal as number | null,
           total_fees: (item.total_fees as number) || 0,
-          deposit_amount: null, // This field doesn't exist in bsi_statements schema
-          clerk_organization_id: null, // This field doesn't exist in the schema
-          org_id: null, // This field doesn't exist in the schema
-          file_path: null, // These file fields don't exist in bsi_statements
-          file_name: null,
-          file_type: null,
-          file_size: null,
-          file_url: null,
-          uploaded_at: null,
+          deposit_amount: item.deposit_amount as number | null,
+          file_path: item.file_path as string | null,
+          file_name: item.file_name as string | null,
+          file_type: item.file_type as string | null,
+          file_size: item.file_size as number | null,
+          file_url: item.file_url as string | null,
+          uploaded_at: item.uploaded_at as string | null,
         }))
       );
     } catch (error) {

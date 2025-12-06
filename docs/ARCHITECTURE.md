@@ -19,7 +19,7 @@
 
 ### 1.1 Core Entity Relationships
 
-```
+```text
 ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
 │ auth_clerk_users│◄────►│auth_clerk_orgs_ │◄────►│  auth_clerk_orgs│
 │                 │      │    members      │      │                 │
@@ -138,7 +138,7 @@ When a user is a member of an organization, they have an org-specific role:
 
 ### 2.2 Key Tables for RBAC
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                    auth_clerk_users                              │
 ├─────────────────────────────────────────────────────────────────┤
@@ -186,7 +186,7 @@ The **sidebar team-switcher** (org switcher) acts as a **data isolation layer**.
 
 ### 2.4 Data Visibility Decision Tree
 
-_(To be documented)_
+**_(To be documented)_**
 
 ### 2.5 Impersonation System
 
@@ -214,7 +214,7 @@ _(To be documented)_
 
 ### 3.1 Authentication Flow
 
-```
+```text
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │   Browser   │────►│    Clerk    │────►│  Next.js    │────►│  Supabase   │
 │             │     │ (Auth)      │     │  API Route  │     │  (Database) │
@@ -299,6 +299,97 @@ All security-critical functions have:
 - Schema-qualified references (`public.table_name`)
 - Proper error handling
 
+### 3.6 Storage Security (Supabase Storage)
+
+#### 3.6.1 Bucket Architecture
+
+| Bucket            | Visibility | File Size Limit | Purpose                                     |
+| ----------------- | ---------- | --------------- | ------------------------------------------- |
+| `assets_public`   | Public     | 50MB            | Public assets (avatars, images)             |
+| `investors`       | Private    | 50MB            | Investor documents (statements, agreements) |
+| `document_upload` | Private    | None            | Legacy document uploads                     |
+
+#### 3.6.2 Folder-Based Isolation
+
+Private buckets use **folder-based isolation** where files are organized by owner:
+
+```text
+investors/
+├── users/{clerk_user_id}/
+│   ├── statements/
+│   ├── payments/
+│   └── agreements/
+└── orgs/{clerk_org_id}/
+    ├── statements/
+    ├── payments/
+    └── agreements/
+```
+
+**Path Convention:**
+
+- Individual user files: `users/{clerk_user_id}/{category}/{filename}`
+- Organization files: `orgs/{clerk_org_id}/{category}/{filename}`
+
+#### 3.6.3 Storage Helper Functions
+
+Three SQL functions support storage RLS policies:
+
+```sql
+-- Get clerk_user_id from JWT token
+get_clerk_user_id() → TEXT
+  Returns: auth.jwt() ->> 'sub'
+
+-- Check if user is internal admin
+is_internal_admin() → BOOLEAN
+  Returns: true if role = 'admin' AND is_internal_yn = true
+
+-- Get all org IDs user belongs to
+get_user_org_ids() → TEXT[]
+  Returns: Array of clerk_org_id values from auth_clerk_orgs_members
+```
+
+#### 3.6.4 Storage RLS Policies (`investors` bucket)
+
+| Policy Name                   | Operation | Rule                                                               |
+| ----------------------------- | --------- | ------------------------------------------------------------------ |
+| `investors_select_own_files`  | SELECT    | Internal admins OR file in `users/{my_id}/` OR `orgs/{my_org_id}/` |
+| `investors_insert_admin_only` | INSERT    | Internal admins only                                               |
+| `investors_update_admin_only` | UPDATE    | Internal admins only                                               |
+| `investors_delete_admin_only` | DELETE    | Internal admins only                                               |
+
+**Key Security Rules:**
+
+1. **Read Access (SELECT):**
+
+   - Internal admins (`is_internal_admin() = true`) can read all files
+   - Users can only read files in their own folder (`users/{their_clerk_user_id}/`)
+   - Users can read files in their organization's folder (`orgs/{their_org_id}/`)
+
+2. **Write Access (INSERT/UPDATE/DELETE):**
+   - **Only internal admins** can upload, modify, or delete files
+   - Requires BOTH: `role = 'admin'` AND `is_internal_yn = true`
+
+```sql
+-- Example: SELECT policy logic
+(storage.foldername(name))[1] = 'users'
+AND (storage.foldername(name))[2] = get_clerk_user_id()
+OR
+(storage.foldername(name))[1] = 'orgs'
+AND (storage.foldername(name))[2] = ANY(get_user_org_ids())
+```
+
+#### 3.6.5 Client-Side Permission Check
+
+The `useCanUpload` hook checks if the current user has upload permission:
+
+```typescript
+// From src/hooks/use-can-upload.ts
+const { canUpload, isLoading } = useCanUpload();
+// Returns true if: role = 'admin' AND is_internal_yn = true
+```
+
+Used by `FileManager` component to conditionally show upload/delete UI.
+
 ---
 
 ## 4. Calculation Logic
@@ -307,7 +398,7 @@ All security-critical functions have:
 
 #### Total Invested (Contributions)
 
-```
+```text
 Formula: SUM(ABS(transaction_amount))
          WHERE ledger_entry_type = 'contribution'
 
@@ -316,7 +407,7 @@ Excel:   =SUMIF(ledger_entry_type, "contribution", ABS(transaction_amount))
 
 #### Total Distributions
 
-```
+```text
 Formula: SUM(ABS(transaction_amount))
          WHERE ledger_entry_type = 'distribution'
 
@@ -325,7 +416,7 @@ Excel:   =SUMIF(ledger_entry_type, "distribution", ABS(transaction_amount))
 
 #### Active Deals Count
 
-```
+```text
 Formula: COUNT(*) WHERE deal_disposition_1 = 'active'
 
 Excel:   =COUNTIF(deal_disposition_1, "active")
@@ -335,7 +426,7 @@ Excel:   =COUNTIF(deal_disposition_1, "active")
 
 **Important:** ROI measures actual income/profit, NOT total distributions. The return of principal is not income—it's simply getting your capital back.
 
-```
+```text
 Formula: (Total Income Earned / Total Invested) × 100
 
 Where:
@@ -357,7 +448,7 @@ Excel:   =(Total_Income_Earned / Total_Invested) * 100
 
 If initial investment was $30,000:
 
-```
+```text
 ROI = ($2,701.02 / $30,000) × 100 = 9.0%
 ```
 
@@ -377,7 +468,7 @@ const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
 
 #### Cumulative Contributions
 
-```
+```text
 For each month M:
   Cumulative_Contributions[M] = Cumulative_Contributions[M-1] + Contributions[M]
 
@@ -386,7 +477,7 @@ Excel: =SUM($B$2:B2)  // Running total
 
 #### Monthly ROI
 
-```
+```text
 Formula: (Distributions[M] / Cumulative_Contributions[M]) × 100
 
 Note: This shows the distribution rate for that month relative to total invested
@@ -437,9 +528,9 @@ WHERE ti.clerk_user_id = {impersonated_user_db_id}
 - Database ID: 5
 - Member of: "VT Funder LLC" (org ID: 3), "Brrrr Funder LLC" (org ID: 4)
 
-**Scenario 1: VT Funder LLC Selected**
+#### Scenario 1: VT Funder LLC Selected
 
-```
+```text
 Shows:
   ✓ Distribution to VT Funder LLC - $5,024.98
   ✓ Distribution to VT Funder LLC - $454.44
@@ -447,18 +538,18 @@ Shows:
   ✗ Distribution to Brrrr Funder LLC - $40,000 (different org)
 ```
 
-**Scenario 2: Brrrr Funder LLC Selected**
+#### Scenario 2: Brrrr Funder LLC Selected
 
-```
+```text
 Shows:
   ✓ Distribution to Brrrr Funder LLC - $40,000
   ✓ Distribution to Brrrr Funder LLC - $10,576.44
   ✗ Distributions to VT Funder LLC (different org)
 ```
 
-**Scenario 3: Admin Impersonating Varazdat**
+#### Scenario 3: Admin Impersonating Varazdat
 
-```
+```text
 Shows ALL:
   ✓ Distribution to VT Funder LLC - $5,024.98
   ✓ Distribution to VT Funder LLC - $454.44
@@ -470,7 +561,7 @@ Shows ALL:
 
 ### 5.2 Example: Creating a Transaction
 
-```
+```text
 1. Admin creates transaction with:
    - Amount: $10,000
    - Type: Distribution
@@ -508,8 +599,19 @@ Shows ALL:
 | `src/contexts/organization-context.tsx`  | Organization selection state    |
 | `src/contexts/impersonation-context.tsx` | Impersonation state             |
 | `src/hooks/use-supabase.ts`              | Supabase client with Clerk auth |
+| `src/hooks/use-can-upload.ts`            | Check admin upload permission   |
+| `src/hooks/use-supabase-upload.ts`       | File upload to Supabase storage |
 | `src/lib/supabase-server.ts`             | Server-side Supabase client     |
 | `src/app/api/investor-summary/*`         | Investor dashboard API routes   |
+
+---
+
+## Appendix C: Storage Migrations
+
+| Migration                         | Purpose                                                                     |
+| --------------------------------- | --------------------------------------------------------------------------- |
+| `create_storage_helper_functions` | Created `get_clerk_user_id()`, `is_internal_admin()`, `get_user_org_ids()`  |
+| `update_investors_bucket_rls`     | Replaced permissive policies with folder-based isolation + admin-only write |
 
 ---
 

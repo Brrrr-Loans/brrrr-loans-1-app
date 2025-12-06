@@ -27,6 +27,8 @@ import {
   DropzoneEmptyState,
 } from "@/components/ui/forms/supabase-dropzone";
 import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
+import { useCanUpload } from "@/hooks/use-can-upload";
+import { useCurrentOrganization } from "@/contexts/organization-context";
 import {
   Search,
   Upload,
@@ -85,6 +87,8 @@ export function FileManager({
   basePath = "",
 }: FileManagerProps) {
   const { user } = useUser();
+  const { clerkOrgId } = useCurrentOrganization();
+  const { canUpload, isLoading: isCheckingPermission } = useCanUpload();
   const [files, setFiles] = useState<FileItem[]>([]);
   const [currentPath, setCurrentPath] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,9 +109,29 @@ export function FileManager({
     );
   }, []);
 
-  // Upload configuration
-  const uploadPath = basePath 
-    ? `${basePath}/${currentPath.join("/")}`
+  // Construct the user/org prefixed base path
+  // Format: users/{clerk_user_id}/{basePath} or orgs/{clerk_org_id}/{basePath}
+  const ownerPrefix = useMemo(() => {
+    if (clerkOrgId) {
+      return `orgs/${clerkOrgId}`;
+    }
+    if (user?.id) {
+      return `users/${user.id}`;
+    }
+    return "";
+  }, [clerkOrgId, user?.id]);
+
+  // Full base path with owner prefix
+  const fullBasePath = useMemo(() => {
+    if (!ownerPrefix) return basePath;
+    return basePath ? `${ownerPrefix}/${basePath}` : ownerPrefix;
+  }, [ownerPrefix, basePath]);
+
+  // Upload configuration - use the full path with owner prefix
+  const uploadPath = fullBasePath 
+    ? currentPath.length > 0 
+      ? `${fullBasePath}/${currentPath.join("/")}`
+      : fullBasePath
     : currentPath.join("/");
     
   const uploadProps = useSupabaseUpload({
@@ -117,22 +141,25 @@ export function FileManager({
     maxFileSize: 50 * 1024 * 1024, // 50MB
     allowedMimeTypes: allowedTypes,
   });
+  
+  // Determine if user can perform write operations (upload/delete)
+  // Must be internal admin AND not explicitly set to readOnly
+  const canWrite = canUpload && !readOnly;
 
   const fetchFiles = useCallback(async () => {
     if (!user) return;
 
     setLoading(true);
     try {
-      // Construct full path with basePath
-      let fullPath = basePath;
+      // Construct full path with owner prefix and basePath
+      let listPath = fullBasePath;
       if (currentPath.length > 0) {
-        fullPath = fullPath ? `${fullPath}/${currentPath.join("/")}` : currentPath.join("/");
+        listPath = listPath ? `${listPath}/${currentPath.join("/")}` : currentPath.join("/");
       }
-      const pathPrefix = fullPath ? `${fullPath}/` : "";
 
       const { data, error } = await supabase.storage
         .from(bucketName)
-        .list(fullPath || undefined, {
+        .list(listPath || undefined, {
           limit: 100,
           offset: 0,
         });
@@ -148,7 +175,7 @@ export function FileManager({
     } finally {
       setLoading(false);
     }
-  }, [supabase, bucketName, currentPath, user, basePath]);
+  }, [supabase, bucketName, currentPath, user, fullBasePath]);
 
   useEffect(() => {
     fetchFiles();
@@ -199,14 +226,14 @@ export function FileManager({
 
   const handleDownload = async (file: FileItem) => {
     try {
+      // Construct file path with owner prefix
       let filePath = file.name;
-      if (basePath) {
-        filePath = `${basePath}/${filePath}`;
-      }
-      if (currentPath.length > 0) {
-        filePath = basePath
-          ? `${basePath}/${currentPath.join("/")}/${file.name}`
-          : `${currentPath.join("/")}/${file.name}`;
+      if (fullBasePath) {
+        filePath = currentPath.length > 0
+          ? `${fullBasePath}/${currentPath.join("/")}/${file.name}`
+          : `${fullBasePath}/${file.name}`;
+      } else if (currentPath.length > 0) {
+        filePath = `${currentPath.join("/")}/${file.name}`;
       }
 
       const { data, error } = await supabase.storage
@@ -233,14 +260,14 @@ export function FileManager({
 
   const handleDelete = async (file: FileItem) => {
     try {
+      // Construct file path with owner prefix
       let filePath = file.name;
-      if (basePath) {
-        filePath = `${basePath}/${filePath}`;
-      }
-      if (currentPath.length > 0) {
-        filePath = basePath
-          ? `${basePath}/${currentPath.join("/")}/${file.name}`
-          : `${currentPath.join("/")}/${file.name}`;
+      if (fullBasePath) {
+        filePath = currentPath.length > 0
+          ? `${fullBasePath}/${currentPath.join("/")}/${file.name}`
+          : `${fullBasePath}/${file.name}`;
+      } else if (currentPath.length > 0) {
+        filePath = `${currentPath.join("/")}/${file.name}`;
       }
 
       const { error } = await supabase.storage
@@ -298,11 +325,12 @@ export function FileManager({
                 <Grid3X3 className="h-4 w-4" />
               )}
             </Button>
-            {!readOnly && (
+            {canWrite && (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowUploader(!showUploader)}
+                disabled={isCheckingPermission}
               >
                 <Upload className="h-4 w-4 mr-2" />
                 Upload
@@ -365,7 +393,7 @@ export function FileManager({
 
       <CardContent className="p-0">
         {/* Upload Area */}
-        {!readOnly && showUploader && (
+        {canWrite && showUploader && (
           <div className="border-b bg-muted/10 p-6">
             <Dropzone {...uploadProps}>
               <DropzoneEmptyState />
@@ -391,7 +419,7 @@ export function FileManager({
                 ? "Try adjusting your search"
                 : "Upload your first file to get started"}
             </p>
-            {!searchTerm && !readOnly && (
+            {!searchTerm && canWrite && (
               <Button onClick={() => setShowUploader(true)}>
                 <Upload className="h-4 w-4 mr-2" />
                 Upload Files
@@ -456,7 +484,7 @@ export function FileManager({
                           <Download className="h-4 w-4 mr-2" />
                           Download
                         </DropdownMenuItem>
-                        {!readOnly && (
+                        {canWrite && (
                           <>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -514,7 +542,7 @@ export function FileManager({
                             <Download className="h-4 w-4 mr-2" />
                             Download
                           </DropdownMenuItem>
-                          {!readOnly && (
+                          {canWrite && (
                             <>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
