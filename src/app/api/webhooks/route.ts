@@ -1,4 +1,5 @@
-import { verifyWebhook, clerkClient } from "@clerk/nextjs/webhooks";
+import { verifyWebhook } from "@clerk/nextjs/webhooks";
+import { clerkClient } from "@clerk/nextjs/server";
 import type { WebhookEvent } from "@clerk/nextjs/server";
 import type { NextRequest } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-server";
