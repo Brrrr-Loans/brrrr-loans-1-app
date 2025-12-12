@@ -1,0 +1,2 @@
+-- Remote schema sync (empty migration - schema was already in sync)
+-- This migration was created to track that the remote schema was pulled

@@ -9,18 +9,27 @@ ADD COLUMN IF NOT EXISTS updated_by_user_id bigint,
 ADD COLUMN IF NOT EXISTS deleted_at timestamp with time zone,
 ADD COLUMN IF NOT EXISTS deleted_by_user_id bigint;
 
--- Add foreign key constraints
-ALTER TABLE api_brex_transfers_vendors
-ADD CONSTRAINT api_brex_transfers_vendors_created_by_user_id_fkey 
-FOREIGN KEY (created_by_user_id) REFERENCES auth_clerk_users(id) ON DELETE SET NULL;
-
-ALTER TABLE api_brex_transfers_vendors
-ADD CONSTRAINT api_brex_transfers_vendors_updated_by_user_id_fkey 
-FOREIGN KEY (updated_by_user_id) REFERENCES auth_clerk_users(id) ON DELETE SET NULL;
-
-ALTER TABLE api_brex_transfers_vendors
-ADD CONSTRAINT api_brex_transfers_vendors_deleted_by_user_id_fkey 
-FOREIGN KEY (deleted_by_user_id) REFERENCES auth_clerk_users(id) ON DELETE SET NULL;
+-- Add foreign key constraints (drop first if exists from earlier migration)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'api_brex_transfers_vendors_created_by_user_id_fkey') THEN
+    ALTER TABLE api_brex_transfers_vendors
+    ADD CONSTRAINT api_brex_transfers_vendors_created_by_user_id_fkey 
+    FOREIGN KEY (created_by_user_id) REFERENCES auth_clerk_users(id) ON DELETE SET NULL;
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'api_brex_transfers_vendors_updated_by_user_id_fkey') THEN
+    ALTER TABLE api_brex_transfers_vendors
+    ADD CONSTRAINT api_brex_transfers_vendors_updated_by_user_id_fkey 
+    FOREIGN KEY (updated_by_user_id) REFERENCES auth_clerk_users(id) ON DELETE SET NULL;
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'api_brex_transfers_vendors_deleted_by_user_id_fkey') THEN
+    ALTER TABLE api_brex_transfers_vendors
+    ADD CONSTRAINT api_brex_transfers_vendors_deleted_by_user_id_fkey 
+    FOREIGN KEY (deleted_by_user_id) REFERENCES auth_clerk_users(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 
 -- Create indexes for audit queries
 CREATE INDEX IF NOT EXISTS api_brex_transfers_vendors_created_by_user_id_idx 

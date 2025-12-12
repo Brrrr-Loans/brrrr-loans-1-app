@@ -72,7 +72,7 @@ VALUES (
   'investors',
   'investors',
   false,
-  52428800, -- 50MB
+  52428800,
   ARRAY[
     'application/pdf',
     'image/jpeg',

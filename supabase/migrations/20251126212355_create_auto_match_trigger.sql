@@ -37,7 +37,8 @@ BEGIN
 END;
 $$;
 
--- Create trigger on INSERT and UPDATE
+-- Create trigger on INSERT and UPDATE (drop first in case it exists from earlier migration)
+DROP TRIGGER IF EXISTS auto_match_transfer_to_vendor_trigger ON api_brex_transfers;
 CREATE TRIGGER auto_match_transfer_to_vendor_trigger
     AFTER INSERT OR UPDATE ON api_brex_transfers
     FOR EACH ROW

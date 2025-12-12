@@ -187,6 +187,9 @@ drop table "public"."payroll_submission";
 
 drop table "public"."payroll_submission_fees_1099";
 
+-- Recreate sequence (dropped with the old table)
+create sequence if not exists "public"."bsi_transaction_document_files_id_seq";
+
 create table "public"."bsi_transactions_document_files" (
     "id" bigint not null default nextval('bsi_transaction_document_files_id_seq'::regclass),
     "transaction_id" bigint not null,
