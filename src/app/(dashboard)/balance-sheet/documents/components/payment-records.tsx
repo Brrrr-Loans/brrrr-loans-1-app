@@ -1,17 +1,15 @@
 "use client";
 
-import { FileManager } from "./file-manager";
+import { DocumentsView } from "./documents-view";
 
 export function PaymentRecords() {
   return (
-    <div className="space-y-6">
-      <FileManager
-        bucketName="investors"
-        basePath="payments"
-        title="Payment Records"
-        description="Transaction receipts, payment confirmations, and distribution records"
-        allowedTypes={["application/pdf", "image/*", "text/csv"]}
-      />
-    </div>
+    <DocumentsView
+      bucketName="investors"
+      basePath="payments"
+      title="Payment Records"
+      description="Transaction receipts, payment confirmations, and distribution records"
+      allowedTypes={["application/pdf", "image/*", "text/csv"]}
+    />
   );
 }

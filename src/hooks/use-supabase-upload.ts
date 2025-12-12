@@ -108,6 +108,11 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
   const dropzoneProps = useDropzone({
     onDrop,
     noClick: true,
+    // Disable File System Access API to avoid "NotAllowedError: getFile" errors
+    // in certain browser contexts (dialogs, iframes, etc.)
+    useFsAccessApi: false,
+    // Prevent drag events from bubbling up to parent elements
+    noDragEventsBubbling: true,
     accept: allowedMimeTypes.reduce(
       (acc, type) => ({ ...acc, [type]: [] }),
       {}
@@ -118,6 +123,11 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
   });
 
   const onUpload = useCallback(async () => {
+    if (!supabase) {
+      setErrors([{ name: "all", message: "Supabase client not ready" }]);
+      return;
+    }
+
     setLoading(true);
 
     // [Joshen] This is to support handling partial successes

@@ -61,7 +61,7 @@ const Dropzone = ({
       <div
         {...getRootProps({
           className: cn(
-            "border-2 border-gray-300 rounded-lg p-6 text-center bg-card transition-colors duration-300 text-foreground",
+            "border-2 border-gray-300 rounded-lg p-6 text-center bg-card transition-colors duration-300 text-foreground overflow-hidden",
             className,
             isSuccess ? "border-solid" : "border-dashed",
             isActive && "border-primary bg-primary/10",
@@ -115,7 +115,12 @@ const DropzoneContent = ({ className }: { className?: string }) => {
   }
 
   return (
-    <div className={cn("flex flex-col", className)}>
+    <div
+      className={cn(
+        "flex flex-col max-h-[300px] overflow-y-auto overflow-x-hidden w-full",
+        className
+      )}
+    >
       {files.map((file, idx) => {
         const fileError = errors.find((e) => e.name === file.name);
         const isSuccessfullyUploaded = !!successes.find((e) => e === file.name);
@@ -123,7 +128,7 @@ const DropzoneContent = ({ className }: { className?: string }) => {
         return (
           <div
             key={`${file.name}-${idx}`}
-            className="flex items-center gap-x-4 border-b py-2 first:mt-4 last:mb-4 "
+            className="flex items-center gap-x-3 border-b py-2 first:mt-4 last:mb-4 min-w-0 w-full overflow-hidden"
           >
             {file.type.startsWith("image/") ? (
               <div className="h-10 w-10 rounded border overflow-hidden shrink-0 bg-muted flex items-center justify-center">
@@ -134,13 +139,16 @@ const DropzoneContent = ({ className }: { className?: string }) => {
                 />
               </div>
             ) : (
-              <div className="h-10 w-10 rounded border bg-muted flex items-center justify-center">
+              <div className="h-10 w-10 shrink-0 rounded border bg-muted flex items-center justify-center">
                 <File size={18} />
               </div>
             )}
 
-            <div className="shrink grow flex flex-col items-start truncate">
-              <p title={file.name} className="text-sm truncate max-w-full">
+            <div className="flex-1 min-w-0 overflow-hidden flex flex-col items-start">
+              <p
+                title={file.name}
+                className="text-sm truncate w-full max-w-full"
+              >
                 {file.name}
               </p>
               {file.errors.length > 0 ? (
@@ -148,7 +156,10 @@ const DropzoneContent = ({ className }: { className?: string }) => {
                   {file.errors
                     .map((e) =>
                       e.message.startsWith("File is larger than")
-                        ? `File is larger than ${formatBytes(maxFileSize, 2)} (Size: ${formatBytes(file.size, 2)})`
+                        ? `File is larger than ${formatBytes(
+                            maxFileSize,
+                            2
+                          )} (Size: ${formatBytes(file.size, 2)})`
                         : e.message
                     )
                     .join(", ")}
