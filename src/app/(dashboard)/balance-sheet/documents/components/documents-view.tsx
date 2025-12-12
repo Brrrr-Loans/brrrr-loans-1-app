@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/forms/input";
 import { Badge } from "@/components/ui/feedback/badge";
 import { Checkbox } from "@/components/ui/forms/checkbox";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -21,6 +20,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/overlays/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/overlays/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/navigation/command";
 import {
   Dialog,
   DialogContent,
@@ -44,6 +56,11 @@ import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
 import {
   Download,
   FileText,
+  FileSpreadsheet,
+  FileImage,
+  FileArchive,
+  FileCode,
+  File,
   Search,
   Grid3X3,
   List,
@@ -66,6 +83,12 @@ import { useCanUpload } from "@/hooks/use-can-upload";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+interface InvestorAssignment {
+  type: "org" | "user";
+  id: string;
+  name: string;
+}
+
 interface Document {
   id: string;
   name: string;
@@ -78,6 +101,7 @@ interface Document {
   thumbnailUrl?: string;
   source: "personal" | "organization";
   sourceName: string;
+  investors: InvestorAssignment[];
 }
 
 interface DocumentsViewProps {
@@ -105,6 +129,7 @@ export function DocumentsView({
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [uploadTarget, setUploadTarget] = useState<"personal" | string>(
     "personal"
@@ -116,6 +141,31 @@ export function DocumentsView({
   const [isRenaming, setIsRenaming] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
+
+  // Column resize state
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
+    checkbox: 48,
+    fileName: 280,
+    investors: 180,
+    tags: 150,
+    size: 80,
+    actions: 80,
+  });
+  const resizingRef = useRef<{
+    column: string;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
+
+  // Investor editing state
+  const [editingInvestorsDocId, setEditingInvestorsDocId] = useState<
+    string | null
+  >(null);
+  const [investorSearchQuery, setInvestorSearchQuery] = useState("");
+  const [isSavingInvestors, setIsSavingInvestors] = useState(false);
+
+  // Track if initial fetch has been done to prevent re-fetching on every render
+  const initialFetchDoneRef = useRef(false);
 
   // Preserve dialog state across auth hiccups using a ref
   const dialogStateRef = useRef(false);
@@ -160,6 +210,35 @@ export function DocumentsView({
       infinite: true,
     },
   });
+
+  // Refs to store latest values without triggering refetches
+  // These must be defined AFTER the hooks that provide the values
+  const supabaseRef = useRef(supabase);
+  const userRef = useRef(user);
+  const allUsersRef = useRef(allUsers);
+  const allOrgsRef = useRef(allOrgs);
+  const userMembershipsRef = useRef(userMemberships?.data);
+  const canUploadRef = useRef(canUpload);
+
+  // Keep refs in sync with latest values
+  useEffect(() => {
+    supabaseRef.current = supabase;
+  }, [supabase]);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+  useEffect(() => {
+    allUsersRef.current = allUsers;
+  }, [allUsers]);
+  useEffect(() => {
+    allOrgsRef.current = allOrgs;
+  }, [allOrgs]);
+  useEffect(() => {
+    userMembershipsRef.current = userMemberships?.data;
+  }, [userMemberships?.data]);
+  useEffect(() => {
+    canUploadRef.current = canUpload;
+  }, [canUpload]);
 
   // Fetch all orgs and users for admin upload target selection
   useEffect(() => {
@@ -242,38 +321,204 @@ export function DocumentsView({
 
   // Fetch documents from storage - both personal and organization folders
   // Admins see ALL files across all users and orgs
-  const fetchDocuments = useCallback(async () => {
-    // Wait for all required data to be loaded
-    if (!supabase || !user || !orgsLoaded || canUploadLoading) {
-      setIsLoading(false);
-      return;
-    }
+  const fetchDocuments = useCallback(
+    async (forceRefresh = false) => {
+      // Use refs to get latest values without dependencies
+      const currentSupabase = supabaseRef.current;
+      const currentUser = userRef.current;
+      const currentAllUsers = allUsersRef.current;
+      const currentAllOrgs = allOrgsRef.current;
+      const currentMemberships = userMembershipsRef.current;
+      const currentCanUpload = canUploadRef.current;
 
-    // For admins, wait for admin data to load before fetching
-    if (canUpload && !isAdminDataLoaded) {
-      // Keep loading state while waiting for admin data
-      return;
-    }
+      // Wait for all required data to be loaded
+      if (!currentSupabase || !currentUser) {
+        setIsLoading(false);
+        return;
+      }
 
-    setIsLoading(true);
-    try {
-      const clerkUserId = user.id;
-      const allDocs: Document[] = [];
+      // Only show loading spinner on initial fetch or forced refresh
+      // This prevents the table from disappearing during background refetches
+      if (!initialFetchDoneRef.current || forceRefresh) {
+        setIsLoading(true);
+      }
+      try {
+        const clerkUserId = currentUser.id;
+        const allDocs: Document[] = [];
 
-      // For admins: fetch from ALL users and ALL orgs
-      if (canUpload && isAdminDataLoaded) {
-        // Fetch from all users' folders
-        for (const u of allUsers) {
-          const userPath = `users/${u.clerk_user_id}/${basePath}`;
-          const { data: userFiles, error: userError } = await supabase.storage
-            .from(bucketName)
-            .list(userPath);
+        // For admins: query storage.objects directly (much more efficient than individual .list() calls)
+        if (currentCanUpload && currentAllUsers.length > 0) {
+          // Query all files in the bucket that match our basePath pattern
+          // This is a single query instead of N queries per user/org
+          const { data: allFiles, error: queryError } = await currentSupabase
+            .from("storage_objects_view")
+            .select("id, name, bucket_id, created_at, metadata")
+            .eq("bucket_id", bucketName)
+            .like("name", `%/${basePath}/%`);
+
+          if (!queryError && allFiles) {
+            // Build lookup maps for users and orgs
+            const userNameMap = new Map(
+              currentAllUsers.map((u) => [
+                u.clerk_user_id,
+                `${u.first_name} ${u.last_name}`.trim() || u.email,
+              ])
+            );
+            const orgNameMap = new Map(
+              currentAllOrgs.map((o) => [o.clerk_org_id, o.clerk_org_name])
+            );
+
+            for (const file of allFiles) {
+              // Skip placeholder files
+              if (file.name.endsWith(".emptyFolderPlaceholder")) continue;
+
+              // Parse the path to determine source
+              const pathParts = file.name.split("/");
+              const fileName = pathParts[pathParts.length - 1];
+              let source: "personal" | "organization" = "personal";
+              let sourceName = "Unknown";
+              let docId = file.id;
+
+              if (pathParts[0] === "users" && pathParts[1]) {
+                const userId = pathParts[1];
+                source = "personal";
+                sourceName =
+                  userId === clerkUserId
+                    ? "Personal"
+                    : userNameMap.get(userId) || userId;
+                docId = `user-${userId}-${file.id}`;
+              } else if (pathParts[0] === "orgs" && pathParts[1]) {
+                const orgId = pathParts[1];
+                source = "organization";
+                sourceName = orgNameMap.get(orgId) || orgId;
+                docId = `org-${orgId}-${file.id}`;
+              }
+
+              const metadata = file.metadata as Record<string, unknown> | null;
+              allDocs.push({
+                id: docId,
+                name: fileName,
+                description: getDocumentDescription(fileName),
+                tags: getDocumentTags(fileName, metadata || undefined),
+                size: (metadata?.size as number) || 0,
+                type: (metadata?.mimetype as string) || "application/pdf",
+                path: file.name,
+                createdAt: file.created_at || new Date().toISOString(),
+                thumbnailUrl: undefined,
+                source,
+                sourceName,
+                investors: [],
+              });
+            }
+          } else if (queryError) {
+            // Fallback to individual .list() calls if view doesn't exist
+            // This handles the case where the view hasn't been created yet
+            console.warn(
+              "storage_objects_view not available, falling back to individual queries"
+            );
+
+            // Fetch from all users' folders (with error suppression)
+            const userPromises = currentAllUsers.map(async (u) => {
+              const userPath = `users/${u.clerk_user_id}/${basePath}`;
+              try {
+                const { data: userFiles } = await currentSupabase.storage
+                  .from(bucketName)
+                  .list(userPath);
+                return { user: u, files: userFiles || [], path: userPath };
+              } catch {
+                return { user: u, files: [], path: userPath };
+              }
+            });
+
+            const userResults = await Promise.all(userPromises);
+            for (const { user: u, files, path: userPath } of userResults) {
+              const userDocs = files
+                // Filter out folders (id is null) and placeholder files
+                .filter(
+                  (file) =>
+                    file.id !== null && file.name !== ".emptyFolderPlaceholder"
+                )
+                .map((file) => ({
+                  id: `user-${u.clerk_user_id}-${file.id || file.name}`,
+                  name: file.name,
+                  description: getDocumentDescription(file.name),
+                  tags: getDocumentTags(file.name, file.metadata),
+                  size:
+                    file.metadata?.size ||
+                    (file as unknown as { size?: number }).size ||
+                    0,
+                  type: file.metadata?.mimetype || "application/pdf",
+                  path: `${userPath}/${file.name}`,
+                  createdAt: file.created_at || new Date().toISOString(),
+                  thumbnailUrl: undefined,
+                  source: "personal" as const,
+                  sourceName:
+                    u.clerk_user_id === clerkUserId
+                      ? "Personal"
+                      : `${u.first_name} ${u.last_name}`,
+                  investors: [],
+                }));
+              allDocs.push(...userDocs);
+            }
+
+            // Fetch from all orgs' folders (with error suppression)
+            const orgPromises = currentAllOrgs.map(async (org) => {
+              const orgPath = `orgs/${org.clerk_org_id}/${basePath}`;
+              try {
+                const { data: orgFiles } = await currentSupabase.storage
+                  .from(bucketName)
+                  .list(orgPath);
+                return { org, files: orgFiles || [], path: orgPath };
+              } catch {
+                return { org, files: [], path: orgPath };
+              }
+            });
+
+            const orgResults = await Promise.all(orgPromises);
+            for (const { org, files, path: orgPath } of orgResults) {
+              const orgDocs = files
+                // Filter out folders (id is null) and placeholder files
+                .filter(
+                  (file) =>
+                    file.id !== null && file.name !== ".emptyFolderPlaceholder"
+                )
+                .map((file) => ({
+                  id: `org-${org.clerk_org_id}-${file.id || file.name}`,
+                  name: file.name,
+                  description: getDocumentDescription(file.name),
+                  tags: getDocumentTags(file.name, file.metadata),
+                  size:
+                    file.metadata?.size ||
+                    (file as unknown as { size?: number }).size ||
+                    0,
+                  type: file.metadata?.mimetype || "application/pdf",
+                  path: `${orgPath}/${file.name}`,
+                  createdAt: file.created_at || new Date().toISOString(),
+                  thumbnailUrl: undefined,
+                  source: "organization" as const,
+                  sourceName: org.clerk_org_name,
+                  investors: [],
+                }));
+              allDocs.push(...orgDocs);
+            }
+          }
+        } else {
+          // Non-admins: only fetch from their own folders
+
+          // 1. Fetch from user's personal folder: users/{clerk_user_id}/{basePath}
+          const userPath = `users/${clerkUserId}/${basePath}`;
+          const { data: userFiles, error: userError } =
+            await currentSupabase.storage.from(bucketName).list(userPath);
 
           if (!userError && userFiles) {
-            const userDocs = userFiles
-              .filter((file) => file.name !== ".emptyFolderPlaceholder")
+            const personalDocs = userFiles
+              // Filter out folders (id is null) and placeholder files
+              .filter(
+                (file) =>
+                  file.id !== null && file.name !== ".emptyFolderPlaceholder"
+              )
               .map((file) => ({
-                id: `user-${u.clerk_user_id}-${file.id || file.name}`,
+                id: `personal-${file.id || file.name}`,
                 name: file.name,
                 description: getDocumentDescription(file.name),
                 tags: getDocumentTags(file.name, file.metadata),
@@ -286,141 +531,165 @@ export function DocumentsView({
                 createdAt: file.created_at || new Date().toISOString(),
                 thumbnailUrl: undefined,
                 source: "personal" as const,
-                sourceName:
-                  u.clerk_user_id === clerkUserId
-                    ? "Personal"
-                    : `${u.first_name} ${u.last_name}`,
+                sourceName: "Personal",
+                investors: [],
               }));
-            allDocs.push(...userDocs);
+            allDocs.push(...personalDocs);
+          }
+
+          // 2. Fetch from each organization's folder: orgs/{clerk_org_id}/{basePath}
+          const memberships = currentMemberships || [];
+
+          for (const membership of memberships) {
+            const orgId = membership.organization.id;
+            const orgName = membership.organization.name;
+            const orgPath = `orgs/${orgId}/${basePath}`;
+
+            const { data: orgFiles, error: orgError } =
+              await currentSupabase.storage.from(bucketName).list(orgPath);
+
+            if (!orgError && orgFiles) {
+              const orgDocs = orgFiles
+                // Filter out folders (id is null) and placeholder files
+                .filter(
+                  (file) =>
+                    file.id !== null && file.name !== ".emptyFolderPlaceholder"
+                )
+                .map((file) => ({
+                  id: `org-${orgId}-${file.id || file.name}`,
+                  name: file.name,
+                  description: getDocumentDescription(file.name),
+                  tags: getDocumentTags(file.name, file.metadata),
+                  size:
+                    file.metadata?.size ||
+                    (file as unknown as { size?: number }).size ||
+                    0,
+                  type: file.metadata?.mimetype || "application/pdf",
+                  path: `${orgPath}/${file.name}`,
+                  createdAt: file.created_at || new Date().toISOString(),
+                  thumbnailUrl: undefined,
+                  source: "organization" as const,
+                  sourceName: orgName,
+                  investors: [],
+                }));
+              allDocs.push(...orgDocs);
+            }
           }
         }
 
-        // Fetch from all orgs' folders
-        for (const org of allOrgs) {
-          const orgPath = `orgs/${org.clerk_org_id}/${basePath}`;
-          const { data: orgFiles, error: orgError } = await supabase.storage
-            .from(bucketName)
-            .list(orgPath);
+        // Fetch investor assignments for all documents
+        if (allDocs.length > 0) {
+          const paths = allDocs.map((d) => d.path);
+          const { data: assignments } = await currentSupabase
+            .from("document_investors")
+            .select("document_path, investor_type, investor_id")
+            .eq("bucket_name", bucketName)
+            .in("document_path", paths);
 
-          if (!orgError && orgFiles) {
-            const orgDocs = orgFiles
-              .filter((file) => file.name !== ".emptyFolderPlaceholder")
-              .map((file) => ({
-                id: `org-${org.clerk_org_id}-${file.id || file.name}`,
-                name: file.name,
-                description: getDocumentDescription(file.name),
-                tags: getDocumentTags(file.name, file.metadata),
-                size:
-                  file.metadata?.size ||
-                  (file as unknown as { size?: number }).size ||
-                  0,
-                type: file.metadata?.mimetype || "application/pdf",
-                path: `${orgPath}/${file.name}`,
-                createdAt: file.created_at || new Date().toISOString(),
-                thumbnailUrl: undefined,
-                source: "organization" as const,
-                sourceName: org.clerk_org_name,
-              }));
-            allDocs.push(...orgDocs);
+          if (assignments && assignments.length > 0) {
+            // Build a map of investor names for quick lookup
+            const orgNameMap = new Map(
+              currentAllOrgs.map((o) => [o.clerk_org_id, o.clerk_org_name])
+            );
+            const userNameMap = new Map(
+              currentAllUsers.map((u) => [
+                u.clerk_user_id,
+                `${u.first_name} ${u.last_name}`.trim() || u.email,
+              ])
+            );
+
+            // Group assignments by document path
+            const assignmentsByPath = new Map<string, InvestorAssignment[]>();
+            for (const a of assignments) {
+              const investorName =
+                a.investor_type === "org"
+                  ? orgNameMap.get(a.investor_id) || a.investor_id
+                  : userNameMap.get(a.investor_id) || a.investor_id;
+
+              const assignment: InvestorAssignment = {
+                type: a.investor_type as "org" | "user",
+                id: a.investor_id,
+                name: investorName,
+              };
+
+              const existing = assignmentsByPath.get(a.document_path) || [];
+              existing.push(assignment);
+              assignmentsByPath.set(a.document_path, existing);
+            }
+
+            // Merge assignments into documents
+            for (const doc of allDocs) {
+              doc.investors = assignmentsByPath.get(doc.path) || [];
+            }
           }
         }
-      } else {
-        // Non-admins: only fetch from their own folders
 
-        // 1. Fetch from user's personal folder: users/{clerk_user_id}/{basePath}
-        const userPath = `users/${clerkUserId}/${basePath}`;
-        const { data: userFiles, error: userError } = await supabase.storage
-          .from(bucketName)
-          .list(userPath);
+        // Sort by creation date, newest first
+        allDocs.sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
 
-        if (!userError && userFiles) {
-          const personalDocs = userFiles
-            .filter((file) => file.name !== ".emptyFolderPlaceholder")
-            .map((file) => ({
-              id: `personal-${file.id || file.name}`,
-              name: file.name,
-              description: getDocumentDescription(file.name),
-              tags: getDocumentTags(file.name, file.metadata),
-              size:
-                file.metadata?.size ||
-                (file as unknown as { size?: number }).size ||
-                0,
-              type: file.metadata?.mimetype || "application/pdf",
-              path: `${userPath}/${file.name}`,
-              createdAt: file.created_at || new Date().toISOString(),
-              thumbnailUrl: undefined,
-              source: "personal" as const,
-              sourceName: "Personal",
-            }));
-          allDocs.push(...personalDocs);
-        }
-
-        // 2. Fetch from each organization's folder: orgs/{clerk_org_id}/{basePath}
-        const memberships = userMemberships?.data || [];
-
-        for (const membership of memberships) {
-          const orgId = membership.organization.id;
-          const orgName = membership.organization.name;
-          const orgPath = `orgs/${orgId}/${basePath}`;
-
-          const { data: orgFiles, error: orgError } = await supabase.storage
-            .from(bucketName)
-            .list(orgPath);
-
-          if (!orgError && orgFiles) {
-            const orgDocs = orgFiles
-              .filter((file) => file.name !== ".emptyFolderPlaceholder")
-              .map((file) => ({
-                id: `org-${orgId}-${file.id || file.name}`,
-                name: file.name,
-                description: getDocumentDescription(file.name),
-                tags: getDocumentTags(file.name, file.metadata),
-                size:
-                  file.metadata?.size ||
-                  (file as unknown as { size?: number }).size ||
-                  0,
-                type: file.metadata?.mimetype || "application/pdf",
-                path: `${orgPath}/${file.name}`,
-                createdAt: file.created_at || new Date().toISOString(),
-                thumbnailUrl: undefined,
-                source: "organization" as const,
-                sourceName: orgName,
-              }));
-            allDocs.push(...orgDocs);
-          }
-        }
+        setDocuments(allDocs);
+      } catch (error) {
+        console.error("Error fetching documents:", error);
+        setDocuments([]);
+      } finally {
+        setIsLoading(false);
+        initialFetchDoneRef.current = true;
       }
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [
+      // Only include dependencies that should trigger a refetch
+      // supabase client changes shouldn't cause refetch if we already have data
+      bucketName,
+      basePath,
+    ]
+  );
 
-      // Sort by creation date, newest first
-      allDocs.sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
+  // Track recent delete operations to prevent immediate refetch
+  const recentDeleteRef = useRef(false);
 
-      setDocuments(allDocs);
-    } catch (error) {
-      console.error("Error fetching documents:", error);
-      setDocuments([]);
-    } finally {
-      setIsLoading(false);
+  // Initial fetch and refetch when required data becomes available
+  useEffect(() => {
+    // Don't refetch while editing is in progress to prevent overwriting local changes
+    if (
+      editingDocId ||
+      isRenaming ||
+      isSavingInvestors ||
+      editingInvestorsDocId
+    ) {
+      return;
+    }
+
+    // Skip refetch if a delete just completed (to prevent bringing back deleted items)
+    if (recentDeleteRef.current) {
+      recentDeleteRef.current = false;
+      return;
+    }
+
+    // Only fetch if we have all required data
+    if (supabase && user && orgsLoaded && !canUploadLoading) {
+      // For admins, also wait for admin data
+      if (canUpload && !isAdminDataLoaded) {
+        return;
+      }
+      fetchDocuments();
     }
   }, [
     supabase,
     user,
-    bucketName,
-    basePath,
     orgsLoaded,
-    userMemberships?.data,
     canUpload,
     canUploadLoading,
     isAdminDataLoaded,
-    allUsers,
-    allOrgs,
+    fetchDocuments,
+    editingDocId,
+    isRenaming,
+    isSavingInvestors,
+    editingInvestorsDocId,
   ]);
-
-  useEffect(() => {
-    fetchDocuments();
-  }, [fetchDocuments]);
 
   // Handle successful upload - only trigger on NEW successes
   useEffect(() => {
@@ -435,7 +704,7 @@ export function DocumentsView({
       // Reset upload state after a brief delay to allow toast to show
       setTimeout(() => {
         setFilesRef.current([]);
-        fetchDocuments();
+        fetchDocuments(true); // Force refresh to show new files
       }, 100);
     }
 
@@ -600,6 +869,143 @@ export function DocumentsView({
     }
   };
 
+  // Investor editing handlers
+  const handleToggleInvestor = async (
+    doc: Document,
+    investor: InvestorAssignment
+  ) => {
+    // Use the current supabase client directly (not ref) to ensure fresh auth
+    if (!supabase || !canUpload) {
+      toast.error("Not authorized to update investors");
+      return;
+    }
+
+    setIsSavingInvestors(true);
+    try {
+      const isCurrentlyAssigned = doc.investors.some(
+        (i) => i.type === investor.type && i.id === investor.id
+      );
+
+      if (isCurrentlyAssigned) {
+        // Remove the assignment
+        const { error } = await supabase
+          .from("document_investors")
+          .delete()
+          .eq("document_path", doc.path)
+          .eq("bucket_name", bucketName)
+          .eq("investor_type", investor.type)
+          .eq("investor_id", investor.id);
+
+        if (error) {
+          console.error("Delete error details:", {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+          });
+          throw new Error(error.message || "Failed to remove investor");
+        }
+
+        // Update local state
+        setDocuments((prev) =>
+          prev.map((d) =>
+            d.id === doc.id
+              ? {
+                  ...d,
+                  investors: d.investors.filter(
+                    (i) => !(i.type === investor.type && i.id === investor.id)
+                  ),
+                }
+              : d
+          )
+        );
+        toast.success(`Removed ${investor.name}`);
+      } else {
+        // Add the assignment
+        const { data, error } = await supabase
+          .from("document_investors")
+          .insert({
+            document_path: doc.path,
+            bucket_name: bucketName,
+            investor_type: investor.type,
+            investor_id: investor.id,
+          })
+          .select();
+
+        if (error) {
+          console.error("Insert error details:", {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+          });
+          throw new Error(error.message || "Failed to add investor");
+        }
+
+        console.log("Insert successful:", data);
+
+        // Update local state
+        setDocuments((prev) =>
+          prev.map((d) =>
+            d.id === doc.id
+              ? {
+                  ...d,
+                  investors: [...d.investors, investor],
+                }
+              : d
+          )
+        );
+        toast.success(`Added ${investor.name}`);
+      }
+    } catch (error: unknown) {
+      // Extract error message from PostgresError or generic error
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : error && typeof error === "object" && "message" in error
+          ? (error as { message: string }).message
+          : String(error);
+      console.error("Error updating investor assignment:", errorMessage);
+      toast.error(`Failed to update investor: ${errorMessage}`);
+    } finally {
+      setIsSavingInvestors(false);
+    }
+  };
+
+  // Get all available investors for selection
+  const availableInvestors = useMemo((): InvestorAssignment[] => {
+    const investors: InvestorAssignment[] = [];
+
+    // Add all orgs
+    for (const org of allOrgs) {
+      investors.push({
+        type: "org",
+        id: org.clerk_org_id,
+        name: org.clerk_org_name,
+      });
+    }
+
+    // Add all users
+    for (const u of allUsers) {
+      investors.push({
+        type: "user",
+        id: u.clerk_user_id,
+        name: `${u.first_name} ${u.last_name}`.trim() || u.email,
+      });
+    }
+
+    return investors;
+  }, [allOrgs, allUsers]);
+
+  // Filter investors by search query
+  const filteredInvestors = useMemo(() => {
+    if (!investorSearchQuery.trim()) return availableInvestors;
+    const query = investorSearchQuery.toLowerCase();
+    return availableInvestors.filter((inv) =>
+      inv.name.toLowerCase().includes(query)
+    );
+  }, [availableInvestors, investorSearchQuery]);
+
   // Delete handler
   const handleDelete = async (doc: Document) => {
     if (!supabase || !canUpload) return;
@@ -609,13 +1015,21 @@ export function DocumentsView({
       return;
     }
 
+    // Set recentDeleteRef BEFORE the async operation to prevent race conditions
+    // with useEffect triggering fetchDocuments while delete is in progress
+    recentDeleteRef.current = true;
+
     setIsDeleting(true);
     try {
       const { error } = await supabase.storage
         .from(bucketName)
         .remove([doc.path]);
 
-      if (error) throw error;
+      if (error) {
+        // Reset ref on error so fetches can resume
+        recentDeleteRef.current = false;
+        throw error;
+      }
 
       // Remove from local state
       setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
@@ -627,12 +1041,53 @@ export function DocumentsView({
 
       toast.success(`Deleted "${doc.name}"`);
     } catch (error) {
+      // Reset ref on error so fetches can resume
+      recentDeleteRef.current = false;
       console.error("Delete error:", error);
       toast.error("Failed to delete file");
     } finally {
       setIsDeleting(false);
     }
   };
+
+  // Column resize handler
+  const handleColumnResizeStart = useCallback(
+    (column: string, e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const startWidth = columnWidths[column] || 100;
+      resizingRef.current = { column, startX: e.clientX, startWidth };
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        if (!resizingRef.current) return;
+        const {
+          column: resizingColumn,
+          startX,
+          startWidth,
+        } = resizingRef.current;
+        const diff = moveEvent.clientX - startX;
+        const minWidth =
+          resizingColumn === "checkbox" || resizingColumn === "actions"
+            ? 48
+            : 80;
+        const newWidth = Math.max(minWidth, startWidth + diff);
+        setColumnWidths((prev) => ({
+          ...prev,
+          [resizingColumn]: newWidth,
+        }));
+      };
+
+      const handleMouseUp = () => {
+        resizingRef.current = null;
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [columnWidths]
+  );
 
   // Helper functions
   function getDocumentDescription(filename: string): string {
@@ -666,6 +1121,151 @@ export function DocumentsView({
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(0))} ${sizes[i]}`;
   }
+
+  // Get appropriate icon and color based on file type
+  function getFileIcon(filename: string, mimeType: string) {
+    const ext = filename.split(".").pop()?.toLowerCase();
+
+    // PDF files
+    if (mimeType === "application/pdf" || ext === "pdf") {
+      return {
+        icon: FileText,
+        color: "text-red-500",
+        bg: "bg-red-500/10",
+        border: "border-red-500/20",
+      };
+    }
+
+    // Spreadsheets
+    if (
+      ["xlsx", "xls", "csv", "numbers"].includes(ext || "") ||
+      mimeType.includes("spreadsheet") ||
+      mimeType.includes("excel")
+    ) {
+      return {
+        icon: FileSpreadsheet,
+        color: "text-emerald-500",
+        bg: "bg-emerald-500/10",
+        border: "border-emerald-500/20",
+      };
+    }
+
+    // Images
+    if (
+      ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp"].includes(ext || "") ||
+      mimeType.startsWith("image/")
+    ) {
+      return {
+        icon: FileImage,
+        color: "text-blue-500",
+        bg: "bg-blue-500/10",
+        border: "border-blue-500/20",
+      };
+    }
+
+    // Archives
+    if (["zip", "rar", "7z", "tar", "gz"].includes(ext || "")) {
+      return {
+        icon: FileArchive,
+        color: "text-amber-500",
+        bg: "bg-amber-500/10",
+        border: "border-amber-500/20",
+      };
+    }
+
+    // Code files
+    if (
+      [
+        "js",
+        "ts",
+        "jsx",
+        "tsx",
+        "json",
+        "html",
+        "css",
+        "py",
+        "rb",
+        "go",
+      ].includes(ext || "")
+    ) {
+      return {
+        icon: FileCode,
+        color: "text-violet-500",
+        bg: "bg-violet-500/10",
+        border: "border-violet-500/20",
+      };
+    }
+
+    // Word documents
+    if (
+      ["doc", "docx", "odt", "rtf"].includes(ext || "") ||
+      mimeType.includes("word") ||
+      mimeType.includes("document")
+    ) {
+      return {
+        icon: FileText,
+        color: "text-blue-600",
+        bg: "bg-blue-600/10",
+        border: "border-blue-600/20",
+      };
+    }
+
+    // Default file icon
+    return {
+      icon: File,
+      color: "text-muted-foreground",
+      bg: "bg-muted/50",
+      border: "border-border",
+    };
+  }
+
+  // Bulk delete handler
+  const handleBulkDelete = async () => {
+    if (!supabase || !canUpload || selectedDocs.size === 0) return;
+
+    const docsToDelete = filteredDocuments.filter((d) =>
+      selectedDocs.has(d.id)
+    );
+    const confirmMessage = `Are you sure you want to delete ${
+      docsToDelete.length
+    } file${docsToDelete.length > 1 ? "s" : ""}? This action cannot be undone.`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    // Set recentDeleteRef BEFORE the async operation to prevent race conditions
+    recentDeleteRef.current = true;
+
+    setIsBulkDeleting(true);
+    try {
+      const paths = docsToDelete.map((d) => d.path);
+      const { error } = await supabase.storage.from(bucketName).remove(paths);
+
+      if (error) {
+        // Reset ref on error so fetches can resume
+        recentDeleteRef.current = false;
+        throw error;
+      }
+
+      // Remove from local state
+      setDocuments((prev) => prev.filter((d) => !selectedDocs.has(d.id)));
+      setSelectedDocs(new Set());
+
+      toast.success(
+        `Deleted ${docsToDelete.length} file${
+          docsToDelete.length > 1 ? "s" : ""
+        }`
+      );
+    } catch (error) {
+      // Reset ref on error so fetches can resume
+      recentDeleteRef.current = false;
+      console.error("Bulk delete error:", error);
+      toast.error("Failed to delete some files");
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
 
   // Upload Dialog - extracted to render in all cases
   const uploadDialog = (
@@ -903,9 +1503,30 @@ export function DocumentsView({
                     onClick={() => handleSelectDoc(doc.id)}
                   >
                     {/* Thumbnail */}
-                    <div className="aspect-[4/3] bg-muted/50 flex items-center justify-center border-b">
-                      <FileText className="h-12 w-12 text-muted-foreground/50" />
-                    </div>
+                    {(() => {
+                      const fileStyle = getFileIcon(doc.name, doc.type);
+                      const IconComponent = fileStyle.icon;
+                      return (
+                        <div
+                          className={cn(
+                            "aspect-[4/3] flex items-center justify-center border-b",
+                            fileStyle.bg
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "h-16 w-16 rounded-xl border-2 flex items-center justify-center",
+                              fileStyle.bg,
+                              fileStyle.border
+                            )}
+                          >
+                            <IconComponent
+                              className={cn("h-8 w-8", fileStyle.color)}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Content */}
                     <div className="p-4 space-y-2">
@@ -961,188 +1582,471 @@ export function DocumentsView({
                 exit={{ opacity: 0, y: -10 }}
                 className="border rounded-lg overflow-hidden"
               >
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30">
-                      <TableHead className="w-12">
-                        <Checkbox
-                          checked={
-                            selectedDocs.size === filteredDocuments.length &&
-                            filteredDocuments.length > 0
-                          }
-                          onCheckedChange={handleSelectAll}
-                        />
-                      </TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Investor(s)</TableHead>
-                      <TableHead>Tags</TableHead>
-                      <TableHead>Size</TableHead>
-                      <TableHead className="w-20"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredDocuments.map((doc) => (
-                      <TableRow
-                        key={doc.id}
-                        className={cn(
-                          "cursor-pointer",
-                          selectedDocs.has(doc.id) && "bg-muted/50"
-                        )}
-                        onClick={() => handleSelectDoc(doc.id)}
-                      >
-                        <TableCell onClick={(e) => e.stopPropagation()}>
+                <div className="overflow-x-auto">
+                  <table
+                    className="w-full caption-bottom text-sm"
+                    style={{ tableLayout: "fixed" }}
+                  >
+                    <TableHeader>
+                      <TableRow className="bg-muted/30">
+                        <TableHead
+                          className="relative group"
+                          style={{
+                            width: columnWidths.checkbox,
+                            minWidth: columnWidths.checkbox,
+                          }}
+                        >
                           <Checkbox
-                            checked={selectedDocs.has(doc.id)}
-                            onCheckedChange={() => handleSelectDoc(doc.id)}
+                            checked={
+                              selectedDocs.size === filteredDocuments.length &&
+                              filteredDocuments.length > 0
+                            }
+                            onCheckedChange={handleSelectAll}
                           />
-                        </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded border bg-muted/50 flex items-center justify-center shrink-0">
-                              <FileText className="h-4 w-4 text-muted-foreground" />
+                          <div
+                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 bg-transparent group-hover:bg-border/50"
+                            onMouseDown={(e) =>
+                              handleColumnResizeStart("checkbox", e)
+                            }
+                          />
+                        </TableHead>
+                        <TableHead
+                          className="relative group px-1"
+                          style={{ width: columnWidths.fileName, minWidth: 80 }}
+                        >
+                          File Name
+                          <div
+                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 bg-transparent group-hover:bg-border/50"
+                            onMouseDown={(e) =>
+                              handleColumnResizeStart("fileName", e)
+                            }
+                          />
+                        </TableHead>
+                        <TableHead
+                          className="relative group"
+                          style={{
+                            width: columnWidths.investors,
+                            minWidth: 80,
+                          }}
+                        >
+                          Investor(s)
+                          <div
+                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 bg-transparent group-hover:bg-border/50"
+                            onMouseDown={(e) =>
+                              handleColumnResizeStart("investors", e)
+                            }
+                          />
+                        </TableHead>
+                        <TableHead
+                          className="relative group"
+                          style={{ width: columnWidths.tags, minWidth: 80 }}
+                        >
+                          Tags
+                          <div
+                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 bg-transparent group-hover:bg-border/50"
+                            onMouseDown={(e) =>
+                              handleColumnResizeStart("tags", e)
+                            }
+                          />
+                        </TableHead>
+                        <TableHead
+                          className="relative group"
+                          style={{ width: columnWidths.size, minWidth: 60 }}
+                        >
+                          Size
+                          <div
+                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 bg-transparent group-hover:bg-border/50"
+                            onMouseDown={(e) =>
+                              handleColumnResizeStart("size", e)
+                            }
+                          />
+                        </TableHead>
+                        <TableHead
+                          style={{
+                            width: columnWidths.actions,
+                            minWidth: columnWidths.actions,
+                          }}
+                        ></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredDocuments.map((doc) => (
+                        <TableRow
+                          key={doc.id}
+                          className={cn(
+                            "cursor-pointer",
+                            selectedDocs.has(doc.id) && "bg-muted/50"
+                          )}
+                          onClick={() => handleSelectDoc(doc.id)}
+                        >
+                          <TableCell
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ width: columnWidths.checkbox }}
+                          >
+                            <Checkbox
+                              checked={selectedDocs.has(doc.id)}
+                              onCheckedChange={() => handleSelectDoc(doc.id)}
+                            />
+                          </TableCell>
+                          <TableCell
+                            className="px-1"
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ width: columnWidths.fileName }}
+                          >
+                            <div className="flex items-center gap-3">
+                              {(() => {
+                                const fileStyle = getFileIcon(
+                                  doc.name,
+                                  doc.type
+                                );
+                                const IconComponent = fileStyle.icon;
+                                return (
+                                  <div
+                                    className={cn(
+                                      "h-9 w-9 rounded-lg border flex items-center justify-center shrink-0 transition-colors",
+                                      fileStyle.bg,
+                                      fileStyle.border
+                                    )}
+                                  >
+                                    <IconComponent
+                                      className={cn("h-4 w-4", fileStyle.color)}
+                                    />
+                                  </div>
+                                );
+                              })()}
+                              {editingDocId === doc.id ? (
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <Input
+                                    ref={editInputRef}
+                                    value={editingName}
+                                    onChange={(e) =>
+                                      setEditingName(e.target.value)
+                                    }
+                                    onKeyDown={(e) => handleKeyDown(e, doc)}
+                                    onBlur={() => handleRename(doc)}
+                                    className="h-7 text-sm font-medium"
+                                    disabled={isRenaming}
+                                  />
+                                  {isRenaming ? (
+                                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                  ) : (
+                                    <>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 shrink-0"
+                                        onClick={() => handleRename(doc)}
+                                      >
+                                        <Check className="h-3.5 w-3.5 text-green-600" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 shrink-0"
+                                        onClick={cancelEditing}
+                                      >
+                                        <X className="h-3.5 w-3.5 text-destructive" />
+                                      </Button>
+                                    </>
+                                  )}
+                                </div>
+                              ) : (
+                                <div
+                                  className={cn(
+                                    "flex items-center gap-2 group min-w-0",
+                                    canUpload && "cursor-text"
+                                  )}
+                                  onClick={() => canUpload && startEditing(doc)}
+                                >
+                                  <span className="font-medium truncate max-w-[250px]">
+                                    {doc.name}
+                                  </span>
+                                  {canUpload && (
+                                    <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                  )}
+                                </div>
+                              )}
                             </div>
-                            {editingDocId === doc.id ? (
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <Input
-                                  ref={editInputRef}
-                                  value={editingName}
-                                  onChange={(e) =>
-                                    setEditingName(e.target.value)
+                          </TableCell>
+                          {/* Investors column */}
+                          <TableCell
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ width: columnWidths.investors }}
+                          >
+                            {canUpload ? (
+                              <Popover
+                                open={editingInvestorsDocId === doc.id}
+                                onOpenChange={(open) => {
+                                  if (open) {
+                                    setEditingInvestorsDocId(doc.id);
+                                    setInvestorSearchQuery("");
+                                  } else {
+                                    setEditingInvestorsDocId(null);
                                   }
-                                  onKeyDown={(e) => handleKeyDown(e, doc)}
-                                  onBlur={() => handleRename(doc)}
-                                  className="h-7 text-sm font-medium"
-                                  disabled={isRenaming}
-                                />
-                                {isRenaming ? (
-                                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                }}
+                              >
+                                <PopoverTrigger asChild>
+                                  <button
+                                    className={cn(
+                                      "flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors group cursor-pointer min-w-[100px]",
+                                      doc.investors.length === 0 && "italic"
+                                    )}
+                                  >
+                                    {doc.investors.length > 0 ? (
+                                      <>
+                                        {doc.investors[0].type === "org" ? (
+                                          <Building2 className="h-3.5 w-3.5 shrink-0" />
+                                        ) : (
+                                          <User className="h-3.5 w-3.5 shrink-0" />
+                                        )}
+                                        <span className="truncate max-w-[100px]">
+                                          {doc.investors[0].name}
+                                        </span>
+                                        {doc.investors.length > 1 && (
+                                          <Badge
+                                            variant="secondary"
+                                            className="text-xs px-1.5 py-0 ml-1"
+                                          >
+                                            +{doc.investors.length - 1}
+                                          </Badge>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <span className="text-muted-foreground/60">
+                                        Add investor...
+                                      </span>
+                                    )}
+                                    <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-auto shrink-0" />
+                                  </button>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  className="w-[280px] p-0"
+                                  align="start"
+                                >
+                                  <Command shouldFilter={false}>
+                                    <CommandInput
+                                      placeholder="Search investors..."
+                                      value={investorSearchQuery}
+                                      onValueChange={setInvestorSearchQuery}
+                                    />
+                                    <CommandList>
+                                      <CommandEmpty>
+                                        No investors found.
+                                      </CommandEmpty>
+                                      {filteredInvestors.filter(
+                                        (i) => i.type === "org"
+                                      ).length > 0 && (
+                                        <CommandGroup heading="Organizations">
+                                          {filteredInvestors
+                                            .filter((i) => i.type === "org")
+                                            .map((investor) => {
+                                              const isSelected =
+                                                doc.investors.some(
+                                                  (i) =>
+                                                    i.type === investor.type &&
+                                                    i.id === investor.id
+                                                );
+                                              return (
+                                                <CommandItem
+                                                  key={`org-${investor.id}`}
+                                                  onSelect={() =>
+                                                    handleToggleInvestor(
+                                                      doc,
+                                                      investor
+                                                    )
+                                                  }
+                                                  disabled={isSavingInvestors}
+                                                  className="flex items-center gap-2"
+                                                >
+                                                  <div
+                                                    className={cn(
+                                                      "h-4 w-4 border rounded flex items-center justify-center shrink-0",
+                                                      isSelected
+                                                        ? "bg-primary border-primary"
+                                                        : "border-muted-foreground/30"
+                                                    )}
+                                                  >
+                                                    {isSelected && (
+                                                      <Check className="h-3 w-3 text-primary-foreground" />
+                                                    )}
+                                                  </div>
+                                                  <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                                                  <span className="truncate">
+                                                    {investor.name}
+                                                  </span>
+                                                </CommandItem>
+                                              );
+                                            })}
+                                        </CommandGroup>
+                                      )}
+                                      {filteredInvestors.filter(
+                                        (i) => i.type === "user"
+                                      ).length > 0 && (
+                                        <CommandGroup heading="Users">
+                                          {filteredInvestors
+                                            .filter((i) => i.type === "user")
+                                            .map((investor) => {
+                                              const isSelected =
+                                                doc.investors.some(
+                                                  (i) =>
+                                                    i.type === investor.type &&
+                                                    i.id === investor.id
+                                                );
+                                              return (
+                                                <CommandItem
+                                                  key={`user-${investor.id}`}
+                                                  onSelect={() =>
+                                                    handleToggleInvestor(
+                                                      doc,
+                                                      investor
+                                                    )
+                                                  }
+                                                  disabled={isSavingInvestors}
+                                                  className="flex items-center gap-2"
+                                                >
+                                                  <div
+                                                    className={cn(
+                                                      "h-4 w-4 border rounded flex items-center justify-center shrink-0",
+                                                      isSelected
+                                                        ? "bg-primary border-primary"
+                                                        : "border-muted-foreground/30"
+                                                    )}
+                                                  >
+                                                    {isSelected && (
+                                                      <Check className="h-3 w-3 text-primary-foreground" />
+                                                    )}
+                                                  </div>
+                                                  <User className="h-3.5 w-3.5 text-muted-foreground" />
+                                                  <span className="truncate">
+                                                    {investor.name}
+                                                  </span>
+                                                </CommandItem>
+                                              );
+                                            })}
+                                        </CommandGroup>
+                                      )}
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
+                            ) : (
+                              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                {doc.investors.length > 0 ? (
+                                  <>
+                                    {doc.investors[0].type === "org" ? (
+                                      <Building2 className="h-3.5 w-3.5" />
+                                    ) : (
+                                      <User className="h-3.5 w-3.5" />
+                                    )}
+                                    <span className="truncate max-w-[120px]">
+                                      {doc.investors[0].name}
+                                    </span>
+                                    {doc.investors.length > 1 && (
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-xs px-1.5 py-0 ml-1"
+                                      >
+                                        +{doc.investors.length - 1}
+                                      </Badge>
+                                    )}
+                                  </>
                                 ) : (
                                   <>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 shrink-0"
-                                      onClick={() => handleRename(doc)}
-                                    >
-                                      <Check className="h-3.5 w-3.5 text-green-600" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 shrink-0"
-                                      onClick={cancelEditing}
-                                    >
-                                      <X className="h-3.5 w-3.5 text-destructive" />
-                                    </Button>
+                                    {doc.source === "organization" ? (
+                                      <Building2 className="h-3.5 w-3.5" />
+                                    ) : (
+                                      <User className="h-3.5 w-3.5" />
+                                    )}
+                                    <span className="truncate max-w-[120px]">
+                                      {doc.sourceName}
+                                    </span>
                                   </>
                                 )}
                               </div>
-                            ) : (
-                              <div
-                                className={cn(
-                                  "flex items-center gap-2 group min-w-0",
-                                  canUpload && "cursor-text"
-                                )}
-                                onClick={() => canUpload && startEditing(doc)}
+                            )}
+                          </TableCell>
+                          {/* Tags column */}
+                          <TableCell style={{ width: columnWidths.tags }}>
+                            <div className="flex flex-wrap gap-1">
+                              {doc.tags.slice(0, 2).map((tag) => (
+                                <Badge
+                                  key={tag}
+                                  variant="outline"
+                                  className="text-xs font-mono px-2 py-0"
+                                >
+                                  {tag}
+                                </Badge>
+                              ))}
+                              {doc.tags.length > 2 && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs px-1.5 py-0"
+                                >
+                                  +{doc.tags.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell
+                            className="text-muted-foreground"
+                            style={{ width: columnWidths.size }}
+                          >
+                            {formatFileSize(doc.size)}
+                          </TableCell>
+                          <TableCell
+                            className="text-right"
+                            style={{ width: columnWidths.actions }}
+                          >
+                            <DropdownMenu>
+                              <DropdownMenuTrigger
+                                asChild
+                                onClick={(e) => e.stopPropagation()}
                               >
-                                <span className="font-medium truncate max-w-[250px]">
-                                  {doc.name}
-                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => handleDownload(doc)}
+                                >
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Download
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Preview
+                                </DropdownMenuItem>
                                 {canUpload && (
-                                  <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                  <DropdownMenuItem
+                                    onClick={() => startEditing(doc)}
+                                  >
+                                    <Pencil className="h-4 w-4 mr-2" />
+                                    Rename
+                                  </DropdownMenuItem>
                                 )}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        {/* Source column */}
-                        <TableCell>
-                          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                            {doc.source === "organization" ? (
-                              <Building2 className="h-3.5 w-3.5" />
-                            ) : (
-                              <User className="h-3.5 w-3.5" />
-                            )}
-                            <span className="truncate max-w-[120px]">
-                              {doc.sourceName}
-                            </span>
-                          </div>
-                        </TableCell>
-                        {/* Tags column */}
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
-                            {doc.tags.slice(0, 2).map((tag) => (
-                              <Badge
-                                key={tag}
-                                variant="outline"
-                                className="text-xs font-mono px-2 py-0"
-                              >
-                                {tag}
-                              </Badge>
-                            ))}
-                            {doc.tags.length > 2 && (
-                              <Badge
-                                variant="outline"
-                                className="text-xs px-1.5 py-0"
-                              >
-                                +{doc.tags.length - 2}
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatFileSize(doc.size)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger
-                              asChild
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => handleDownload(doc)}
-                              >
-                                <Download className="h-4 w-4 mr-2" />
-                                Download
-                              </DropdownMenuItem>
-                              <DropdownMenuItem>
-                                <Eye className="h-4 w-4 mr-2" />
-                                Preview
-                              </DropdownMenuItem>
-                              {canUpload && (
-                                <DropdownMenuItem
-                                  onClick={() => startEditing(doc)}
-                                >
-                                  <Pencil className="h-4 w-4 mr-2" />
-                                  Rename
-                                </DropdownMenuItem>
-                              )}
-                              {canUpload && (
-                                <DropdownMenuItem
-                                  onClick={() => handleDelete(doc)}
-                                  disabled={isDeleting}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                                {canUpload && (
+                                  <DropdownMenuItem
+                                    onClick={() => handleDelete(doc)}
+                                    disabled={isDeleting}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </table>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -1156,32 +2060,53 @@ export function DocumentsView({
                 exit={{ opacity: 0, y: 20 }}
                 className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
               >
-                <div className="flex items-center gap-4 bg-background border rounded-full shadow-lg px-6 py-3">
-                  <span className="text-sm text-muted-foreground">
+                <div className="flex items-center gap-3 bg-background border rounded-full shadow-lg px-6 py-3">
+                  <span className="text-sm font-medium">
                     {selectedDocs.size} selected
                   </span>
+                  <div className="h-4 w-px bg-border" />
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setSelectedDocs(new Set())}
+                    className="text-muted-foreground hover:text-foreground"
                   >
-                    Deselect all
+                    Deselect
                   </Button>
                   <Button
+                    variant="outline"
                     size="sm"
                     onClick={handleBulkDownload}
-                    disabled={isDownloading}
-                    className="rounded-full"
+                    disabled={isDownloading || isBulkDeleting}
+                    className="rounded-full gap-2"
                   >
                     {isDownloading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <>
+                        <Download className="h-4 w-4" />
                         Download
-                        <Download className="h-4 w-4 ml-2" />
                       </>
                     )}
                   </Button>
+                  {canUpload && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleBulkDelete}
+                      disabled={isDownloading || isBulkDeleting}
+                      className="rounded-full gap-2"
+                    >
+                      {isBulkDeleting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               </motion.div>
             )}

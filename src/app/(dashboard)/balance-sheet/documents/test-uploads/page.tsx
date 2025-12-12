@@ -16,6 +16,7 @@ import {
 import { useState, useRef } from "react";
 import { Upload, FileText } from "lucide-react";
 import { type FileError } from "react-dropzone";
+import { useUser } from "@clerk/nextjs";
 
 // Component implementations using official Supabase Dropzone
 function DocumentsUpload({
@@ -23,10 +24,15 @@ function DocumentsUpload({
 }: {
   onUploadComplete: (files: string[]) => void;
 }) {
+  const { user } = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Use correct path structure: users/{clerk_user_id}/uploads
+  const uploadPath = user ? `users/${user.id}/uploads` : "";
+
   const props = useSupabaseUpload({
     bucketName: "document_upload",
-    path: "test-uploads",
+    path: uploadPath,
     allowedMimeTypes: ["application/pdf", "image/*", "text/*"],
     maxFiles: 3,
     maxFileSize: 10 * 1024 * 1024, // 10MB
@@ -94,10 +100,15 @@ function InvestorStatementsUpload({
 }: {
   onUploadComplete: (files: string[]) => void;
 }) {
+  const { user } = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Use correct path structure: users/{clerk_user_id}/statements
+  const uploadPath = user ? `users/${user.id}/statements` : "";
+
   const props = useSupabaseUpload({
     bucketName: "investors",
-    path: "test-statements",
+    path: uploadPath,
     allowedMimeTypes: [
       "application/pdf",
       "application/vnd.ms-excel",
@@ -168,10 +179,15 @@ function TransactionDocumentsUpload({
 }: {
   onUploadComplete: (files: string[]) => void;
 }) {
+  const { user } = useUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Use correct path structure: users/{clerk_user_id}/transactions
+  const uploadPath = user ? `users/${user.id}/transactions` : "";
+
   const props = useSupabaseUpload({
     bucketName: "transaction-documents",
-    path: "test-transactions",
+    path: uploadPath,
     allowedMimeTypes: ["application/pdf", "image/*"],
     maxFiles: 5,
     maxFileSize: 10 * 1024 * 1024, // 10MB
