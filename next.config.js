@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Increase body size limit for file uploads (default is 1MB)
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "55mb",
+    },
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "shadcnblocks.com" },
