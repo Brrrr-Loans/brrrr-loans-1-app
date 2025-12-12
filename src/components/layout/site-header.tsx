@@ -59,6 +59,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/overlays/dropdown-menu";
+import { ChevronDown } from "lucide-react";
 
 interface SiteHeaderProps {
   breadcrumb?: React.ReactNode;
@@ -190,29 +197,95 @@ function generateBreadcrumbs(
   // Handle Balance Sheet / Documents routes with tab parameter
   if (path === "/balance-sheet/documents") {
     const tab = searchParams?.get("tab") || "statements";
-    const tabLabel = tab === "payments" ? "Payments" : "Statements";
+    const tabLabel = 
+      tab === "payments" ? "Payments" : 
+      tab === "agreements" ? "Agreements" : 
+      "Statements";
 
     return (
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link href="/balance-sheet/documents">Balance Sheet</Link>
-            </BreadcrumbLink>
+            <BreadcrumbPage className="text-muted-foreground">Balance Sheet</BreadcrumbPage>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
             <SlashIcon />
           </BreadcrumbSeparator>
           <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link href="/balance-sheet/documents">Documents</Link>
-            </BreadcrumbLink>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex items-center gap-1 text-sm font-medium hover:text-foreground transition-colors">
+                Documents
+                <ChevronDown className="h-3 w-3" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem asChild>
+                  <Link href="/balance-sheet/documents?tab=statements" className="cursor-pointer">
+                    Statements
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/balance-sheet/documents?tab=payments" className="cursor-pointer">
+                    Payments
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/balance-sheet/documents?tab=agreements" className="cursor-pointer">
+                    Agreements
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
             <SlashIcon />
           </BreadcrumbSeparator>
           <BreadcrumbItem>
             <BreadcrumbPage>{tabLabel}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+    );
+  }
+
+  // Handle Platform Settings / Integrations routes
+  if (path.startsWith("/platform-settings/integrations/")) {
+    const integrationSlug = path.split("/").pop();
+    const integrationName = integrationSlug === "ofb" ? "Ocean First" : integrationSlug === "brex" ? "Brex" : integrationSlug;
+
+    return (
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbPage className="text-muted-foreground">Platform Settings</BreadcrumbPage>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator>
+            <SlashIcon />
+          </BreadcrumbSeparator>
+          <BreadcrumbItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex items-center gap-1 text-sm font-medium hover:text-foreground transition-colors">
+                Integrations
+                <ChevronDown className="h-3 w-3" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem asChild>
+                  <Link href="/platform-settings/integrations/brex" className="cursor-pointer">
+                    Brex
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/platform-settings/integrations/ofb" className="cursor-pointer">
+                    Ocean First
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator>
+            <SlashIcon />
+          </BreadcrumbSeparator>
+          <BreadcrumbItem>
+            <BreadcrumbPage>{integrationName}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>

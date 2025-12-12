@@ -338,10 +338,10 @@ export function BrexVendorMatcher() {
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-full p-0">
+                <PopoverContent className="w-[400px] p-0" align="start">
                   <Command>
                     <CommandInput placeholder="Search vendors..." />
-                    <CommandList>
+                    <CommandList className="max-h-[300px]">
                       <CommandEmpty>No vendor found.</CommandEmpty>
                       <CommandGroup>
                         {vendors.map((vendor) => (
@@ -349,9 +349,7 @@ export function BrexVendorMatcher() {
                             key={vendor.id}
                             value={`${vendor.name || vendor.brex_vendor_id} ${vendor.email || ""}`}
                             onSelect={() => {
-                              setSelectedVendor(
-                                vendor.id === selectedVendor ? null : vendor.id
-                              );
+                              setSelectedVendor(vendor.id);
                               setVendorOpen(false);
                             }}
                           >
@@ -396,10 +394,10 @@ export function BrexVendorMatcher() {
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-full p-0">
+                  <PopoverContent className="w-[350px] p-0" align="start">
                     <Command>
                       <CommandInput placeholder="Search users..." />
-                      <CommandList>
+                      <CommandList className="max-h-[300px]">
                         <CommandEmpty>No user found.</CommandEmpty>
                         <CommandGroup>
                           {clerkUsers.map((user) => (
@@ -407,9 +405,7 @@ export function BrexVendorMatcher() {
                               key={user.id}
                               value={`${user.full_name || ""} ${user.email || ""} ${user.clerk_user_id}`}
                               onSelect={() => {
-                                setSelectedUser(
-                                  user.id === selectedUser ? null : user.id
-                                );
+                                setSelectedUser(user.id);
                                 setUserOpen(false);
                               }}
                             >
@@ -462,10 +458,10 @@ export function BrexVendorMatcher() {
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-full p-0">
+                  <PopoverContent className="w-[350px] p-0" align="start">
                     <Command>
                       <CommandInput placeholder="Search organizations..." />
-                      <CommandList>
+                      <CommandList className="max-h-[300px]">
                         <CommandEmpty>No organization found.</CommandEmpty>
                         <CommandGroup>
                           {clerkOrgs.map((org) => (
@@ -473,9 +469,7 @@ export function BrexVendorMatcher() {
                               key={org.id}
                               value={org.clerk_org_name}
                               onSelect={() => {
-                                setSelectedOrg(
-                                  org.id === selectedOrg ? null : org.id
-                                );
+                                setSelectedOrg(org.id);
                                 setOrgOpen(false);
                               }}
                             >

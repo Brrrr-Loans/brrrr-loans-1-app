@@ -49,29 +49,6 @@ function canAccessAdminFeatures(
 
 export async function GET() {
   try {
-    // TEMPORARY WORKAROUND: Return default admin permissions for development
-    console.log(
-      "🛠️ Using temporary workaround - returning default admin permissions"
-    );
-
-    const fallbackPermissions: UserPermissions = {
-      userId: "temp_user_id",
-      email: "dev@example.com",
-      firstName: "Dev",
-      lastName: "User",
-      phoneNumber: "+1234567890",
-      contactType: "Balance Sheet Investor",
-      role: "admin",
-      contactId: 1,
-      authUserProfileId: 1,
-      canAccessDeals: true,
-      canAccessDistributions: true,
-      canAccessDocuments: true,
-      canAccessAdminFeatures: true,
-    };
-
-    return NextResponse.json(fallbackPermissions);
-
     // Try both auth methods
     const { userId } = await auth();
     const user = await currentUser();

@@ -51,6 +51,25 @@ import {
   DialogTitle,
 } from "@/components/ui/overlays/dialog";
 
+// The Brex account name (used as FROM/TO for internal account)
+const BREX_ACCOUNT_NAME = "Brrrr Loans 1 LLC";
+
+// Derive FROM and TO based on amount direction
+// Negative amount = incoming (FROM: counterparty, TO: Brex)
+// Positive amount = outgoing (FROM: Brex, TO: counterparty)
+const getTransferDirection = (transfer: { display_name: string | null; counterparty_name: string | null; amount: number | null }) => {
+  const counterparty = transfer.display_name || transfer.counterparty_name || "Unknown";
+  const amount = transfer.amount ?? 0;
+  
+  if (amount < 0) {
+    // Incoming transfer (contribution, payment received)
+    return { from: counterparty, to: BREX_ACCOUNT_NAME };
+  } else {
+    // Outgoing transfer (distribution, payment sent)
+    return { from: BREX_ACCOUNT_NAME, to: counterparty };
+  }
+};
+
 interface ManualMatch {
   id: number;
   brex_transfer_id: string;
@@ -115,7 +134,7 @@ export function ManualTransferMatches({ onMatchDeleted }: ManualTransferMatchesP
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           className="h-8 px-2"
         >
-          Transfer ID
+          ID
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       ),
@@ -143,6 +162,52 @@ export function ManualTransferMatches({ onMatchDeleted }: ManualTransferMatchesP
       },
     },
     {
+      id: "from",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="h-8 px-2"
+        >
+          From
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const { from } = getTransferDirection(row.original.api_brex_transfers);
+        return <span className="text-sm">{from}</span>;
+      },
+      enableSorting: true,
+      sortingFn: (rowA, rowB) => {
+        const fromA = getTransferDirection(rowA.original.api_brex_transfers).from;
+        const fromB = getTransferDirection(rowB.original.api_brex_transfers).from;
+        return fromA.localeCompare(fromB);
+      },
+    },
+    {
+      id: "to",
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="h-8 px-2"
+        >
+          To
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      ),
+      cell: ({ row }) => {
+        const { to } = getTransferDirection(row.original.api_brex_transfers);
+        return <span className="text-sm">{to}</span>;
+      },
+      enableSorting: true,
+      sortingFn: (rowA, rowB) => {
+        const toA = getTransferDirection(rowA.original.api_brex_transfers).to;
+        const toB = getTransferDirection(rowB.original.api_brex_transfers).to;
+        return toA.localeCompare(toB);
+      },
+    },
+    {
       accessorKey: "api_brex_transfers.amount",
       header: ({ column }) => (
         <div className="text-right">
@@ -159,7 +224,9 @@ export function ManualTransferMatches({ onMatchDeleted }: ManualTransferMatchesP
       cell: ({ row }) => {
         const amount = row.original.api_brex_transfers.amount;
         return (
-          <div className="text-right font-semibold">{formatCurrency(amount)}</div>
+          <div className="text-right font-semibold">
+            {formatCurrency(amount)}
+          </div>
         );
       },
     },

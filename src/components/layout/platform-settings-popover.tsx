@@ -28,20 +28,28 @@ export function PlatformSettingsPopover({
   const popoverOpen = isControlled ? open : internalOpen;
   const setPopoverOpen = isControlled ? onOpenChange || (() => {}) : setInternalOpen;
 
-  // Check if brex route is active
+  // Check if integration routes are active
   const isBrexActive = pathname.startsWith("/platform-settings/integrations/brex");
+  const isOFBActive = pathname.startsWith("/platform-settings/integrations/ofb");
 
-  // Auto-open popover if brex route is active
+  // Auto-open popover if any integration route is active
   React.useEffect(() => {
-    if (isBrexActive && !isControlled) {
+    if ((isBrexActive || isOFBActive) && !isControlled) {
       setInternalOpen(true);
     }
-  }, [isBrexActive, isControlled]);
+  }, [isBrexActive, isOFBActive, isControlled]);
 
   const handleBrexClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     router.push("/platform-settings/integrations/brex");
+    setPopoverOpen(false);
+  };
+
+  const handleOFBClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    router.push("/platform-settings/integrations/ofb");
     setPopoverOpen(false);
   };
 
@@ -70,6 +78,18 @@ export function PlatformSettingsPopover({
           >
             <Plug className="h-4 w-4" />
             <span>Brex</span>
+          </Link>
+          <Link
+            href="/platform-settings/integrations/ofb"
+            onClick={handleOFBClick}
+            className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ${
+              isOFBActive
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground"
+            }`}
+          >
+            <Plug className="h-4 w-4" />
+            <span>Ocean First</span>
           </Link>
         </div>
       </PopoverContent>

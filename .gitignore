@@ -41,3 +41,9 @@ next-env.d.ts
 .idea/
 
 .config/
+
+# Cursor IDE
+.cursor/debug.log
+
+# Supabase CLI temp files
+supabase/.temp/
