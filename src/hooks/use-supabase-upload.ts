@@ -1,4 +1,3 @@
-import { useSupabase } from "@/hooks/use-supabase";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   type FileError,
@@ -61,11 +60,8 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
     allowedMimeTypes = [],
     maxFileSize = Number.POSITIVE_INFINITY,
     maxFiles = 1,
-    cacheControl = 3600,
-    upsert = false,
+    // cacheControl and upsert are handled server-side now
   } = options;
-  // Get a Supabase client configured with the current Clerk session
-  const supabase = useSupabase();
 
   const [files, setFiles] = useState<FileWithPreview[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -123,14 +119,9 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
   });
 
   const onUpload = useCallback(async () => {
-    if (!supabase) {
-      setErrors([{ name: "all", message: "Supabase client not ready" }]);
-      return;
-    }
-
     setLoading(true);
 
-    // [Joshen] This is to support handling partial successes
+    // Support handling partial successes
     // If any files didn't upload for any reason, hitting "Upload" again will only upload the files that had errors
     const filesWithErrors = errors.map(
       (x: { name: string; message: string }) => x.name
@@ -143,21 +134,43 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
           ]
         : files;
 
-    const responses = await Promise.all(
-      filesToUpload.map(async (file) => {
-        const { error } = await supabase.storage
-          .from(bucketName)
-          .upload(!!path ? `${path}/${file.name}` : file.name, file, {
-            cacheControl: cacheControl.toString(),
-            upsert,
-          });
-        if (error) {
-          return { name: file.name, message: error.message };
-        } else {
-          return { name: file.name, message: undefined };
-        }
-      })
+    // Use server-side upload API to bypass Clerk/Supabase owner_id UUID incompatibility
+    // Upload files SEQUENTIALLY to avoid Next.js concurrent request body parsing issues
+    // Deduplicate files by name to avoid retry logic bug
+    const uniqueFiles = filesToUpload.filter(
+      (file, index, self) =>
+        index === self.findIndex((f) => f.name === file.name)
     );
+
+    const responses: { name: string; message: string | undefined }[] = [];
+    for (const file of uniqueFiles) {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("bucket", bucketName);
+        formData.append("path", path ? `${path}/${file.name}` : file.name);
+
+        const response = await fetch("/api/storage/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          responses.push({
+            name: file.name,
+            message: errorData.error || "Upload failed",
+          });
+        } else {
+          responses.push({ name: file.name, message: undefined });
+        }
+      } catch (error) {
+        responses.push({
+          name: file.name,
+          message: error instanceof Error ? error.message : "Upload failed",
+        });
+      }
+    }
 
     const responseErrors = responses.filter(
       (x: {
@@ -183,16 +196,7 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
     setSuccesses(newSuccesses);
 
     setLoading(false);
-  }, [
-    files,
-    path,
-    bucketName,
-    errors,
-    successes,
-    supabase,
-    cacheControl,
-    upsert,
-  ]);
+  }, [files, path, bucketName, errors, successes]);
 
   useEffect(() => {
     if (files.length === 0) {

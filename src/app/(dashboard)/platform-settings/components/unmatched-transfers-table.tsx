@@ -65,6 +65,25 @@ interface Transfer {
   process_date: string | null;
 }
 
+// The Brex account name (used as FROM/TO for internal account)
+const BREX_ACCOUNT_NAME = "Brrrr Loans 1 LLC";
+
+// Derive FROM and TO based on amount direction
+// Negative amount = incoming (FROM: counterparty, TO: Brex)
+// Positive amount = outgoing (FROM: Brex, TO: counterparty)
+const getTransferDirection = (transfer: Transfer) => {
+  const counterparty = transfer.display_name || transfer.counterparty_name || "Unknown";
+  const amount = transfer.amount ?? 0;
+  
+  if (amount < 0) {
+    // Incoming transfer (contribution, payment received)
+    return { from: counterparty, to: BREX_ACCOUNT_NAME };
+  } else {
+    // Outgoing transfer (distribution, payment sent)
+    return { from: BREX_ACCOUNT_NAME, to: counterparty };
+  }
+};
+
 interface Vendor {
   id: number;
   name: string | null;
@@ -131,21 +150,49 @@ const columns: ColumnDef<Transfer>[] = [
     },
   },
   {
-    accessorKey: "display_name",
+    id: "from",
     header: ({ column }) => (
       <Button
         variant="ghost"
         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         className="h-8 px-2"
       >
-        Name
+        From
         <ArrowUpDown className="ml-2 h-4 w-4" />
       </Button>
     ),
     cell: ({ row }) => {
-      const displayName = row.original.display_name;
-      const counterpartyName = row.original.counterparty_name;
-      return displayName || counterpartyName || "No name";
+      const { from } = getTransferDirection(row.original);
+      return <span className="text-sm">{from}</span>;
+    },
+    enableSorting: true,
+    sortingFn: (rowA, rowB) => {
+      const fromA = getTransferDirection(rowA.original).from;
+      const fromB = getTransferDirection(rowB.original).from;
+      return fromA.localeCompare(fromB);
+    },
+  },
+  {
+    id: "to",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        className="h-8 px-2"
+      >
+        To
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+    cell: ({ row }) => {
+      const { to } = getTransferDirection(row.original);
+      return <span className="text-sm">{to}</span>;
+    },
+    enableSorting: true,
+    sortingFn: (rowA, rowB) => {
+      const toA = getTransferDirection(rowA.original).to;
+      const toB = getTransferDirection(rowB.original).to;
+      return toA.localeCompare(toB);
     },
   },
   {
@@ -162,7 +209,7 @@ const columns: ColumnDef<Transfer>[] = [
     ),
     cell: ({ row }) => {
       const description = row.getValue("description") as string | null;
-      return description || "-";
+      return <span className="text-sm text-muted-foreground">{description || "-"}</span>;
     },
   },
   {
@@ -181,7 +228,11 @@ const columns: ColumnDef<Transfer>[] = [
     ),
     cell: ({ row }) => {
       const amount = row.getValue("amount") as number | null;
-      return <div className="text-right font-semibold">{formatCurrency(amount)}</div>;
+      return (
+        <div className="text-right font-semibold">
+          {formatCurrency(amount)}
+        </div>
+      );
     },
   },
 ];
@@ -200,6 +251,7 @@ export function UnmatchedTransfersTable({ onMatchCreated }: UnmatchedTransfersTa
   const [notes, setNotes] = useState("");
   const [rowSelection, setRowSelection] = useState({});
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [globalFilter, setGlobalFilter] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const table = useReactTable({
@@ -211,9 +263,22 @@ export function UnmatchedTransfersTable({ onMatchCreated }: UnmatchedTransfersTa
     getSortedRowModel: getSortedRowModel(),
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const search = filterValue.toLowerCase();
+      const transfer = row.original;
+      const { from, to } = getTransferDirection(transfer);
+      return (
+        from.toLowerCase().includes(search) ||
+        to.toLowerCase().includes(search) ||
+        (transfer.description?.toLowerCase().includes(search) ?? false) ||
+        String(transfer.id).includes(search)
+      );
+    },
     state: {
       rowSelection,
       sorting,
+      globalFilter,
     },
     initialState: {
       pagination: {
@@ -379,10 +444,8 @@ export function UnmatchedTransfersTable({ onMatchCreated }: UnmatchedTransfersTa
             <div className="flex items-center gap-2">
               <Input
                 placeholder="Search transfers..."
-                value={(table.getColumn("display_name")?.getFilterValue() as string) ?? ""}
-                onChange={(event) =>
-                  table.getColumn("display_name")?.setFilterValue(event.target.value)
-                }
+                value={table.getState().globalFilter ?? ""}
+                onChange={(event) => table.setGlobalFilter(event.target.value)}
                 className="max-w-sm"
               />
               {selectedCount > 0 && (

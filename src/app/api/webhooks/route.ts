@@ -1,4 +1,4 @@
-import { verifyWebhook } from "@clerk/nextjs/webhooks";
+import { verifyWebhook, clerkClient } from "@clerk/nextjs/webhooks";
 import type { WebhookEvent } from "@clerk/nextjs/server";
 import type { NextRequest } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-server";
@@ -116,7 +116,10 @@ async function handleUserCreated(
     public_metadata,
     image_url,
     has_image,
-  } = data as WebhookEvent["data"] & { image_url?: string; has_image?: boolean };
+  } = data as WebhookEvent["data"] & {
+    image_url?: string;
+    has_image?: boolean;
+  };
   const primaryEmail = email_addresses?.[0]?.email_address;
   const primaryPhone = phone_numbers?.[0]?.phone_number || null;
 
@@ -290,7 +293,97 @@ async function handleSessionCreated(
 ) {
   const { user_id } = data;
 
-  // Update last_sign_in_at when user signs in
+  // First, check if user exists in database
+  const { data: existingUser, error: lookupError } = await supabase
+    .from("auth_clerk_users")
+    .select("id")
+    .eq("clerk_user_id", user_id)
+    .single();
+
+  if (lookupError && lookupError.code === "PGRST116") {
+    // User doesn't exist - this can happen if:
+    // 1. The user.created webhook was missed
+    // 2. User data was imported with wrong Clerk IDs
+    // 3. This is a new environment
+    console.log(
+      `User ${user_id} not found in database on session.created - attempting to create`
+    );
+
+    try {
+      // Fetch user data from Clerk
+      const client = await clerkClient();
+      const clerkUser = await client.users.getUser(user_id);
+
+      if (clerkUser) {
+        const primaryEmail = clerkUser.emailAddresses?.[0]?.emailAddress;
+        const primaryPhone = clerkUser.phoneNumbers?.[0]?.phoneNumber || null;
+
+        if (!primaryEmail) {
+          console.error("No email found for user:", user_id);
+          return;
+        }
+
+        // Generate username
+        const username = await generateUniqueUsername(
+          clerkUser.firstName || "",
+          clerkUser.lastName || "",
+          primaryEmail,
+          supabase
+        );
+
+        // Map role from metadata
+        const customRole = clerkUser.publicMetadata?.role as string;
+        let dbRole: string = "balance_sheet_investor";
+        if (customRole === "admin" || customRole === "Admin") {
+          dbRole = "admin";
+        } else if (customRole === "account_executive") {
+          dbRole = "account_executive";
+        } else if (customRole === "loan_processor") {
+          dbRole = "loan_processor";
+        } else if (customRole === "loan_opener") {
+          dbRole = "loan_opener";
+        } else if (customRole === "balance_sheet_investor") {
+          dbRole = "balance_sheet_investor";
+        }
+
+        // Create the user
+        const { error: insertError } = await supabase
+          .from("auth_clerk_users")
+          .insert({
+            clerk_user_id: user_id,
+            email: primaryEmail,
+            clerk_username: username,
+            first_name: clerkUser.firstName || null,
+            last_name: clerkUser.lastName || null,
+            phone_number: primaryPhone,
+            role: dbRole as Database["public"]["Enums"]["user_role_internal"],
+            is_internal_yn: false,
+            is_active_yn: true,
+            image_url: clerkUser.imageUrl || null,
+            has_image: clerkUser.hasImage || false,
+            last_sign_in_at: new Date().toISOString(),
+          });
+
+        if (insertError) {
+          console.error("Error auto-creating user on session:", insertError);
+        } else {
+          console.log(
+            `Successfully auto-created user ${user_id} from session.created`
+          );
+        }
+      }
+    } catch (clerkError) {
+      console.error("Error fetching user from Clerk:", clerkError);
+    }
+    return;
+  }
+
+  if (lookupError) {
+    console.error("Error looking up user:", lookupError);
+    return;
+  }
+
+  // User exists - just update last_sign_in_at
   const { error } = await supabase
     .from("auth_clerk_users")
     .update({
@@ -300,7 +393,6 @@ async function handleSessionCreated(
 
   if (error) {
     console.error("Error updating last_sign_in_at:", error);
-    // Don't throw - this is not critical
   }
 }
 

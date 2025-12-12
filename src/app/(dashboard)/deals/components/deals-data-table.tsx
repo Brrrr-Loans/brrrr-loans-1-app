@@ -58,6 +58,7 @@ import {
 } from "@/components/ui";
 import {
   ArrowUpDown,
+  Building,
   ChevronDown,
   MoreHorizontal,
   Plus,
@@ -466,7 +467,7 @@ export function DealsDataTable() {
         // First, let's try a simple query to see what we get
         console.log("Fetching deals...");
 
-        const { data: deals, error } = await supabase
+        const { data: deals, error, status, statusText } = await supabase
           .from("deal")
           .select(
             `
@@ -482,6 +483,8 @@ export function DealsDataTable() {
           `
           )
           .order("created_at", { ascending: false });
+
+        console.log("Supabase response:", { status, statusText, dataLength: deals?.length, error });
 
         if (error) {
           console.error("Error fetching deals:", error);
@@ -499,7 +502,7 @@ export function DealsDataTable() {
           return;
         }
 
-        console.log("Basic deals data:", deals);
+        console.log("Basic deals data:", deals, "count:", deals?.length, "type:", typeof deals);
 
         // Now let's try to get property data separately
         const dealIds = deals?.map((deal) => deal.id) || [];

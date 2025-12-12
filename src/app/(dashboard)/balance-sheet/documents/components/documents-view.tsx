@@ -58,6 +58,7 @@ import {
   Pencil,
   Check,
   X,
+  Trash2,
 } from "lucide-react";
 import { useSupabase } from "@/hooks/use-supabase";
 import { useUser, useOrganizationList, useOrganization } from "@clerk/nextjs";
@@ -113,6 +114,7 @@ export function DocumentsView({
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [isRenaming, setIsRenaming] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
 
   // Preserve dialog state across auth hiccups using a ref
@@ -275,7 +277,10 @@ export function DocumentsView({
                 name: file.name,
                 description: getDocumentDescription(file.name),
                 tags: getDocumentTags(file.name, file.metadata),
-                size: file.metadata?.size || 0,
+                size:
+                  file.metadata?.size ||
+                  (file as unknown as { size?: number }).size ||
+                  0,
                 type: file.metadata?.mimetype || "application/pdf",
                 path: `${userPath}/${file.name}`,
                 createdAt: file.created_at || new Date().toISOString(),
@@ -305,7 +310,10 @@ export function DocumentsView({
                 name: file.name,
                 description: getDocumentDescription(file.name),
                 tags: getDocumentTags(file.name, file.metadata),
-                size: file.metadata?.size || 0,
+                size:
+                  file.metadata?.size ||
+                  (file as unknown as { size?: number }).size ||
+                  0,
                 type: file.metadata?.mimetype || "application/pdf",
                 path: `${orgPath}/${file.name}`,
                 createdAt: file.created_at || new Date().toISOString(),
@@ -333,7 +341,10 @@ export function DocumentsView({
               name: file.name,
               description: getDocumentDescription(file.name),
               tags: getDocumentTags(file.name, file.metadata),
-              size: file.metadata?.size || 0,
+              size:
+                file.metadata?.size ||
+                (file as unknown as { size?: number }).size ||
+                0,
               type: file.metadata?.mimetype || "application/pdf",
               path: `${userPath}/${file.name}`,
               createdAt: file.created_at || new Date().toISOString(),
@@ -364,7 +375,10 @@ export function DocumentsView({
                 name: file.name,
                 description: getDocumentDescription(file.name),
                 tags: getDocumentTags(file.name, file.metadata),
-                size: file.metadata?.size || 0,
+                size:
+                  file.metadata?.size ||
+                  (file as unknown as { size?: number }).size ||
+                  0,
                 type: file.metadata?.mimetype || "application/pdf",
                 path: `${orgPath}/${file.name}`,
                 createdAt: file.created_at || new Date().toISOString(),
@@ -583,6 +597,40 @@ export function DocumentsView({
       handleRename(doc);
     } else if (e.key === "Escape") {
       cancelEditing();
+    }
+  };
+
+  // Delete handler
+  const handleDelete = async (doc: Document) => {
+    if (!supabase || !canUpload) return;
+
+    // Confirm deletion
+    if (!window.confirm(`Are you sure you want to delete "${doc.name}"?`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const { error } = await supabase.storage
+        .from(bucketName)
+        .remove([doc.path]);
+
+      if (error) throw error;
+
+      // Remove from local state
+      setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
+      setSelectedDocs((prev) => {
+        const next = new Set(prev);
+        next.delete(doc.id);
+        return next;
+      });
+
+      toast.success(`Deleted "${doc.name}"`);
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast.error("Failed to delete file");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -926,10 +974,10 @@ export function DocumentsView({
                         />
                       </TableHead>
                       <TableHead>Name</TableHead>
-                      <TableHead>Source</TableHead>
+                      <TableHead>Investor(s)</TableHead>
                       <TableHead>Tags</TableHead>
                       <TableHead>Size</TableHead>
-                      <TableHead className="w-20 text-right">Actions</TableHead>
+                      <TableHead className="w-20"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1076,6 +1124,16 @@ export function DocumentsView({
                                 >
                                   <Pencil className="h-4 w-4 mr-2" />
                                   Rename
+                                </DropdownMenuItem>
+                              )}
+                              {canUpload && (
+                                <DropdownMenuItem
+                                  onClick={() => handleDelete(doc)}
+                                  disabled={isDeleting}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
                                 </DropdownMenuItem>
                               )}
                             </DropdownMenuContent>
