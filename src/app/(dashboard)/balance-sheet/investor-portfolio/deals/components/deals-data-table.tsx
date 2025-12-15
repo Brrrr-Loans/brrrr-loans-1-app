@@ -369,7 +369,7 @@ const createColumns = (router: {
           <DropdownMenuContent align="end">
             <DropdownMenuGroup>
               <DropdownMenuItem
-                onClick={() => router.push(`/deals/${deal.id}`)}
+                onClick={() => router.push(`/balance-sheet/investor-portfolio/deals/${deal.id}`)}
               >
                 <FolderOpenIcon
                   size={16}
@@ -379,7 +379,7 @@ const createColumns = (router: {
                 Open
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => router.push(`/deals/${deal.id}`)}
+                onClick={() => router.push(`/balance-sheet/investor-portfolio/deals/${deal.id}`)}
               >
                 <BoltIcon size={16} className="opacity-60" aria-hidden="true" />
                 Edit
@@ -836,7 +836,7 @@ export function DealsDataTable() {
             <Button
               size="sm"
               className="h-8"
-              onClick={() => router.push("/deals/new")}
+              onClick={() => router.push("/balance-sheet/investor-portfolio/deals/new")}
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Deal
@@ -898,7 +898,7 @@ export function DealsDataTable() {
                         Get started by creating your first investment deal to
                         track performance and manage your portfolio.
                       </p>
-                      <Button onClick={() => router.push("/deals/new")}>
+                      <Button onClick={() => router.push("/balance-sheet/investor-portfolio/deals/new")}>
                         <Plus className="mr-2 h-4 w-4" />
                         Create Deal
                       </Button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/layout/card";
 import { Button } from "@/components/ui/forms/button";
 import { Badge } from "@/components/ui/feedback/badge";
@@ -21,7 +21,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/data/table";
-import { Check, Search, Users, AlertCircle, Sparkles, Link2 } from "lucide-react";
+import { Check, Search, Users, AlertCircle, Sparkles, Link2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+
+type SortField = "process_date" | "counterparty_name" | "amount";
+type SortDirection = "asc" | "desc";
 import { useSupabase } from "@/hooks/use-supabase";
 import { toast } from "sonner";
 
@@ -60,6 +63,9 @@ export function StepVendorMatching({
   // Per-row vendor selection
   const [rowVendorSelections, setRowVendorSelections] = useState<Record<string, number | null>>({});
   const [matchingRows, setMatchingRows] = useState<Set<string>>(new Set());
+  // Sorting state
+  const [sortField, setSortField] = useState<SortField>("process_date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   const supabase = useSupabase();
 
@@ -122,20 +128,65 @@ export function StepVendorMatching({
     if (supabase) fetchData();
   }, [supabase, fetchData]);
 
-  const filteredTransfers = transfers.filter((t) => {
-    const query = searchQuery.toLowerCase();
-    return (
-      t.counterparty_name?.toLowerCase().includes(query) ||
-      t.description?.toLowerCase().includes(query) ||
-      t.ofb_transfer_id.toLowerCase().includes(query)
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      // Toggle direction
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      // New field, default to descending
+      setSortField(field);
+      setSortDirection("desc");
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="h-3 w-3 ml-1 opacity-50" />;
+    }
+    return sortDirection === "asc" ? (
+      <ArrowUp className="h-3 w-3 ml-1" />
+    ) : (
+      <ArrowDown className="h-3 w-3 ml-1" />
     );
-  });
+  };
+
+  const filteredAndSortedTransfers = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    const filtered = transfers.filter(
+      (t) =>
+        t.counterparty_name?.toLowerCase().includes(query) ||
+        t.description?.toLowerCase().includes(query) ||
+        t.ofb_transfer_id.toLowerCase().includes(query)
+    );
+
+    return filtered.sort((a, b) => {
+      let comparison = 0;
+
+      switch (sortField) {
+        case "process_date":
+          const dateA = a.process_date ? new Date(a.process_date).getTime() : 0;
+          const dateB = b.process_date ? new Date(b.process_date).getTime() : 0;
+          comparison = dateA - dateB;
+          break;
+        case "counterparty_name":
+          const nameA = (a.counterparty_name || "").toLowerCase();
+          const nameB = (b.counterparty_name || "").toLowerCase();
+          comparison = nameA.localeCompare(nameB);
+          break;
+        case "amount":
+          comparison = a.amount - b.amount;
+          break;
+      }
+
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  }, [transfers, searchQuery, sortField, sortDirection]);
 
   const handleSelectAll = () => {
-    if (selectedTransfers.size === filteredTransfers.length) {
+    if (selectedTransfers.size === filteredAndSortedTransfers.length) {
       setSelectedTransfers(new Set());
     } else {
-      setSelectedTransfers(new Set(filteredTransfers.map((t) => t.ofb_transfer_id)));
+      setSelectedTransfers(new Set(filteredAndSortedTransfers.map((t) => t.ofb_transfer_id)));
     }
   };
 
@@ -370,21 +421,45 @@ export function StepVendorMatching({
               <TableHead className="w-12">
                 <input
                   type="checkbox"
-                  checked={selectedTransfers.size === filteredTransfers.length && filteredTransfers.length > 0}
+                  checked={selectedTransfers.size === filteredAndSortedTransfers.length && filteredAndSortedTransfers.length > 0}
                   onChange={handleSelectAll}
                   className="rounded border-gray-300"
                 />
               </TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Counterparty</TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort("process_date")}
+                  className="flex items-center hover:text-foreground transition-colors"
+                >
+                  Date
+                  {getSortIcon("process_date")}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort("counterparty_name")}
+                  className="flex items-center hover:text-foreground transition-colors"
+                >
+                  Counterparty
+                  {getSortIcon("counterparty_name")}
+                </button>
+              </TableHead>
               <TableHead>Description</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
+              <TableHead className="text-right">
+                <button
+                  onClick={() => handleSort("amount")}
+                  className="flex items-center justify-end hover:text-foreground transition-colors ml-auto"
+                >
+                  Amount
+                  {getSortIcon("amount")}
+                </button>
+              </TableHead>
               <TableHead className="w-[250px]">Match to Vendor</TableHead>
               <TableHead className="w-20">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredTransfers.slice(0, 50).map((transfer) => {
+            {filteredAndSortedTransfers.slice(0, 50).map((transfer) => {
               const suggestedVendor = suggestVendor(transfer.counterparty_name);
               const selectedVendorId = rowVendorSelections[transfer.ofb_transfer_id];
               const isRowMatching = matchingRows.has(transfer.ofb_transfer_id);
@@ -464,9 +539,9 @@ export function StepVendorMatching({
             })}
           </TableBody>
         </Table>
-        {filteredTransfers.length > 50 && (
+        {filteredAndSortedTransfers.length > 50 && (
           <div className="bg-muted/50 px-4 py-2 text-center text-sm text-muted-foreground">
-            Showing 50 of {filteredTransfers.length} transfers
+            Showing 50 of {filteredAndSortedTransfers.length} transfers
           </div>
         )}
       </div>

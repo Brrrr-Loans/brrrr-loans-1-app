@@ -106,7 +106,7 @@ export async function createDeal(formData: FormData) {
       // Continue anyway as the deal was created
     }
 
-    revalidatePath("/deals");
+    revalidatePath("/balance-sheet/investor-portfolio/deals");
     return { success: true, dealId: dealData.id };
   } catch (error) {
     console.error("Error creating deal:", error);
@@ -228,7 +228,7 @@ export async function updateDeal(formData: FormData) {
       throw new Error(`Failed to update deal: ${updateError.message}`);
     }
 
-    revalidatePath("/deals");
+    revalidatePath("/balance-sheet/investor-portfolio/deals");
     return { success: true };
   } catch (error) {
     console.error("Error updating deal:", error);
@@ -295,7 +295,7 @@ export async function deleteDeal(id: string) {
       throw new Error(`Failed to delete deal: ${deleteError.message}`);
     }
 
-    revalidatePath("/deals");
+    revalidatePath("/balance-sheet/investor-portfolio/deals");
     return { success: true };
   } catch (error) {
     console.error("Error deleting deal:", error);

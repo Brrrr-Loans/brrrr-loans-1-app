@@ -43,9 +43,9 @@ export function useInvestorPermissions(): InvestorPermissions {
         return true;
       }
 
-      // For non-admin users, check if they have access via bsi_deals
+      // For non-admin users, check if they have access via bsi_deals_clerk_users
       const { data, error } = await supabase
-        .from("bsi_deals")
+        .from("bsi_deals_clerk_users")
         .select("deal_id")
         .eq("deal_id", Number(dealId))
         .single();

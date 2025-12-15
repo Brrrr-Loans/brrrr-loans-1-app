@@ -83,6 +83,12 @@ export function ChartAreaInvestorROI({
     distributions: "Distributions Paid",
   };
 
+  // Explicit color mapping to ensure tooltip matches chart legend
+  const dataColors: Record<string, string> = {
+    contributions: "chart-area-gradient-data-secondary", // gray
+    distributions: "chart-area-gradient-data-primary", // orange
+  };
+
   // Generate 12-month chart data, mapping incoming data to each month
   const chartData = useMemo(() => {
     const months = getLast12Months();
@@ -126,10 +132,10 @@ export function ChartAreaInvestorROI({
         <div className="absolute top-3 left-5 z-10 flex flex-wrap gap-4 items-center pointer-events-none">
           <div className="flex items-center gap-2">
             <div
-              className="w-4 h-4 min-w-4 min-h-4 rounded-lg border border-[rgb(var(--chart-area-gradient-data-primary))]"
+              className="w-4 h-4 min-w-4 min-h-4 rounded-lg border border-[rgb(var(--chart-area-gradient-data-secondary))]"
               style={{
                 background:
-                  "linear-gradient(to bottom, rgb(var(--chart-area-gradient-data-primary)) 0%, transparent 100%)",
+                  "linear-gradient(to bottom, rgb(var(--chart-area-gradient-data-secondary)) 0%, transparent 100%)",
               }}
             />
             <span className="text-[13.2px] leading-4 whitespace-nowrap">
@@ -138,10 +144,10 @@ export function ChartAreaInvestorROI({
           </div>
           <div className="flex items-center gap-2">
             <div
-              className="w-4 h-4 min-w-4 min-h-4 rounded-lg border border-[rgb(var(--chart-area-gradient-data-secondary))]"
+              className="w-4 h-4 min-w-4 min-h-4 rounded-lg border border-[rgb(var(--chart-area-gradient-data-primary))]"
               style={{
                 background:
-                  "linear-gradient(to bottom, rgb(var(--chart-area-gradient-data-secondary)) 0%, transparent 100%)",
+                  "linear-gradient(to bottom, rgb(var(--chart-area-gradient-data-primary)) 0%, transparent 100%)",
               }}
             />
             <span className="text-[13.2px] leading-4 whitespace-nowrap">
@@ -155,14 +161,14 @@ export function ChartAreaInvestorROI({
             config={{
               contributions: {
                 label: "Principal Balance Owed",
-                color: "rgb(var(--chart-area-gradient-data-primary))",
+                color: "rgb(var(--chart-area-gradient-data-secondary))",
               },
               distributions: {
                 label: "Distributions Paid",
-                color: "rgb(var(--chart-area-gradient-data-secondary))",
+                color: "rgb(var(--chart-area-gradient-data-primary))",
               },
             }}
-            className="h-[317px] w-full"
+            className="h-[380px] w-full"
           >
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart
@@ -179,12 +185,12 @@ export function ChartAreaInvestorROI({
                   >
                     <stop
                       offset="0%"
-                      stopColor="rgb(var(--chart-area-gradient-data-primary))"
+                      stopColor="rgb(var(--chart-area-gradient-data-secondary))"
                       stopOpacity={1}
                     />
                     <stop
                       offset="100%"
-                      stopColor="rgb(var(--chart-area-gradient-data-primary))"
+                      stopColor="rgb(var(--chart-area-gradient-data-secondary))"
                       stopOpacity={0}
                     />
                   </linearGradient>
@@ -197,12 +203,12 @@ export function ChartAreaInvestorROI({
                   >
                     <stop
                       offset="0%"
-                      stopColor="rgb(var(--chart-area-gradient-data-secondary))"
+                      stopColor="rgb(var(--chart-area-gradient-data-primary))"
                       stopOpacity={1}
                     />
                     <stop
                       offset="100%"
-                      stopColor="rgb(var(--chart-area-gradient-data-secondary))"
+                      stopColor="rgb(var(--chart-area-gradient-data-primary))"
                       stopOpacity={0}
                     />
                   </linearGradient>
@@ -226,6 +232,7 @@ export function ChartAreaInvestorROI({
                   content={
                     <ChartAreaTooltip
                       dataLabels={dataLabels}
+                      dataColors={dataColors}
                       formatValue={formatCurrency}
                     />
                   }
@@ -234,7 +241,7 @@ export function ChartAreaInvestorROI({
                   type="monotone"
                   dataKey="contributions"
                   name="contributions"
-                  stroke="rgb(var(--chart-area-gradient-data-primary))"
+                  stroke="rgb(var(--chart-area-gradient-data-secondary))"
                   fill="url(#contributionGradient)"
                   fillOpacity={0.6}
                 />
@@ -242,7 +249,7 @@ export function ChartAreaInvestorROI({
                   type="monotone"
                   dataKey="distributions"
                   name="distributions"
-                  stroke="rgb(var(--chart-area-gradient-data-secondary))"
+                  stroke="rgb(var(--chart-area-gradient-data-primary))"
                   fill="url(#distributionGradient)"
                   fillOpacity={0.6}
                 />
@@ -250,7 +257,7 @@ export function ChartAreaInvestorROI({
             </ResponsiveContainer>
           </ChartContainer>
         ) : (
-          <div className="h-[317px] w-full flex items-center justify-center">
+          <div className="h-[380px] w-full flex items-center justify-center">
             <div className="animate-pulse text-muted-foreground text-sm">
               Loading chart...
             </div>

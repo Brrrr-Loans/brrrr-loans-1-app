@@ -145,9 +145,9 @@ async function main() {
   // Phase 3: BSI tables
   console.log('\n📦 Phase 3: BSI tables');
   
-  console.log('  bsi_deals:');
-  await importTable(prod, dev, 'bsi_deals', (data) =>
-    data.map(row => ({ ...row, auth_clerk_users_id: null }))
+  console.log('  bsi_deals_clerk_users:');
+  await importTable(prod, dev, 'bsi_deals_clerk_users', (data) =>
+    data.map(row => ({ ...row, clerk_user_id: null }))
   );
   
   console.log('  bs_debt_instruments:');

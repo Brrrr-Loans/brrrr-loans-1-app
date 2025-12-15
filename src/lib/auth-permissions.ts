@@ -136,9 +136,9 @@ export async function canAccessDeal(dealId: string | number): Promise<boolean> {
 
     const supabase = await getSupabaseClient();
 
-    // Check if user has access to this specific deal through bsi_deals
+    // Check if user has access to this specific deal through bsi_deals_clerk_users
     const { data, error } = await supabase
-      .from("bsi_deals")
+      .from("bsi_deals_clerk_users")
       .select("deal_id")
       .eq("deal_id", Number(dealId))
       .eq("contact_id", permissions.contactId)
@@ -170,11 +170,11 @@ export async function canAccessDocument(
         `
         id,
         deal_id,
-        bsi_deals!inner(contact_id)
+        bsi_deals_clerk_users!inner(contact_id)
       `
       )
       .eq("id", Number(documentId))
-      .eq("bsi_deals.contact_id", permissions.contactId)
+      .eq("bsi_deals_clerk_users.contact_id", permissions.contactId)
       .single();
 
     return !error && !!data;

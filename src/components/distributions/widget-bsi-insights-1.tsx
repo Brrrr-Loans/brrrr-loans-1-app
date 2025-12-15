@@ -234,12 +234,12 @@ export function InvestorDealsWidget() {
   );
 
   const handleViewAll = useCallback(() => {
-    router.push("/deals");
+    router.push("/balance-sheet/investor-portfolio/deals");
   }, [router]);
 
   const handleRowClick = useCallback(
     (dealId: number) => {
-      router.push(`/deals/${dealId}`);
+      router.push(`/balance-sheet/investor-portfolio/deals/${dealId}`);
     },
     [router]
   );

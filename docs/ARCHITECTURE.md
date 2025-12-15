@@ -1,6 +1,6 @@
 # Brrrr Loans 1 - Lender Portal Architecture
 
-> **Last Updated**: December 2024  
+> **Last Updated**: December 15, 2024  
 > **Purpose**: Comprehensive documentation of the project's database schema, permissions model, security measures, and calculation logic.
 
 ---
@@ -33,13 +33,14 @@
         │                                                  │
         ▼                                                  ▼
 ┌─────────────────┐      ┌─────────────────┐      ┌─────────────────┐
-│   bsi_deals     │      │bsi_transactions_│      │  bsi_deals_orgs │
-│                 │      │   investors     │      │                 │
-│ • auth_clerk_   │      │                 │      │ • clerk_org_id  │
-│   users_id (FK) │      │ • clerk_user_id │      │   (FK)          │
-│ • deal_id (FK)  │      │   (FK)          │      │ • deal_id (FK)  │
-│                 │      │ • clerk_org_id  │      │                 │
-└─────────────────┘      │   (FK)          │      └─────────────────┘
+│bsi_deals_clerk_ │      │bsi_transactions_│      │bsi_deals_clerk_ │
+│     users       │      │   investors     │      │     orgs        │
+│                 │      │                 │      │                 │
+│ • clerk_user_id │      │ • clerk_user_id │      │ • clerk_org_id  │
+│   (FK)          │      │   (FK)          │      │   (FK)          │
+│ • deal_id (FK)  │      │ • clerk_org_id  │      │ • deal_id (FK)  │
+│                 │      │   (FK)          │      │                 │
+└─────────────────┘      │ • transaction_id│      └─────────────────┘
         │                │ • transaction_id│                │
         │                │   (FK)          │                │
         ▼                └─────────────────┘                ▼
@@ -68,8 +69,8 @@
 | `auth_clerk_orgs_members`    | User-to-org membership (junction) | `auth_clerk_users_id`, `clerk_org_id`, `clerk_org_role`               |
 | `bsi_transactions`           | All financial transactions        | `id`, `transaction_amount`, `ledger_entry_type`, `transaction_status` |
 | `bsi_transactions_investors` | Links transactions to users/orgs  | `clerk_user_id`, `clerk_org_id`, `transaction_id`                     |
-| `bsi_deals`                  | Links users to deals              | `auth_clerk_users_id`, `deal_id`                                      |
-| `bsi_deals_orgs`             | Links organizations to deals      | `clerk_org_id`, `deal_id`                                             |
+| `bsi_deals_clerk_users`      | Links users to deals              | `clerk_user_id`, `deal_id`                                            |
+| `bsi_deals_clerk_orgs`       | Links organizations to deals      | `clerk_org_id`, `deal_id`                                             |
 | `deal`                       | Deal/loan information             | `id`, `deal_name`, `deal_disposition_1`, `loan_amount_total`          |
 
 ### 1.3 Junction Table Logic

@@ -161,6 +161,15 @@ export function TransactionsDataTable() {
               document_category,
               uploaded_at
             )
+          ),
+          direct_user:auth_clerk_users!clerk_user_id(
+            id,
+            full_name,
+            email
+          ),
+          direct_org:auth_clerk_orgs!clerk_org_id(
+            id,
+            clerk_org_name
           )
         `
         )

@@ -380,59 +380,104 @@ export type Database = {
       api_ofb_transfers: {
         Row: {
           amount: number | null
+          approver_one_name: string | null
+          approver_one_timestamp: string | null
+          bank_trace_number: string | null
           check_number: string | null
           counterparty_account_number: string | null
+          counterparty_address_line_1: string | null
+          counterparty_address_line_2: string | null
+          counterparty_address_line_3: string | null
+          counterparty_beneficiary_bank_name: string | null
           counterparty_name: string | null
           counterparty_routing_number: string | null
           created_at: string
+          currency: string | null
           description: string | null
           display_name: string | null
+          external_memo_lines: string[] | null
+          fed_reference_number: string | null
           id: number
           import_batch_id: string | null
           import_source: string | null
           ofb_transfer_id: string
+          originating_account_name: string | null
+          originating_account_number: string | null
           payment_type: string | null
           process_date: string | null
           raw_data: Json | null
+          record_transfer_name: string | null
           status: string | null
+          transfer_created_at: string | null
+          transfer_entered_by: string | null
           updated_at: string | null
         }
         Insert: {
           amount?: number | null
+          approver_one_name?: string | null
+          approver_one_timestamp?: string | null
+          bank_trace_number?: string | null
           check_number?: string | null
           counterparty_account_number?: string | null
+          counterparty_address_line_1?: string | null
+          counterparty_address_line_2?: string | null
+          counterparty_address_line_3?: string | null
+          counterparty_beneficiary_bank_name?: string | null
           counterparty_name?: string | null
           counterparty_routing_number?: string | null
           created_at?: string
+          currency?: string | null
           description?: string | null
           display_name?: string | null
+          external_memo_lines?: string[] | null
+          fed_reference_number?: string | null
           id?: number
           import_batch_id?: string | null
           import_source?: string | null
           ofb_transfer_id: string
+          originating_account_name?: string | null
+          originating_account_number?: string | null
           payment_type?: string | null
           process_date?: string | null
           raw_data?: Json | null
+          record_transfer_name?: string | null
           status?: string | null
+          transfer_created_at?: string | null
+          transfer_entered_by?: string | null
           updated_at?: string | null
         }
         Update: {
           amount?: number | null
+          approver_one_name?: string | null
+          approver_one_timestamp?: string | null
+          bank_trace_number?: string | null
           check_number?: string | null
           counterparty_account_number?: string | null
+          counterparty_address_line_1?: string | null
+          counterparty_address_line_2?: string | null
+          counterparty_address_line_3?: string | null
+          counterparty_beneficiary_bank_name?: string | null
           counterparty_name?: string | null
           counterparty_routing_number?: string | null
           created_at?: string
+          currency?: string | null
           description?: string | null
           display_name?: string | null
+          external_memo_lines?: string[] | null
+          fed_reference_number?: string | null
           id?: number
           import_batch_id?: string | null
           import_source?: string | null
           ofb_transfer_id?: string
+          originating_account_name?: string | null
+          originating_account_number?: string | null
           payment_type?: string | null
           process_date?: string | null
           raw_data?: Json | null
+          record_transfer_name?: string | null
           status?: string | null
+          transfer_created_at?: string | null
+          transfer_entered_by?: string | null
           updated_at?: string | null
         }
         Relationships: []
@@ -1353,40 +1398,7 @@ export type Database = {
           },
         ]
       }
-      bsi_deals: {
-        Row: {
-          auth_clerk_users_id: number | null
-          deal_id: number
-          id: number
-        }
-        Insert: {
-          auth_clerk_users_id?: number | null
-          deal_id: number
-          id?: number
-        }
-        Update: {
-          auth_clerk_users_id?: number | null
-          deal_id?: number
-          id?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "bsi_deals_auth_clerk_users_id_fkey"
-            columns: ["auth_clerk_users_id"]
-            isOneToOne: false
-            referencedRelation: "auth_clerk_users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bsi_deals_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "deal"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      bsi_deals_orgs: {
+      bsi_deals_clerk_orgs: {
         Row: {
           clerk_org_id: number
           deal_id: number
@@ -1404,17 +1416,50 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "bsi_deals_orgs_clerk_org_id_fkey"
+            foreignKeyName: "bsi_deals_clerk_orgs_clerk_org_id_fkey"
             columns: ["clerk_org_id"]
             isOneToOne: false
             referencedRelation: "auth_clerk_orgs"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "bsi_deals_orgs_deal_id_fkey"
+            foreignKeyName: "bsi_deals_clerk_orgs_deal_id_fkey"
             columns: ["deal_id"]
             isOneToOne: false
-            referencedRelation: "bsi_deals"
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bsi_deals_clerk_users: {
+        Row: {
+          clerk_user_id: number | null
+          deal_id: number
+          id: number
+        }
+        Insert: {
+          clerk_user_id?: number | null
+          deal_id: number
+          id?: number
+        }
+        Update: {
+          clerk_user_id?: number | null
+          deal_id?: number
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bsi_deals_clerk_users_clerk_user_id_fkey"
+            columns: ["clerk_user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_clerk_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bsi_deals_clerk_users_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
             referencedColumns: ["id"]
           },
         ]
@@ -1615,6 +1660,7 @@ export type Database = {
       bsi_transactions: {
         Row: {
           clerk_org_id: number | null
+          clerk_user_id: number | null
           created_at: string | null
           external_memo: string | null
           id: number
@@ -1637,6 +1683,7 @@ export type Database = {
         }
         Insert: {
           clerk_org_id?: number | null
+          clerk_user_id?: number | null
           created_at?: string | null
           external_memo?: string | null
           id?: number
@@ -1659,6 +1706,7 @@ export type Database = {
         }
         Update: {
           clerk_org_id?: number | null
+          clerk_user_id?: number | null
           created_at?: string | null
           external_memo?: string | null
           id?: number
@@ -1685,6 +1733,13 @@ export type Database = {
             columns: ["clerk_org_id"]
             isOneToOne: false
             referencedRelation: "auth_clerk_orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bsi_transactions_clerk_user_id_fkey"
+            columns: ["clerk_user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_clerk_users"
             referencedColumns: ["id"]
           },
         ]
@@ -1886,7 +1941,7 @@ export type Database = {
         Row: {
           allocation_amount: number | null
           clerk_org_id: number | null
-          clerk_user_id: number
+          clerk_user_id: number | null
           created_at: string | null
           id: number
           transaction_id: number
@@ -1894,7 +1949,7 @@ export type Database = {
         Insert: {
           allocation_amount?: number | null
           clerk_org_id?: number | null
-          clerk_user_id: number
+          clerk_user_id?: number | null
           created_at?: string | null
           id?: number
           transaction_id: number
@@ -1902,7 +1957,7 @@ export type Database = {
         Update: {
           allocation_amount?: number | null
           clerk_org_id?: number | null
-          clerk_user_id?: number
+          clerk_user_id?: number | null
           created_at?: string | null
           id?: number
           transaction_id?: number

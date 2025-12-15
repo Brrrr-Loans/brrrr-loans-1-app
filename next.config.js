@@ -6,6 +6,8 @@ const nextConfig = {
       bodySizeLimit: "55mb",
     },
   },
+  // Disable dev indicator overlay that causes params/searchParams Promise warnings
+  devIndicators: false,
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "shadcnblocks.com" },
@@ -20,12 +22,22 @@ const nextConfig = {
     return [
       {
         source: "/dashboard/deals",
-        destination: "/deals",
+        destination: "/balance-sheet/investor-portfolio/deals",
         permanent: true,
       },
       {
         source: "/dashboard/deals/:path*",
-        destination: "/deals/:path*",
+        destination: "/balance-sheet/investor-portfolio/deals/:path*",
+        permanent: true,
+      },
+      {
+        source: "/deals",
+        destination: "/balance-sheet/investor-portfolio/deals",
+        permanent: true,
+      },
+      {
+        source: "/deals/:path*",
+        destination: "/balance-sheet/investor-portfolio/deals/:path*",
         permanent: true,
       },
       {

@@ -15,9 +15,9 @@ export async function GET() {
     const contactId = 1;
     console.log("Using default contact_id:", contactId);
 
-    // Query bsi_deals using the default contact_id
+    // Query bsi_deals_clerk_users using the default contact_id
     const query = supabase
-      .from("bsi_deals")
+      .from("bsi_deals_clerk_users")
       .select(
         `
         *,

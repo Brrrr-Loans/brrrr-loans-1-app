@@ -24,6 +24,8 @@ interface ChartAreaTooltipProps {
   label?: string;
   /** Map of dataKey to display label */
   dataLabels?: Record<string, string>;
+  /** Map of dataKey to CSS variable name (without --) for explicit color control */
+  dataColors?: Record<string, string>;
   /** Custom value formatter function */
   formatValue?: (value: number) => string;
   /** CSS variable name for primary data series color (without --) */
@@ -70,6 +72,7 @@ export function ChartAreaTooltip({
   payload,
   label,
   dataLabels = {},
+  dataColors = {},
   formatValue = (v) => v.toLocaleString(),
   primaryColorVar = "chart-area-gradient-data-primary",
   secondaryColorVar = "chart-area-gradient-data-secondary",
@@ -79,6 +82,10 @@ export function ChartAreaTooltip({
   }
 
   const getColorVar = (dataKey: string, index: number) => {
+    // Use explicit color mapping if provided, otherwise fallback to index-based
+    if (dataColors[dataKey]) {
+      return dataColors[dataKey];
+    }
     // First item uses primary, subsequent items use secondary
     return index === 0 ? primaryColorVar : secondaryColorVar;
   };

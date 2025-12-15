@@ -44,6 +44,12 @@ function getOrCreateClient(token: string | null): SupabaseClient<Database> {
   return singletonClient;
 }
 
+export interface UseSupabaseReturn {
+  client: SupabaseClient<Database> | null;
+  /** Force refresh the JWT token before critical operations */
+  refreshToken: () => Promise<SupabaseClient<Database> | null>;
+}
+
 /**
  * Hook to get a Supabase client configured with Clerk's native integration.
  * Returns null until the JWT token is available to prevent race conditions.
@@ -51,7 +57,7 @@ function getOrCreateClient(token: string | null): SupabaseClient<Database> {
  * Uses a singleton pattern to minimize client recreation.
  * Automatically refreshes the token before expiration to prevent "exp claim" errors.
  */
-export function useSupabase(): SupabaseClient<Database> | null {
+export function useSupabaseWithRefresh(): UseSupabaseReturn {
   const { session, isLoaded } = useSession();
   const [isTokenLoaded, setIsTokenLoaded] = useState(false);
   const tokenRef = useRef<string | null>(null);
@@ -87,6 +93,24 @@ export function useSupabase(): SupabaseClient<Database> | null {
     }
   }, [session, isLoaded]);
 
+  // Force refresh token - useful before critical operations like sync
+  const refreshToken = useCallback(async (): Promise<SupabaseClient<Database> | null> => {
+    if (!session) {
+      return clientRef.current;
+    }
+
+    try {
+      // Force a fresh token from Clerk
+      const token = await session.getToken({ template: "supabase" });
+      tokenRef.current = token;
+      clientRef.current = getOrCreateClient(token);
+      return clientRef.current;
+    } catch (error) {
+      console.error("🔑 Error force refreshing token:", error);
+      return clientRef.current;
+    }
+  }, [session]);
+
   // Initial token load
   useEffect(() => {
     loadToken();
@@ -111,10 +135,17 @@ export function useSupabase(): SupabaseClient<Database> | null {
     return () => clearInterval(refreshInterval);
   }, [session, isLoaded]);
 
-  // Return the client ref value (doesn't cause re-renders when token refreshes)
-  if (!isTokenLoaded) {
-    return null;
-  }
+  return {
+    client: isTokenLoaded ? clientRef.current : null,
+    refreshToken,
+  };
+}
 
-  return clientRef.current;
+/**
+ * Simple hook that returns just the Supabase client.
+ * For backwards compatibility with existing code.
+ */
+export function useSupabase(): SupabaseClient<Database> | null {
+  const { client } = useSupabaseWithRefresh();
+  return client;
 }

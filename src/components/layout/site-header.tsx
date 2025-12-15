@@ -80,7 +80,7 @@ function generateBreadcrumbs(
   const path = pathname.replace(/\/$/, "");
 
   // Handle deal details pages
-  if (path.startsWith("/deals/") && path !== "/deals") {
+  if (path.startsWith("/balance-sheet/investor-portfolio/deals/") && path !== "/balance-sheet/investor-portfolio/deals") {
     const dealId = path.split("/").pop();
     const displayName = dealName || `Deal #${dealId}`;
 
@@ -89,7 +89,7 @@ function generateBreadcrumbs(
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/deals">Deals</Link>
+              <Link href="/balance-sheet/investor-portfolio/deals">Deals</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
@@ -143,7 +143,7 @@ function generateBreadcrumbs(
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/balance-sheet/investor-portfolio/insights">Balance Sheet</Link>
+              <Link href="/balance-sheet/investor-portfolio/analytics">Balance Sheet</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
@@ -151,7 +151,7 @@ function generateBreadcrumbs(
           </BreadcrumbSeparator>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/balance-sheet/investor-portfolio/insights">Investor Portfolio</Link>
+              <Link href="/balance-sheet/investor-portfolio/analytics">Investor Portfolio</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
@@ -190,7 +190,7 @@ function generateBreadcrumbs(
   }
 
   // Handle Balance Sheet / Investor Portfolio / Insights route
-  if (path === "/balance-sheet/investor-portfolio/insights") {
+  if (path === "/balance-sheet/investor-portfolio/analytics") {
     return renderInvestorPortfolioBreadcrumb("Insights");
   }
 
@@ -315,8 +315,8 @@ function getPageTitle(pathname: string): string {
   const path = pathname.replace(/\/$/, "");
 
   if (path === "/dashboard") return "Dashboard";
-  if (path === "/deals") return "Deals";
-  if (path.startsWith("/deals/")) return "Deal Details";
+  if (path === "/balance-sheet/investor-portfolio/deals") return "Deals";
+  if (path.startsWith("/balance-sheet/investor-portfolio/deals/")) return "Deal Details";
   if (path === "/balance-sheet/transactions") {
     // This will be handled by breadcrumbs with searchParams
     return "Transactions";

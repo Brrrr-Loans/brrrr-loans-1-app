@@ -16,6 +16,8 @@ import {
   Download,
   Printer,
   ArrowUpDown,
+  ArrowDownLeft,
+  ArrowUpRight,
 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -105,28 +107,29 @@ export const createTransactionColumns = (
     },
   },
 
-  // Column 3: From - Use matched investor name
+  // Column 3: From - Based on ledger_entry_type
   {
     id: "from",
     size: 180,
     header: "From",
     accessorFn: (row) => {
-      // Get matched investor/org name
+      // Get matched investor/org name from junction table OR direct columns
       const investor = row.investors?.[0];
       const investorName =
         investor?.auth_clerk_users?.full_name ||
         investor?.auth_clerk_orgs?.clerk_org_name ||
+        // Fallback to direct user/org links (for OFB-synced transactions)
+        row.direct_user?.full_name ||
+        row.direct_org?.clerk_org_name ||
         "Unknown";
 
-      const amount = row.transaction_amount
-        ? Number(row.transaction_amount)
-        : 0;
+      const ledgerType = row.ledger_entry_type;
 
-      if (amount > 0) {
-        // Outgoing (Distribution/Redemption): Brrrr sends TO investor
+      if (ledgerType === "distribution" || ledgerType === "redemption") {
+        // Outgoing: Fund sends TO investor
         return "Brrrr Loans 1 LLC";
       } else {
-        // Incoming (Contribution): Investor sends TO Brrrr
+        // Incoming (contribution): Investor sends TO fund
         return investorName;
       }
     },
@@ -140,28 +143,29 @@ export const createTransactionColumns = (
     },
   },
 
-  // Column 4: To - Use matched investor name (opposite of FROM)
+  // Column 4: To - Based on ledger_entry_type (opposite of FROM)
   {
     id: "to",
     size: 180,
     header: "To",
     accessorFn: (row) => {
-      // Get matched investor/org name
+      // Get matched investor/org name from junction table OR direct columns
       const investor = row.investors?.[0];
       const investorName =
         investor?.auth_clerk_users?.full_name ||
         investor?.auth_clerk_orgs?.clerk_org_name ||
+        // Fallback to direct user/org links (for OFB-synced transactions)
+        row.direct_user?.full_name ||
+        row.direct_org?.clerk_org_name ||
         "Unknown";
 
-      const amount = row.transaction_amount
-        ? Number(row.transaction_amount)
-        : 0;
+      const ledgerType = row.ledger_entry_type;
 
-      if (amount > 0) {
-        // Outgoing (Distribution/Redemption): Brrrr sends to INVESTOR
+      if (ledgerType === "distribution" || ledgerType === "redemption") {
+        // Outgoing: Fund sends to INVESTOR
         return investorName;
       } else {
-        // Incoming (Contribution): Investor sends to BRRRR
+        // Incoming (contribution): Investor sends to FUND
         return "Brrrr Loans 1 LLC";
       }
     },
@@ -175,7 +179,8 @@ export const createTransactionColumns = (
     },
   },
 
-  // Column 5: Transaction Type - Simple text display
+  // Column 5: Transaction Type - Method + Direction stacked (Brex style)
+  // From INVESTOR perspective: Distribution = Incoming, Contribution = Outgoing
   {
     id: "transaction_type",
     size: 150,
@@ -183,10 +188,22 @@ export const createTransactionColumns = (
     header: "Transaction Type",
     cell: ({ row }) => {
       const method = row.getValue("transaction_type") as string | null;
+      const ledgerType = row.original.ledger_entry_type;
+      // From investor's perspective: distributions come TO them, contributions go FROM them
+      const isIncoming = ledgerType === "distribution" || ledgerType === "redemption";
+      
+      // Format method name (Wire, ACH, Check, etc.)
+      const formattedMethod = method 
+        ? method.charAt(0).toUpperCase() + method.slice(1).toLowerCase()
+        : "N/A";
+      
       return (
-        <span className="text-sm text-muted-foreground">
-          {method?.toUpperCase() || "N/A"}
-        </span>
+        <div className="flex flex-col">
+          <span className="text-sm font-medium">{formattedMethod}</span>
+          <span className="text-xs text-muted-foreground">
+            {isIncoming ? "Incoming" : "Outgoing"}
+          </span>
+        </div>
       );
     },
   },
@@ -205,7 +222,7 @@ export const createTransactionColumns = (
     },
   },
 
-  // Column 7: Ledger Type
+  // Column 7: Ledger Type - Custom styled badges with directional icons
   {
     id: "ledger_type",
     size: 140,
@@ -213,18 +230,41 @@ export const createTransactionColumns = (
     header: "Ledger Type",
     cell: ({ row }) => {
       const type = row.getValue("ledger_type") as string | null;
-      const label = type === "contribution" ? "Contribution" :
-                    type === "distribution" ? "Distribution" :
-                    type === "redemption" ? "Redemption" : type;
+      
+      if (type === "contribution") {
+        return (
+          <Badge 
+            variant="outline" 
+            className="text-sm gap-1.5 border-dashed border-destructive bg-transparent"
+          >
+            <ArrowDownLeft className="h-3.5 w-3.5 text-destructive" />
+            Contribution
+          </Badge>
+        );
+      }
+      
+      if (type === "distribution" || type === "redemption") {
+        const label = type === "distribution" ? "Distribution" : "Redemption";
+        return (
+          <Badge 
+            variant="outline" 
+            className="text-sm gap-1.5 border-dashed border-success-foreground dark:border-success bg-transparent"
+          >
+            <ArrowUpRight className="h-3.5 w-3.5 text-success-foreground dark:text-success" />
+            {label}
+          </Badge>
+        );
+      }
+      
       return (
         <Badge variant="outline" className="text-sm">
-          {label || "N/A"}
+          {type || "N/A"}
         </Badge>
       );
     },
   },
 
-  // Column 8: Amount (sortable, right-aligned) - Use absolute value
+  // Column 8: Amount (sortable, right-aligned)
   {
     id: "amount",
     size: 150,
@@ -243,19 +283,18 @@ export const createTransactionColumns = (
     ),
     cell: ({ row }) => {
       const amount = row.getValue("amount") as number | null;
+      const ledgerType = row.original.ledger_entry_type;
+      // From investor's perspective: distributions/redemptions = incoming, contributions = outgoing (-)
+      const isOutgoing = ledgerType === "contribution";
       
-      // Keep the sign - negative for outgoing, positive for incoming
-      // Color code like Brex:
-      // Negative amounts (outgoing) = default color
-      // Positive amounts (incoming) = success color (theme-aware)
-      const isIncoming = amount !== null && amount > 0;
-      const colorClass = isIncoming
-        ? 'text-success-foreground' 
-        : ''; // Default color for outgoing
+      // Format: no prefix for incoming, "- " prefix for outgoing
+      const formattedAmount = amount !== null
+        ? isOutgoing ? `- ${formatCurrency(amount)}` : formatCurrency(amount)
+        : "N/A";
       
       return (
-        <div className={cn("text-right font-semibold", colorClass)}>
-          {formatCurrency(amount)}
+        <div className="text-right font-semibold">
+          {formattedAmount}
         </div>
       );
     },

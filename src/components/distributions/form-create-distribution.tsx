@@ -143,12 +143,12 @@ export function CreateDistributionForm({
       }
 
       try {
-        // Get the user IDs from bsi_deals for this deal
+        // Get the user IDs from bsi_deals_clerk_users for this deal
         const { data: dealData, error: dealError } = await supabase
-          .from("bsi_deals")
-          .select("auth_clerk_users_id")
+          .from("bsi_deals_clerk_users")
+          .select("clerk_user_id")
           .eq("deal_id", Number(watchDealId))
-          .not("auth_clerk_users_id", "is", null);
+          .not("clerk_user_id", "is", null);
 
         if (dealError) {
           console.error("Supabase error fetching deal users:", dealError);
@@ -163,7 +163,7 @@ export function CreateDistributionForm({
 
         // Get the user IDs
         const userIds = dealData
-          .map((item) => item.auth_clerk_users_id)
+          .map((item) => item.clerk_user_id)
           .filter((id): id is number => id !== null);
 
         if (userIds.length === 0) {

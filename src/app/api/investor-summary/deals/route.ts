@@ -46,7 +46,7 @@ export async function GET(request: Request) {
 
       if (dbOrg) {
         const { data, error } = await supabase
-          .from("bsi_deals_orgs")
+          .from("bsi_deals_clerk_orgs")
           .select(
             `
             id,
@@ -70,14 +70,17 @@ export async function GET(request: Request) {
             }));
         }
       }
-    } else if (impersonatedUserIdParam) {
-      // Impersonating without org filter - show ALL deals for impersonated user
-      // Get user's org memberships where they have INVESTMENT interest (not just viewer/employee)
+    } else {
+      // No org selected - show ALL user's deals:
+      // 1. Direct user deals (via bsi_deals)
+      // 2. Org deals where user is a member (via auth_clerk_orgs_members)
+
+      // Get user's org memberships where they have INVESTMENT interest
       const { data: orgMemberships } = await supabase
         .from("auth_clerk_orgs_members")
         .select("clerk_org_id, clerk_org_role")
         .eq("auth_clerk_users_id", targetUserId)
-        .neq("clerk_org_role", "viewer"); // Exclude viewer role (employees with no investment interest)
+        .neq("clerk_org_role", "viewer");
 
       const userOrgIds = (orgMemberships || [])
         .map((m) => m.clerk_org_id)
@@ -85,7 +88,7 @@ export async function GET(request: Request) {
 
       // Get user's direct deals
       const { data: userDeals, error: userError } = await supabase
-        .from("bsi_deals")
+        .from("bsi_deals_clerk_users")
         .select(
           `
           id,
@@ -97,7 +100,7 @@ export async function GET(request: Request) {
           )
         `
         )
-        .eq("auth_clerk_users_id", targetUserId);
+        .eq("clerk_user_id", targetUserId);
 
       if (userError) {
         console.error("Error fetching user deals:", userError);
@@ -107,7 +110,7 @@ export async function GET(request: Request) {
       let orgDeals: typeof userDeals = [];
       if (userOrgIds.length > 0) {
         const { data: orgData, error: orgError } = await supabase
-          .from("bsi_deals_orgs")
+          .from("bsi_deals_clerk_orgs")
           .select(
             `
             id,
@@ -139,32 +142,6 @@ export async function GET(request: Request) {
         .map((row) => ({
           status: row.deal?.deal_disposition_1 || "unknown",
         }));
-    } else {
-      // No org selected, no impersonation - only show user's direct deals
-    const { data, error } = await supabase
-      .from("bsi_deals")
-      .select(
-        `
-        id,
-          deal_id,
-        deal:deal_id(
-        id,
-        deal_name,
-          deal_disposition_1
-        )
-      `
-      )
-      .eq("auth_clerk_users_id", targetUserId);
-
-    if (error) {
-        console.error("Error fetching user deals:", error);
-      } else {
-        deals = (data || [])
-          .filter((row) => row.deal)
-      .map((row) => ({
-        status: row.deal?.deal_disposition_1 || "unknown",
-    }));
-      }
     }
 
     return NextResponse.json(deals);
@@ -173,4 +150,3 @@ export async function GET(request: Request) {
     return NextResponse.json([]);
   }
 }
-

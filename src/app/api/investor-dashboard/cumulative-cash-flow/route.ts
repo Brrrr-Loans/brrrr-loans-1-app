@@ -88,33 +88,36 @@ export async function GET(request: Request) {
         }
         transactions = data || [];
       }
-    } else if (impersonatedUserIdParam) {
-      // Impersonating without org filter - show ALL data for impersonated user
-      // Get user's org memberships where they have INVESTMENT interest (not just viewer/employee)
+    } else {
+      // No org selected - show ALL user's transactions:
+      // 1. Direct user transactions (via junction table clerk_user_id)
+      // 2. Org transactions where user is a member (via auth_clerk_orgs_members)
+
+      // Get user's org memberships where they have INVESTMENT interest
       const { data: orgMemberships } = await supabase
         .from("auth_clerk_orgs_members")
         .select("clerk_org_id, clerk_org_role")
         .eq("auth_clerk_users_id", targetUserId)
-        .neq("clerk_org_role", "viewer"); // Exclude viewer role (employees with no investment interest)
+        .neq("clerk_org_role", "viewer");
 
       const userOrgIds = (orgMemberships || [])
         .map((m) => m.clerk_org_id)
         .filter((id): id is number => id !== null);
 
       // Get direct user transactions
-      const { data: userTransactions, error: userError } = await supabase
-      .from("bsi_transactions")
-      .select(
-        `
+      const { data: userTx, error: userError } = await supabase
+        .from("bsi_transactions")
+        .select(
+          `
           id,
-        transaction_date,
-        transaction_amount,
-        ledger_entry_type,
+          transaction_date,
+          transaction_amount,
+          ledger_entry_type,
           bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
-      `
-      )
-      .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
-      .order("transaction_date", { ascending: true });
+        `
+        )
+        .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
+        .order("transaction_date", { ascending: true });
 
       if (userError) {
         console.error("❌ Error fetching user transactions:", userError);
@@ -122,7 +125,7 @@ export async function GET(request: Request) {
       }
 
       // Get org transactions
-      let orgTransactions: typeof userTransactions = [];
+      let orgTx: typeof userTx = [];
       if (userOrgIds.length > 0) {
         const { data: orgData, error: orgError } = await supabase
           .from("bsi_transactions")
@@ -142,11 +145,11 @@ export async function GET(request: Request) {
           console.error("❌ Error fetching org transactions:", orgError);
           throw orgError;
         }
-        orgTransactions = orgData || [];
+        orgTx = orgData || [];
       }
 
       // Combine and deduplicate
-      const allTransactions = [...(userTransactions || []), ...orgTransactions];
+      const allTransactions = [...(userTx || []), ...(orgTx || [])];
       transactions = Array.from(
         new Map(allTransactions.map((t) => [t.id, t])).values()
       ).sort((a, b) => {
@@ -154,28 +157,6 @@ export async function GET(request: Request) {
         const dateB = b.transaction_date ? new Date(b.transaction_date).getTime() : 0;
         return dateA - dateB;
       });
-    } else {
-      // No org selected, no impersonation - only show user's direct transactions
-      const { data, error } = await supabase
-        .from("bsi_transactions")
-        .select(
-          `
-          id,
-          transaction_date,
-          transaction_amount,
-          ledger_entry_type,
-          bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
-        `
-        )
-        .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
-        .is("bsi_transactions_investors.clerk_org_id", null)
-      .order("transaction_date", { ascending: true });
-
-    if (error) {
-        console.error("❌ Error fetching user transactions:", error);
-      throw error;
-      }
-      transactions = data || [];
     }
 
     if (transactions.length === 0) {
@@ -194,8 +175,9 @@ export async function GET(request: Request) {
     > = new Map();
 
     // Group transactions by month
+    // Classify by ledger_entry_type, not by amount sign
     transactions.forEach((tx) => {
-      const amount = parseFloat(tx.transaction_amount || "0");
+      const amount = Math.abs(parseFloat(tx.transaction_amount || "0"));
       const date = new Date(tx.transaction_date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
 
@@ -204,11 +186,11 @@ export async function GET(request: Request) {
         distributions: 0,
       };
 
-      if (amount < 0) {
-        // Contribution (investment)
-        existing.contributions += Math.abs(amount);
-      } else {
-        // Distribution (return)
+      if (tx.ledger_entry_type === "contribution") {
+        // Contribution = Principal Balance Owed to Investor
+        existing.contributions += amount;
+      } else if (tx.ledger_entry_type === "distribution" || tx.ledger_entry_type === "redemption") {
+        // Distribution/Redemption = Distributions Paid to Investor
         existing.distributions += amount;
       }
 
@@ -241,17 +223,17 @@ export async function GET(request: Request) {
         };
       });
 
-    // Calculate overall ROI
+    // Calculate overall totals based on ledger_entry_type
     const totalInvested = transactions
-      .filter((tx) => parseFloat(tx.transaction_amount || "0") < 0)
+      .filter((tx) => tx.ledger_entry_type === "contribution")
       .reduce(
         (sum, tx) => sum + Math.abs(parseFloat(tx.transaction_amount || "0")),
         0
       );
 
     const totalReturned = transactions
-      .filter((tx) => parseFloat(tx.transaction_amount || "0") > 0)
-      .reduce((sum, tx) => sum + parseFloat(tx.transaction_amount || "0"), 0);
+      .filter((tx) => tx.ledger_entry_type === "distribution" || tx.ledger_entry_type === "redemption")
+      .reduce((sum, tx) => sum + Math.abs(parseFloat(tx.transaction_amount || "0")), 0);
 
     const currentROI =
       totalInvested > 0 ? (totalReturned / totalInvested) * 100 : 0;
@@ -277,4 +259,3 @@ export async function GET(request: Request) {
     );
   }
 }
-

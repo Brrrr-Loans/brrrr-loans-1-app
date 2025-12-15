@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "supabase": {
+    "supabase-prod": {
       "command": "npx",
       "args": [
         "-y",
@@ -9,6 +9,17 @@
         "sbp_bbc3c2fa6b6a8e3e07341f175783db8a9ae4f5fd",
         "--project-ref",
         "gsxggtsgqskhchcbrmhe"
+      ]
+    },
+    "supabase-dev": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--access-token",
+        "sbp_bbc3c2fa6b6a8e3e07341f175783db8a9ae4f5fd",
+        "--project-ref",
+        "cjbevtvvlthelhbjlqmp"
       ]
     },
     "web-to-mcp": {

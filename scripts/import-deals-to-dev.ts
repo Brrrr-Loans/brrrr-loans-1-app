@@ -100,31 +100,31 @@ async function main() {
     }
   }
 
-  // Step 5: Import bsi_deals
-  console.log('\n📦 Importing bsi_deals...');
-  const { data: prodBsiDeals } = await prod.from('bsi_deals').select('*');
+  // Step 5: Import bsi_deals_clerk_users
+  console.log('\n📦 Importing bsi_deals_clerk_users...');
+  const { data: prodBsiDeals } = await prod.from('bsi_deals_clerk_users').select('*');
   if (prodBsiDeals && prodBsiDeals.length > 0) {
     const bsiDealsToInsert = prodBsiDeals.map(row => ({
       ...row,
-      auth_clerk_users_id: USER_ID_MAP[row.auth_clerk_users_id] || null,
+      clerk_user_id: USER_ID_MAP[row.clerk_user_id] || null,
     }));
-    const { error } = await dev.from('bsi_deals').upsert(bsiDealsToInsert, { onConflict: 'id' });
+    const { error } = await dev.from('bsi_deals_clerk_users').upsert(bsiDealsToInsert, { onConflict: 'id' });
     if (error) {
       console.error('  ❌ Error:', error.message);
     } else {
-      console.log(`  ✅ Imported ${prodBsiDeals.length} BSI deals`);
+      console.log(`  ✅ Imported ${prodBsiDeals.length} BSI deals clerk users`);
     }
   }
 
-  // Step 6: Import bsi_deals_orgs
-  console.log('\n📦 Importing bsi_deals_orgs...');
-  const { data: prodBsiDealsOrgs } = await prod.from('bsi_deals_orgs').select('*');
+  // Step 6: Import bsi_deals_clerk_orgs
+  console.log('\n📦 Importing bsi_deals_clerk_orgs...');
+  const { data: prodBsiDealsOrgs } = await prod.from('bsi_deals_clerk_orgs').select('*');
   if (prodBsiDealsOrgs && prodBsiDealsOrgs.length > 0) {
-    const { error } = await dev.from('bsi_deals_orgs').upsert(prodBsiDealsOrgs, { onConflict: 'id' });
+    const { error } = await dev.from('bsi_deals_clerk_orgs').upsert(prodBsiDealsOrgs, { onConflict: 'id' });
     if (error) {
       console.error('  ❌ Error:', error.message);
     } else {
-      console.log(`  ✅ Imported ${prodBsiDealsOrgs.length} BSI deals orgs`);
+      console.log(`  ✅ Imported ${prodBsiDealsOrgs.length} BSI deals clerk orgs`);
     }
   }
 

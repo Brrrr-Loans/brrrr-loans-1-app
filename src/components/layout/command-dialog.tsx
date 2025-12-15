@@ -64,7 +64,7 @@ export function AppCommandDialog({
             <CommandShortcut>⌘H</CommandShortcut>
           </CommandItem>
           <CommandItem
-            onSelect={() => runCommand(() => router.push("/deals"))}
+            onSelect={() => runCommand(() => router.push("/balance-sheet/investor-portfolio/deals"))}
           >
             <FolderOpen />
             <span>Deals</span>
@@ -143,7 +143,7 @@ export function AppCommandDialog({
         <CommandGroup heading="Quick Actions">
           <CommandItem
             onSelect={() =>
-              runCommand(() => router.push("/deals/new"))
+              runCommand(() => router.push("/balance-sheet/investor-portfolio/deals/new"))
             }
           >
             <Plus />

@@ -87,5 +87,17 @@ export interface TransactionWithDetails {
       uploaded_at: string;
     };
   }>;
+  
+  // Direct user/org links (for OFB-synced transactions)
+  direct_user?: {
+    id: number;
+    full_name: string;
+    email: string;
+  } | null;
+  
+  direct_org?: {
+    id: number;
+    clerk_org_name: string;
+  } | null;
 }
 

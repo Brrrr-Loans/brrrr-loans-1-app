@@ -99,7 +99,7 @@ async function getUserProfileWorkflow(userId: string): Promise<WorkflowResult> {
     // Step 5: Get recent activity (optional)
     executedSteps.push("fetch-recent-activity");
     const { data: recentDeals } = await supabase
-      .from("bsi_deals")
+      .from("bsi_deals_clerk_users")
       .select("*, deal(*)")
       .eq("contact_id", contact?.id || 0)
       .limit(5);
@@ -160,10 +160,10 @@ async function getUserFinancialSummaryWorkflow(
 
     if (!contact) throw new Error("Contact not found");
 
-    // Step 2: Get all deals (note: bsi_deals is junction table, deal info comes from distributions)
+    // Step 2: Get all deals (note: bsi_deals_clerk_users is junction table, deal info comes from distributions)
     executedSteps.push("fetch-user-deals");
     const { data: deals } = await supabase
-      .from("bsi_deals")
+      .from("bsi_deals_clerk_users")
       .select("deal_id, contact_id")
       .eq("contact_id", contact.id);
 

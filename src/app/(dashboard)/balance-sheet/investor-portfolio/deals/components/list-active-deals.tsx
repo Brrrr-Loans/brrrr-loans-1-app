@@ -121,9 +121,9 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
 
           // Get user's direct deals
           const { data: userDeals } = await supabase
-            .from("bsi_deals")
+            .from("bsi_deals_clerk_users")
             .select("deal_id")
-            .eq("auth_clerk_users_id", targetUserId);
+            .eq("clerk_user_id", targetUserId);
 
           const userDealIds = new Set((userDeals || []).map((d) => d.deal_id));
 
@@ -131,7 +131,7 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
           let orgDealIds = new Set<number>();
           if (userOrgIds.length > 0) {
             const { data: orgDeals } = await supabase
-              .from("bsi_deals_orgs")
+              .from("bsi_deals_clerk_orgs")
               .select("deal_id")
               .in("clerk_org_id", userOrgIds);
 
@@ -153,7 +153,7 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
 
           if (dbOrg) {
             const { data: orgDeals } = await supabase
-              .from("bsi_deals_orgs")
+              .from("bsi_deals_clerk_orgs")
               .select("deal_id")
               .eq("clerk_org_id", dbOrg.id);
 
@@ -215,7 +215,7 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
             <p className="text-sm text-muted-foreground">
-              Loading active deals...
+              Loading deals...
             </p>
           </div>
         </CardContent>
@@ -237,15 +237,15 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
     return (
       <Card className={className}>
         <CardHeader>
-          <CardTitle>Active Deals</CardTitle>
+          <CardTitle>Deals</CardTitle>
           <CardDescription>
-            Your current investment opportunities
+            Your investment opportunities
           </CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-center h-32">
           <div className="text-center text-muted-foreground">
             <DollarSign className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No active deals found</p>
+            <p>No deals found</p>
           </div>
         </CardContent>
       </Card>
@@ -255,10 +255,9 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle>Active Deals</CardTitle>
+        <CardTitle>Deals</CardTitle>
         <CardDescription>
-          {deals.length} active investment{" "}
-          {deals.length === 1 ? "opportunity" : "opportunities"}
+          {deals.length} investment {deals.length === 1 ? "deal" : "deals"}
         </CardDescription>
       </CardHeader>
       <CardContent>

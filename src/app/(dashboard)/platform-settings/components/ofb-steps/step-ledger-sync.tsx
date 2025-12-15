@@ -21,8 +21,10 @@ import {
   Loader2,
   PartyPopper,
   RefreshCw,
+  Building2,
+  User,
 } from "lucide-react";
-import { useSupabase } from "@/hooks/use-supabase";
+import { useSupabaseWithRefresh } from "@/hooks/use-supabase";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 
@@ -36,6 +38,8 @@ interface Transfer {
   vendor_name: string | null;
   org_name: string | null;
   org_id: number | null;
+  user_name: string | null;
+  user_id: number | null;
   already_synced: boolean;
 }
 
@@ -61,7 +65,7 @@ export function StepLedgerSync({
   } | null>(null);
   const [selectedTransfers, setSelectedTransfers] = useState<Set<string>>(new Set());
 
-  const supabase = useSupabase();
+  const { client: supabase, refreshToken } = useSupabaseWithRefresh();
 
   useEffect(() => {
     if (supabase) fetchData();
@@ -99,6 +103,11 @@ export function StepLedgerSync({
       .from("api_ofb_vendors_clerk_orgs")
       .select("ofb_vendor_id, clerk_org_id, auth_clerk_orgs(clerk_org_name)");
 
+    // Get user links
+    const { data: userLinks } = await supabase
+      .from("api_ofb_vendors_clerk_users")
+      .select("ofb_vendor_id, clerk_user_id, auth_clerk_users(full_name)");
+
     // Get already synced transfers
     const { data: syncedTransfers } = await supabase
       .from("bsi_transactions_api_ofb_transfers")
@@ -113,11 +122,17 @@ export function StepLedgerSync({
       
       let orgName = null;
       let orgId = null;
+      let userName = null;
+      let userId = null;
       
       if (vendorMatch?.ofb_vendor_id) {
         const orgLink = orgLinks?.find((o) => o.ofb_vendor_id === vendorMatch.ofb_vendor_id);
         orgName = (orgLink?.auth_clerk_orgs as any)?.clerk_org_name || null;
         orgId = orgLink?.clerk_org_id || null;
+        
+        const userLink = userLinks?.find((u) => u.ofb_vendor_id === vendorMatch.ofb_vendor_id);
+        userName = (userLink?.auth_clerk_users as any)?.full_name || null;
+        userId = userLink?.clerk_user_id || null;
       }
 
       return {
@@ -125,13 +140,15 @@ export function StepLedgerSync({
         vendor_name: vendorName,
         org_name: orgName,
         org_id: orgId,
+        user_name: userName,
+        user_id: userId,
         already_synced: syncedSet.has(t.ofb_transfer_id),
       };
     });
 
-    // Filter to only show transfers that are matched and have org links
+    // Filter to only show transfers that are matched and have org OR user links
     const readyToSync = enrichedTransfers.filter(
-      (t) => t.vendor_name && t.org_id && !t.already_synced
+      (t) => t.vendor_name && (t.org_id || t.user_id) && !t.already_synced
     );
 
     setTransfers(readyToSync);
@@ -168,22 +185,46 @@ export function StepLedgerSync({
     setIsSyncing(true);
     const errors: string[] = [];
     let synced = 0;
-    let skipped = 0;
+    let alreadySynced = 0;
+    let failed = 0;
 
     try {
+      // Force refresh the JWT token before syncing to prevent "JWT expired" errors
+      const freshClient = await refreshToken();
+      if (!freshClient) {
+        toast.error("Failed to refresh authentication. Please try again.");
+        setIsSyncing(false);
+        return;
+      }
+
       const selectedTransferData = transfers.filter((t) =>
         selectedTransfers.has(t.ofb_transfer_id)
       );
 
       for (const transfer of selectedTransferData) {
         try {
+          // Double-check: verify this transfer hasn't already been synced
+          // (prevents duplicates if user retries or if data is stale)
+          const { data: existingLink } = await freshClient
+            .from("bsi_transactions_api_ofb_transfers")
+            .select("id")
+            .eq("ofb_transfer_id", transfer.ofb_transfer_id)
+            .maybeSingle();
+
+          if (existingLink) {
+            // Already synced - skip silently
+            alreadySynced++;
+            continue;
+          }
+
           // Determine ledger entry type based on amount
           // Negative = money going out (could be contribution from their perspective)
           // Positive = money coming in (distribution)
           const ledgerEntryType = transfer.amount < 0 ? "contribution" : "distribution";
 
-          // Create BSI transaction
-          const { data: txn, error: txnError } = await supabase
+          // Create BSI transaction - link to org OR user
+          // Use freshClient to ensure we have a valid JWT
+          const { data: txn, error: txnError } = await freshClient
             .from("bsi_transactions")
             .insert({
               transaction_amount: Math.abs(transfer.amount),
@@ -192,7 +233,8 @@ export function StepLedgerSync({
               transaction_status: "completed",
               ledger_entry_type: ledgerEntryType,
               external_memo: transfer.description,
-              clerk_org_id: transfer.org_id,
+              clerk_org_id: transfer.org_id, // Will be null if linked via user
+              clerk_user_id: transfer.user_id, // Will be null if linked via org
             })
             .select("id")
             .single();
@@ -200,7 +242,7 @@ export function StepLedgerSync({
           if (txnError) throw txnError;
 
           // Create link record
-          const { error: linkError } = await supabase
+          const { error: linkError } = await freshClient
             .from("bsi_transactions_api_ofb_transfers")
             .insert({
               transaction_id: txn.id,
@@ -213,11 +255,11 @@ export function StepLedgerSync({
         } catch (error: any) {
           console.error("Sync error for transfer:", transfer.ofb_transfer_id, error);
           errors.push(`${transfer.counterparty_name}: ${error.message}`);
-          skipped++;
+          failed++;
         }
       }
 
-      setSyncResult({ synced, skipped, errors });
+      setSyncResult({ synced, skipped: alreadySynced + failed, errors });
       setSyncComplete(true);
       onSyncComplete(synced);
 
@@ -228,11 +270,17 @@ export function StepLedgerSync({
           spread: 70,
           origin: { y: 0.6 },
         });
-        toast.success(`Successfully synced ${synced} transactions to ledger!`);
+        if (alreadySynced > 0) {
+          toast.success(`Synced ${synced} transactions! (${alreadySynced} already synced)`);
+        } else {
+          toast.success(`Successfully synced ${synced} transactions to ledger!`);
+        }
       } else if (synced > 0) {
-        toast.warning(`Synced ${synced} transactions with ${errors.length} errors`);
+        toast.warning(`Synced ${synced} transactions with ${failed} errors`);
+      } else if (alreadySynced > 0 && failed === 0) {
+        toast.info(`All ${alreadySynced} transactions were already synced`);
       } else {
-        toast.error("Failed to sync transactions");
+        toast.error(`Failed to sync transactions (${failed} errors)`);
       }
     } catch (error) {
       console.error("Sync error:", error);
@@ -326,7 +374,7 @@ export function StepLedgerSync({
               <h3 className="font-semibold text-lg">No Transfers Ready to Sync</h3>
               <p className="text-muted-foreground max-w-md mx-auto">
                 Transfers must be matched to a vendor and the vendor must be linked 
-                to a Clerk organization before syncing to the ledger.
+                to a Clerk organization or individual user before syncing to the ledger.
               </p>
             </div>
             <Button variant="outline" onClick={() => window.location.reload()}>
@@ -348,8 +396,8 @@ export function StepLedgerSync({
             Ready to Sync
           </CardTitle>
           <CardDescription>
-            These transfers are matched and linked to organizations. They will be
-            created as BSI transactions in the ledger.
+            These transfers are matched and linked to organizations or individual users. 
+            They will be created as BSI transactions in the ledger.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -393,7 +441,7 @@ export function StepLedgerSync({
                   <TableHead>Date</TableHead>
                   <TableHead>Counterparty</TableHead>
                   <TableHead>Vendor</TableHead>
-                  <TableHead>Organization</TableHead>
+                  <TableHead>Linked To</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead>Type</TableHead>
                 </TableRow>
@@ -417,7 +465,19 @@ export function StepLedgerSync({
                       {transfer.vendor_name}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{transfer.org_name}</Badge>
+                      {transfer.org_id ? (
+                        <Badge variant="outline" className="gap-1">
+                          <Building2 className="h-3 w-3" />
+                          {transfer.org_name}
+                        </Badge>
+                      ) : transfer.user_id ? (
+                        <Badge variant="secondary" className="gap-1">
+                          <User className="h-3 w-3" />
+                          {transfer.user_name}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-right whitespace-nowrap">
                       {formatAmount(transfer.amount)}

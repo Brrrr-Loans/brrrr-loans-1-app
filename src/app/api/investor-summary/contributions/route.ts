@@ -49,14 +49,14 @@ export async function GET(request: Request) {
         .single();
 
       if (dbOrg) {
-    const { data, error } = await supabase
-      .from("bsi_transactions")
-      .select(
-        `
-        id,
-        transaction_amount,
-        transaction_status,
-        transaction_date,
+        const { data, error } = await supabase
+          .from("bsi_transactions")
+          .select(
+            `
+            id,
+            transaction_amount,
+            transaction_status,
+            transaction_date,
             bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
           `
           )
@@ -72,21 +72,24 @@ export async function GET(request: Request) {
           active: true,
         }));
       }
-    } else if (impersonatedUserIdParam) {
-      // Impersonating without org filter - show ALL data for impersonated user
+    } else {
+      // No org selected - show ALL user's contributions:
+      // 1. Direct user contributions (via junction table clerk_user_id)
+      // 2. Org contributions where user is a member (via auth_clerk_orgs_members)
+
       // Get user's org memberships where they have INVESTMENT interest (not just viewer/employee)
       const { data: orgMemberships } = await supabase
         .from("auth_clerk_orgs_members")
         .select("clerk_org_id, clerk_org_role")
         .eq("auth_clerk_users_id", targetUserId)
-        .neq("clerk_org_role", "viewer"); // Exclude viewer role (employees with no investment interest)
+        .neq("clerk_org_role", "viewer"); // Exclude viewer role
 
       const userOrgIds = (orgMemberships || [])
         .map((m) => m.clerk_org_id)
         .filter((id): id is number => id !== null);
 
       // Get direct user contributions
-      const { data: userContributions, error: userError } = await supabase
+      const { data: userContribs, error: userError } = await supabase
         .from("bsi_transactions")
         .select(
           `
@@ -95,16 +98,16 @@ export async function GET(request: Request) {
           transaction_status,
           transaction_date,
           bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
-      `
-      )
-      .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
-      .eq("ledger_entry_type", "contribution")
-      .order("transaction_date", { ascending: false });
+        `
+        )
+        .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
+        .eq("ledger_entry_type", "contribution")
+        .order("transaction_date", { ascending: false });
 
       if (userError) throw userError;
 
       // Get org contributions
-      let orgContributions: typeof userContributions = [];
+      let orgContribs: typeof userContribs = [];
       if (userOrgIds.length > 0) {
         const { data: orgData, error: orgError } = await supabase
           .from("bsi_transactions")
@@ -122,11 +125,11 @@ export async function GET(request: Request) {
           .order("transaction_date", { ascending: false });
 
         if (orgError) throw orgError;
-        orgContributions = orgData || [];
+        orgContribs = orgData || [];
       }
 
-      // Combine and deduplicate
-      const allContributions = [...(userContributions || []), ...orgContributions];
+      // Combine and deduplicate by ID
+      const allContributions = [...(userContribs || []), ...(orgContribs || [])];
       const uniqueContributions = Array.from(
         new Map(allContributions.map((d) => [d.id, d])).values()
       );
@@ -136,31 +139,6 @@ export async function GET(request: Request) {
         contribution_status: tx.transaction_status || "pending",
         active: true,
       }));
-    } else {
-      // No org selected, no impersonation - only show user's direct contributions
-      const { data, error } = await supabase
-        .from("bsi_transactions")
-        .select(
-          `
-          id,
-          transaction_amount,
-          transaction_status,
-          transaction_date,
-          bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
-        `
-        )
-        .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
-        .is("bsi_transactions_investors.clerk_org_id", null)
-      .eq("ledger_entry_type", "contribution")
-      .order("transaction_date", { ascending: false });
-
-    if (error) throw error;
-
-      contributions = (data || []).map((tx) => ({
-      contribution_amount: Math.abs(parseFloat(tx.transaction_amount || "0")),
-      contribution_status: tx.transaction_status || "pending",
-      active: true,
-    }));
     }
 
     return NextResponse.json(contributions);
@@ -169,4 +147,3 @@ export async function GET(request: Request) {
     return NextResponse.json([]);
   }
 }
-

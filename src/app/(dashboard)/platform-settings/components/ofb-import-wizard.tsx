@@ -19,7 +19,7 @@ const STEPS: Step[] = [
   { id: "upload", title: "Import" },
   { id: "mapping", title: "Map to Columns" },
   { id: "vendors", title: "Match Vendors" },
-  { id: "orgs", title: "Link to Orgs" },
+  { id: "orgs", title: "Assign Transactions" },
   { id: "sync", title: "Sync to Ledger" },
 ];
 

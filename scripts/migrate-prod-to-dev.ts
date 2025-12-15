@@ -68,8 +68,8 @@ const TABLES_TO_MIGRATE = [
   // Balance sheet / investor tables
   'bs_debt_instruments',
   'bs_debt_instruments_deals',
-  'bsi_deals',
-  'bsi_deals_orgs',
+  'bsi_deals_clerk_users',
+  'bsi_deals_clerk_orgs',
   'bsi_statements',
   'bsi_distributions',
   'bsi_transactions',

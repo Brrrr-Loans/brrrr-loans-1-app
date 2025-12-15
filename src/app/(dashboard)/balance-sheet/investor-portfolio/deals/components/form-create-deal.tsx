@@ -78,7 +78,7 @@ export function CreateDealForm({ onSuccess }: { onSuccess?: () => void }) {
         if (onSuccess) {
           onSuccess()
         } else {
-          router.push(`/deals`)
+          router.push(`/balance-sheet/investor-portfolio/deals`)
         }
       }
     } catch (error) {

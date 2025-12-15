@@ -268,7 +268,7 @@ export function DealNoticesWidget() {
   }, [fetchDealNotices]);
 
   const handleDealClick = (dealId: number) => {
-    router.push(`/deals/${dealId}`);
+    router.push(`/balance-sheet/investor-portfolio/deals/${dealId}`);
   };
 
   return (
@@ -282,7 +282,7 @@ export function DealNoticesWidget() {
           variant="ghost"
           size="sm"
           className="h-auto p-0"
-          onClick={() => router.push("/deals")}
+          onClick={() => router.push("/balance-sheet/investor-portfolio/deals")}
         >
           <span className="text-sm font-semibold">View all</span>
           <ChevronRight className="ml-1 h-3 w-3" />

@@ -34,7 +34,7 @@ export async function GET(request: Request) {
       targetUserId = currentUser.id;
     }
 
-    // Get the investor's name for display (used when no org selected)
+    // Get the investor's name for display
     const { data: investorData } = await supabase
       .from("auth_clerk_users")
       .select("full_name")
@@ -67,16 +67,16 @@ export async function GET(request: Request) {
       if (dbOrg) {
         const orgName = dbOrg.clerk_org_name || "Unknown Organization";
 
-    const { data, error } = await supabase
-      .from("bsi_transactions")
-      .select(
-        `
-        id,
-        transaction_amount,
-        transaction_status,
-        transaction_date,
-        transaction_method,
-        ledger_entry_type,
+        const { data, error } = await supabase
+          .from("bsi_transactions")
+          .select(
+            `
+            id,
+            transaction_amount,
+            transaction_status,
+            transaction_date,
+            transaction_method,
+            ledger_entry_type,
             bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
           `
           )
@@ -97,14 +97,17 @@ export async function GET(request: Request) {
           transaction_amount: Math.abs(parseFloat(tx.transaction_amount || "0")),
         }));
       }
-    } else if (impersonatedUserIdParam) {
-      // Impersonating without org filter - show ALL data for impersonated user
-      // Get user's org memberships where they have INVESTMENT interest (not just viewer/employee)
+    } else {
+      // No org selected - show ALL user's distributions:
+      // 1. Direct user distributions (via junction table clerk_user_id)
+      // 2. Org distributions where user is a member (via auth_clerk_orgs_members)
+
+      // Get user's org memberships where they have INVESTMENT interest
       const { data: orgMemberships } = await supabase
         .from("auth_clerk_orgs_members")
         .select("clerk_org_id, clerk_org_role, auth_clerk_orgs:clerk_org_id(id, clerk_org_name)")
         .eq("auth_clerk_users_id", targetUserId)
-        .neq("clerk_org_role", "viewer"); // Exclude viewer role (employees with no investment interest)
+        .neq("clerk_org_role", "viewer");
 
       const userOrgIds = (orgMemberships || [])
         .map((m) => m.clerk_org_id)
@@ -120,7 +123,7 @@ export async function GET(request: Request) {
       });
 
       // Get direct user distributions
-      const { data: userDistributions, error: userError } = await supabase
+      const { data: userDist, error: userError } = await supabase
         .from("bsi_transactions")
         .select(
           `
@@ -131,16 +134,16 @@ export async function GET(request: Request) {
           transaction_method,
           ledger_entry_type,
           bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
-      `
-      )
-      .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
-      .eq("ledger_entry_type", "distribution")
-      .order("transaction_date", { ascending: false });
+        `
+        )
+        .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
+        .eq("ledger_entry_type", "distribution")
+        .order("transaction_date", { ascending: false });
 
       if (userError) throw userError;
 
       // Get org distributions
-      let orgDistributions: typeof userDistributions = [];
+      let orgDist: typeof userDist = [];
       if (userOrgIds.length > 0) {
         const { data: orgData, error: orgError } = await supabase
           .from("bsi_transactions")
@@ -160,11 +163,11 @@ export async function GET(request: Request) {
           .order("transaction_date", { ascending: false });
 
         if (orgError) throw orgError;
-        orgDistributions = orgData || [];
+        orgDist = orgData || [];
       }
 
       // Combine and deduplicate
-      const allDistributions = [...(userDistributions || []), ...orgDistributions];
+      const allDistributions = [...(userDist || []), ...(orgDist || [])];
       const uniqueDistributions = Array.from(
         new Map(allDistributions.map((d) => [d.id, d])).values()
       );
@@ -200,38 +203,6 @@ export async function GET(request: Request) {
         ledger_entry_type: tx.ledger_entry_type || "distribution",
         transaction_amount: Math.abs(parseFloat(tx.transaction_amount || "0")),
       }));
-    } else {
-      // No org selected, no impersonation - only show user's direct distributions
-      const { data, error } = await supabase
-        .from("bsi_transactions")
-        .select(
-          `
-          id,
-          transaction_amount,
-          transaction_status,
-          transaction_date,
-          transaction_method,
-          ledger_entry_type,
-          bsi_transactions_investors!inner(clerk_user_id, clerk_org_id)
-        `
-        )
-        .eq("bsi_transactions_investors.clerk_user_id", targetUserId)
-        .is("bsi_transactions_investors.clerk_org_id", null)
-      .eq("ledger_entry_type", "distribution")
-      .order("transaction_date", { ascending: false });
-
-    if (error) throw error;
-
-      distributions = (data || []).map((tx) => ({
-      id: tx.id,
-      transaction_date: tx.transaction_date,
-        from: "Brrrr Loans 1 LLC",
-        to: investorName,
-      transaction_method: tx.transaction_method || "wire",
-      transaction_status: tx.transaction_status || "pending",
-      ledger_entry_type: tx.ledger_entry_type || "distribution",
-      transaction_amount: Math.abs(parseFloat(tx.transaction_amount || "0")),
-    }));
     }
 
     return NextResponse.json(distributions);
@@ -240,4 +211,3 @@ export async function GET(request: Request) {
     return NextResponse.json([]);
   }
 }
-

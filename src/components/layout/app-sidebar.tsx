@@ -54,12 +54,6 @@ export function AppSidebar(
       icon: Home,
       isActive: pathname === "/dashboard",
     },
-    {
-      title: "Deals",
-      url: "/deals",
-      icon: Building,
-      isActive: pathname.startsWith("/deals"),
-    },
   ];
 
   const balanceSheetItems = [
@@ -68,9 +62,14 @@ export function AppSidebar(
       icon: PieChart,
       items: [
         {
-          name: "Insights",
-          url: "/balance-sheet/investor-portfolio/insights",
+          name: "Analytics",
+          url: "/balance-sheet/investor-portfolio/analytics",
           icon: BarChart3,
+        },
+        {
+          name: "Deals",
+          url: "/balance-sheet/investor-portfolio/deals",
+          icon: Building,
         },
       ],
     },
