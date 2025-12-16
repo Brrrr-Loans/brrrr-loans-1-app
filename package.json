@@ -91,6 +91,7 @@
     "@eslint/eslintrc": "^3",
     "@playwright/test": "^1.53.1",
     "@svgr/cli": "^8.1.0",
+    "@types/culori": "^4.0.1",
     "@types/node": "^20",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.1",

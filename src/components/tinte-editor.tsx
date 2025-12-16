@@ -5,8 +5,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { formatHex, oklch } from "culori";
-import { Loader2, RefreshCw, Search, X } from "lucide-react";
+import { Loader2, RefreshCw, Search, X, Save } from "lucide-react";
+import { toast } from "sonner";
 
+import { useOrgTheme } from "@/contexts/theme-context";
+import { EDITABLE_THEME_TOKENS } from "@/lib/theme/constants";
 import {
   Accordion,
   AccordionContent,
@@ -140,6 +143,15 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
   const [activeSearch, setActiveSearch] = useState("");
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  
+  // Save to organization state
+  const [showSaveToOrgDialog, setShowSaveToOrgDialog] = useState(false);
+  const [saveToOrgName, setSaveToOrgName] = useState("");
+  const [saveToOrgAsDefault, setSaveToOrgAsDefault] = useState(false);
+  const [isSavingToOrg, setIsSavingToOrg] = useState(false);
+
+  // Get theme context for saving to Supabase
+  const { saveNewTheme, isOrgAdmin, internalOrgId } = useOrgTheme();
 
   useEffect(() => {
     themeRef.current = theme;
@@ -279,8 +291,10 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
 
       setTheme({ light: lightHex, dark: darkHex });
       setOriginalFormats({ light: lightHex, dark: darkHex });
+      toast.success("Theme reloaded from current CSS");
     } catch (error) {
       console.error("Error loading theme from DOM:", error);
+      toast.error("Failed to load theme from CSS");
     }
     setLoading(false);
   }, [convertToHex]);
@@ -529,13 +543,73 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
 
       setSaveStatus("success");
       setHasUnsavedChanges(false);
+      toast.success("Theme applied to site! Use 'Saved Themes' in settings to save permanently.", {
+        duration: 4000,
+      });
       setTimeout(() => setSaveStatus("idle"), 2000);
     } catch (error) {
       console.error("Error applying theme to DOM:", error);
       setSaveStatus("error");
+      toast.error("Failed to apply theme");
       setTimeout(() => setSaveStatus("idle"), 2000);
     }
   }, [convertToHex]);
+
+  // Save theme to organization (Supabase)
+  const handleSaveToOrg = useCallback(async () => {
+    if (!saveToOrgName.trim()) {
+      toast.error("Please enter a theme name");
+      return;
+    }
+
+    if (!internalOrgId) {
+      toast.error("Organization not found. Please try again.");
+      return;
+    }
+
+    setIsSavingToOrg(true);
+
+    try {
+      const currentTheme = themeRef.current;
+      
+      // Filter to only editable tokens
+      const lightTokens: Record<string, string> = {};
+      const darkTokens: Record<string, string> = {};
+      
+      for (const token of EDITABLE_THEME_TOKENS) {
+        if (currentTheme.light[token]) {
+          lightTokens[token] = convertToHex(currentTheme.light[token]);
+        }
+        if (currentTheme.dark[token]) {
+          darkTokens[token] = convertToHex(currentTheme.dark[token]);
+        }
+      }
+
+      const radius = { radius: "0.5rem" };
+
+      const newTheme = await saveNewTheme(
+        saveToOrgName.trim(),
+        lightTokens,
+        darkTokens,
+        radius,
+        saveToOrgAsDefault
+      );
+
+      if (newTheme) {
+        toast.success(`Theme "${saveToOrgName}" saved to organization!`);
+        setShowSaveToOrgDialog(false);
+        setSaveToOrgName("");
+        setSaveToOrgAsDefault(false);
+      } else {
+        toast.error("Failed to save theme. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error saving theme to org:", error);
+      toast.error("An error occurred while saving");
+    } finally {
+      setIsSavingToOrg(false);
+    }
+  }, [saveToOrgName, saveToOrgAsDefault, internalOrgId, saveNewTheme, convertToHex]);
 
   const _availableTokens = TOKEN_GROUPS.flatMap((group) =>
     group.tokens.filter((token) => theme[mode]?.[token] !== undefined),
@@ -576,10 +650,14 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={loadTheme}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  loadTheme();
+                }}
                 disabled={loading}
                 className="p-1.5 hover:bg-accent rounded-md transition-colors disabled:opacity-50"
-                title="Reload from globals.css"
+                title="Reload theme from current CSS variables"
               >
                 <RefreshCw
                   size={14}
@@ -592,9 +670,10 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
                 disabled={saveStatus === "saving"}
                 className={`relative px-3 py-1.5 text-xs rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                   hasUnsavedChanges
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90 animate-pulse"
-                    : "bg-primary/80 text-primary-foreground hover:bg-primary/90"
+                    ? "bg-secondary text-secondary-foreground hover:bg-secondary/90 animate-pulse"
+                    : "bg-secondary/80 text-secondary-foreground hover:bg-secondary/90"
                 }`}
+                title="Apply theme to preview (temporary)"
               >
                 {hasUnsavedChanges && saveStatus === "idle" && (
                   <span className="absolute -top-1 -right-1 flex h-3 w-3">
@@ -602,12 +681,24 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
                     <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive" />
                   </span>
                 )}
-                {saveStatus === "saving" && "Saving..."}
-                {saveStatus === "success" && "✅ Saved!"}
+                {saveStatus === "saving" && "Applying..."}
+                {saveStatus === "success" && "✅ Applied!"}
                 {saveStatus === "error" && "❌ Error"}
                 {saveStatus === "idle" &&
-                  (hasUnsavedChanges ? "💾 Save" : "Save")}
+                  (hasUnsavedChanges ? "Apply" : "Apply")}
               </button>
+              {/* Save to Organization button */}
+              {isOrgAdmin && internalOrgId && (
+                <button
+                  type="button"
+                  onClick={() => setShowSaveToOrgDialog(true)}
+                  className="px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-all flex items-center gap-1.5"
+                  title="Save theme to your organization permanently"
+                >
+                  <Save size={12} />
+                  Save
+                </button>
+              )}
             </div>
           </div>
         </DialogHeader>
@@ -1047,6 +1138,61 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
             </Tabs>
           )}
         </div>
+
+        {/* Save to Organization Dialog */}
+        {showSaveToOrgDialog && (
+          <div className="absolute inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center z-50 rounded-lg">
+            <div className="bg-card border rounded-lg p-6 w-full max-w-sm shadow-lg">
+              <h3 className="text-lg font-semibold mb-4">Save Theme to Organization</h3>
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="org-theme-name" className="text-sm font-medium block mb-1.5">
+                    Theme Name
+                  </label>
+                  <Input
+                    id="org-theme-name"
+                    placeholder="e.g., Dark Professional"
+                    value={saveToOrgName}
+                    onChange={(e) => setSaveToOrgName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSaveToOrg()}
+                    autoFocus
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="set-as-default"
+                    checked={saveToOrgAsDefault}
+                    onChange={(e) => setSaveToOrgAsDefault(e.target.checked)}
+                    className="rounded border-input"
+                  />
+                  <label htmlFor="set-as-default" className="text-sm">
+                    Set as default theme for organization
+                  </label>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 mt-6">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowSaveToOrgDialog(false);
+                    setSaveToOrgName("");
+                    setSaveToOrgAsDefault(false);
+                  }}
+                  disabled={isSavingToOrg}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveToOrg}
+                  disabled={isSavingToOrg || !saveToOrgName.trim()}
+                >
+                  {isSavingToOrg ? "Saving..." : "Save Theme"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

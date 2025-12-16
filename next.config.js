@@ -1,3 +1,9 @@
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Increase body size limit for file uploads (default is 1MB)
@@ -5,6 +11,10 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: "55mb",
     },
+  },
+  // Fix Turbopack root directory detection (prevents pnpm-lock.yaml in home dir from being used)
+  turbopack: {
+    root: __dirname,
   },
   // Disable dev indicator overlay that causes params/searchParams Promise warnings
   devIndicators: false,

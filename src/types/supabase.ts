@@ -2690,6 +2690,60 @@ export type Database = {
           },
         ]
       }
+      auth_clerk_orgs_themes: {
+        Row: {
+          created_at: string
+          created_by_user_id: number | null
+          id: number
+          is_default: boolean
+          name: string
+          org_id: number
+          radius: Json
+          tokens_dark: Json
+          tokens_light: Json
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by_user_id?: number | null
+          id?: number
+          is_default?: boolean
+          name: string
+          org_id: number
+          radius?: Json
+          tokens_dark?: Json
+          tokens_light?: Json
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by_user_id?: number | null
+          id?: number
+          is_default?: boolean
+          name?: string
+          org_id?: number
+          radius?: Json
+          tokens_dark?: Json
+          tokens_light?: Json
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auth_clerk_orgs_themes_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_clerk_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auth_clerk_orgs_themes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "auth_clerk_orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payroll_submission: {
         Row: {
           comp_ae_final_usd: number | null

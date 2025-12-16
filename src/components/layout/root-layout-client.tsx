@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import dynamic from "next/dynamic";
+import { OrgThemeProvider } from "@/contexts/theme-context";
 
 // Dynamic import to prevent hydration issues
 const TinteEditor = dynamic(
@@ -30,9 +31,9 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <>
+    <OrgThemeProvider>
       {children}
       <TinteEditor />
-    </>
+    </OrgThemeProvider>
   );
 }
