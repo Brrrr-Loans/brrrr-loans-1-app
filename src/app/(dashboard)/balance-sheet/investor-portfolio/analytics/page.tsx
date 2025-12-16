@@ -24,10 +24,6 @@ interface InvestorDistribution {
   transaction_status: string;
 }
 
-interface ProfitsResponse {
-  total_profits: number;
-}
-
 interface InvestorDeal {
   status: string;
 }
@@ -43,7 +39,6 @@ export default function InvestorDashboard() {
   const [distributions, setDistributions] = useState<InvestorDistribution[]>(
     []
   );
-  const [totalProfits, setTotalProfits] = useState<number>(0);
   const [deals, setDeals] = useState<InvestorDeal[]>([]);
   const [roiData, setRoiData] = useState<InvestorROIDataPoint[]>([]);
   const [currentROI, setCurrentROI] = useState<number>(0);
@@ -67,11 +62,10 @@ export default function InvestorDashboard() {
         const queryParam = queryString ? `?${queryString}` : "";
 
         // Fetch all data in parallel
-        const [contributionsRes, distributionsRes, profitsRes, dealsRes, cashFlowRes] =
+        const [contributionsRes, distributionsRes, dealsRes, cashFlowRes] =
           await Promise.all([
             fetch(`/api/investor-summary/contributions${queryParam}`),
             fetch(`/api/investor-summary/distributions${queryParam}`),
-            fetch(`/api/investor-summary/profits${queryParam}`),
             fetch(`/api/investor-summary/deals${queryParam}`),
             fetch(`/api/investor-dashboard/cumulative-cash-flow${queryParam}`),
           ]);
@@ -79,25 +73,22 @@ export default function InvestorDashboard() {
         if (
           !contributionsRes.ok ||
           !distributionsRes.ok ||
-          !profitsRes.ok ||
           !dealsRes.ok ||
           !cashFlowRes.ok
         ) {
           throw new Error("Failed to fetch investor data");
         }
 
-        const [contributionsData, distributionsData, profitsData, dealsData, cashFlowData] =
+        const [contributionsData, distributionsData, dealsData, cashFlowData] =
           await Promise.all([
             contributionsRes.json(),
             distributionsRes.json(),
-            profitsRes.json() as Promise<ProfitsResponse>,
             dealsRes.json(),
             cashFlowRes.json(),
           ]);
 
         setContributions(contributionsData);
         setDistributions(distributionsData);
-        setTotalProfits(profitsData.total_profits || 0);
         setDeals(dealsData);
         setRoiData(cashFlowData.data || []);
         setCurrentROI(cashFlowData.current_roi || 0);
@@ -120,6 +111,14 @@ export default function InvestorDashboard() {
         typeof item.contribution_amount === "string"
           ? Number(item.contribution_amount)
           : item.contribution_amount;
+      return sum + (isNaN(amount) ? 0 : amount);
+    },
+    0
+  );
+
+  const totalDistributions = distributions.reduce(
+    (sum: number, item: InvestorDistribution) => {
+      const amount = item.transaction_amount || 0;
       return sum + (isNaN(amount) ? 0 : amount);
     },
     0
@@ -159,13 +158,13 @@ export default function InvestorDashboard() {
       <div className="container mx-auto py-6 space-y-6 animate-in fade-in-50">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard
-            label="Capital Deployed"
+            label="Total Invested"
             value={formatCurrency(totalInvested)}
             trendDirection="up"
           />
           <StatCard
-            label="Profits Paid to Date"
-            value={formatCurrency(totalProfits)}
+            label="Total Distributions"
+            value={formatCurrency(totalDistributions)}
             trendDirection="up"
           />
           <StatCard
@@ -177,13 +176,13 @@ export default function InvestorDashboard() {
             label="ROI"
             value={
               totalInvested > 0
-                ? `${((totalProfits / totalInvested) * 100).toFixed(2)}%`
+                ? `${((totalDistributions / totalInvested) * 100).toFixed(2)}%`
                 : "0%"
             }
             trendPercent={
-              totalInvested > 0 ? (totalProfits / totalInvested) * 100 : 0
+              totalInvested > 0 ? (totalDistributions / totalInvested) * 100 : 0
             }
-            trendDirection={totalProfits > 0 ? "up" : "neutral"}
+            trendDirection={totalDistributions > 0 ? "up" : "neutral"}
           />
         </div>
 

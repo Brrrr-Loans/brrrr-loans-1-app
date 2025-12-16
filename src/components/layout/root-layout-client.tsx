@@ -1,6 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
+import dynamic from "next/dynamic";
+import { OrgThemeProvider } from "@/contexts/theme-context";
+
+// Dynamic import to prevent hydration issues
+const TinteEditor = dynamic(
+  () => import("@/components/tinte-editor").then((mod) => mod.TinteEditor),
+  { ssr: false }
+);
 
 export function RootLayoutClient({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -22,5 +30,10 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  return <>{children}</>;
+  return (
+    <OrgThemeProvider>
+      {children}
+      <TinteEditor />
+    </OrgThemeProvider>
+  );
 }

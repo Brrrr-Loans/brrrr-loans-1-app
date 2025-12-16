@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import { ClerkProvider, ClerkLoading, ClerkFailed } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/theme/theme-provider";
-import { SonnerToaster as Toaster } from "@/components/ui";
+import { SonnerToaster as Toaster } from "@/components/ui/index";
 import { ThemeFavicon } from "@/components/layout/theme-favicon";
 import { LyteNyteLicenseActivator } from "@/components/lytenyte-license-activator";
 import { ClerkFailedFallback } from "@/components/auth/clerk-failed-fallback";

@@ -3,12 +3,14 @@
 import Link from "next/link";
 import React from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Plug } from "lucide-react";
+import { Plug, ExternalLink, Palette, Settings2 } from "lucide-react";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui";
+import { ThemeTogglePill } from "@/components/theme/theme-toggle-pill";
+import { ThemeEditorWrapper } from "@/components/theme/theme-editor-wrapper";
 
 interface PlatformSettingsPopoverProps {
   trigger: React.ReactNode;
@@ -24,6 +26,7 @@ export function PlatformSettingsPopover({
   const pathname = usePathname();
   const router = useRouter();
   const [internalOpen, setInternalOpen] = React.useState(false);
+  const [themeManagerOpen, setThemeManagerOpen] = React.useState(false);
   const isControlled = open !== undefined;
   const popoverOpen = isControlled ? open : internalOpen;
   const setPopoverOpen = isControlled ? onOpenChange || (() => {}) : setInternalOpen;
@@ -53,47 +56,114 @@ export function PlatformSettingsPopover({
     setPopoverOpen(false);
   };
 
+  const handleThemeEditorClick = () => {
+    // Trigger the floating Tinte editor by clicking its button
+    const tinteButton = document.querySelector('[title="Open Theme Editor"]') as HTMLButtonElement;
+    if (tinteButton) {
+      tinteButton.click();
+    }
+    setPopoverOpen(false);
+  };
+
+  const handleThemeManagerClick = () => {
+    setThemeManagerOpen(true);
+    setPopoverOpen(false);
+  };
+
   return (
-    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent
-        side="bottom"
-        align="end"
-        className="w-56 p-2"
-        sideOffset={8}
-      >
-        <div className="flex flex-col gap-1">
-          {/* Integrations Section */}
-          <div className="px-2 py-1.5 text-xs font-semibold text-sidebar-foreground/70">
-            Integrations
+    <>
+      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverContent
+          side="bottom"
+          align="end"
+          className="w-56 p-0"
+          sideOffset={8}
+        >
+          <div className="flex flex-col">
+            {/* Integrations Section */}
+            <div className="px-3 py-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                Integrations
+              </p>
+            </div>
+            <div className="px-1 pb-2">
+              <Link
+                href="/platform-settings/integrations/brex"
+                onClick={handleBrexClick}
+                className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
+                  isBrexActive
+                    ? "bg-accent text-accent-foreground"
+                    : "text-foreground"
+                }`}
+              >
+                <Plug className="h-4 w-4 text-muted-foreground" />
+                <span>Brex</span>
+              </Link>
+              <Link
+                href="/platform-settings/integrations/ofb"
+                onClick={handleOFBClick}
+                className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
+                  isOFBActive
+                    ? "bg-accent text-accent-foreground"
+                    : "text-foreground"
+                }`}
+              >
+                <Plug className="h-4 w-4 text-muted-foreground" />
+                <span>Ocean First</span>
+              </Link>
+            </div>
+
+            {/* Divider */}
+            <div className="h-px bg-border" />
+
+            {/* Preferences Section */}
+            <div className="px-3 py-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                Preferences
+              </p>
+            </div>
+            <div className="px-1 pb-2 space-y-1">
+              {/* Theme Row */}
+              <div className="flex items-center justify-between rounded-md px-2 py-1.5">
+                <span className="text-sm text-foreground">Theme</span>
+                <ThemeTogglePill />
+              </div>
+
+              {/* Theme Editor Link */}
+              <button
+                type="button"
+                onClick={handleThemeEditorClick}
+                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                <div className="flex items-center gap-3">
+                  <Palette className="h-4 w-4 text-muted-foreground" />
+                  <span>Theme Editor</span>
+                </div>
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+
+              {/* Theme Manager Link */}
+              <button
+                type="button"
+                onClick={handleThemeManagerClick}
+                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                <div className="flex items-center gap-3">
+                  <Settings2 className="h-4 w-4 text-muted-foreground" />
+                  <span>Saved Themes</span>
+                </div>
+              </button>
+            </div>
           </div>
-          <Link
-            href="/platform-settings/integrations/brex"
-            onClick={handleBrexClick}
-            className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ${
-              isBrexActive
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground"
-            }`}
-          >
-            <Plug className="h-4 w-4" />
-            <span>Brex</span>
-          </Link>
-          <Link
-            href="/platform-settings/integrations/ofb"
-            onClick={handleOFBClick}
-            className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ${
-              isOFBActive
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground"
-            }`}
-          >
-            <Plug className="h-4 w-4" />
-            <span>Ocean First</span>
-          </Link>
-        </div>
-      </PopoverContent>
-    </Popover>
+        </PopoverContent>
+      </Popover>
+
+      {/* Theme Manager Dialog */}
+      <ThemeEditorWrapper 
+        open={themeManagerOpen} 
+        onOpenChange={setThemeManagerOpen} 
+      />
+    </>
   );
 }
-
