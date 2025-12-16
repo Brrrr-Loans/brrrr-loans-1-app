@@ -1,13 +1,12 @@
 export const dynamic = "force-dynamic";
 
-import { createServerComponentClient } from "@supabase/auth-helpers-nextjs";
-import { cookies } from "next/headers";
+import { getSupabaseClient } from "@/lib/supabase-server";
 import { DealDetailsWrapper } from "../components/deal-details-protected";
 import { DocumentsListWrapper } from "../components/list-protected-documents";
 import { DistributionsListWrapper } from "@/components/distributions/list-protected-distributions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { notFound } from "next/navigation";
-import type { Database, Tables } from "@/types/supabase";
+import type { Tables } from "@/types/supabase";
 
 interface PageProps {
   params: Promise<{
@@ -17,10 +16,7 @@ interface PageProps {
 
 export default async function DealPage({ params }: PageProps) {
   const { id } = await params;
-  const cookieStore = cookies();
-  const supabase = createServerComponentClient<Database>({
-    cookies: () => cookieStore,
-  });
+  const supabase = await getSupabaseClient();
 
   // Fetch basic deal data
   const { data: deal, error } = await supabase

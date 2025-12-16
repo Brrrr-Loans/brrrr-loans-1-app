@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@clerk/nextjs";
 import {
   Card,
@@ -25,7 +25,7 @@ export function DealNoticesWidget() {
   const [loading, setLoading] = useState(true);
   const { user } = useUser();
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = createClient();
 
   const fetchDealNotices = useCallback(async () => {
     if (!user) {
