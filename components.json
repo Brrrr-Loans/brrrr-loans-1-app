@@ -25,6 +25,7 @@
         "X-License-Key": "${SHADCNDESIGN_LICENSE_KEY}"
       }
     },
-    "@lytenyte": "https://www.1771technologies.com/r/{name}.json"
+    "@lytenyte": "https://www.1771technologies.com/r/{name}.json",
+    "@elements": "https://tryelements.dev/r/{name}.json"
   }
 }

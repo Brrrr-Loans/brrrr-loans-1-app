@@ -1,6 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
+import dynamic from "next/dynamic";
+
+// Dynamic import to prevent hydration issues
+const TinteEditor = dynamic(
+  () => import("@/components/tinte-editor").then((mod) => mod.TinteEditor),
+  { ssr: false }
+);
 
 export function RootLayoutClient({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -22,5 +29,10 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <TinteEditor />
+    </>
+  );
 }
