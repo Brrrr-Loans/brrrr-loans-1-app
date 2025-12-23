@@ -166,10 +166,6 @@ export function TransactionsDataTable() {
             id,
             full_name,
             email
-          ),
-          direct_org:auth_clerk_orgs!clerk_org_id(
-            id,
-            clerk_org_name
           )
         `
         )

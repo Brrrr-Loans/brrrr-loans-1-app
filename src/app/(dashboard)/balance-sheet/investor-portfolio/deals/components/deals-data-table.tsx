@@ -478,8 +478,12 @@ export function DealsDataTable() {
             funding_date,
             project_type,
             property_id,
-            primary_guarantor_id,
-            loan_number
+            loan_number,
+            deal_guarantors(
+              guarantor_id,
+              is_primary,
+              guarantor:guarantor_id(id, name)
+            )
           `
           )
           .order("created_at", { ascending: false });
@@ -533,31 +537,7 @@ export function DealsDataTable() {
           }
         }
 
-        // Fetch guarantor data
-        let guarantorData: Record<number, string> = {};
-        if (dealIds.length > 0) {
-          const { data: guarantors, error: guarError } = await supabase
-            .from("guarantor")
-            .select("id, name");
-
-          if (!guarError && guarantors) {
-            guarantorData = guarantors.reduce(
-              (
-                acc: Record<number, string>,
-                guar: { id: number; name: string | null }
-              ) => {
-                if (guar.name) {
-                  acc[guar.id] = guar.name;
-                }
-                return acc;
-              },
-              {}
-            );
-            console.log("Guarantor data:", guarantorData);
-          } else {
-            console.error("Guarantor fetch error:", guarError);
-          }
-        }
+        // Note: Guarantor data is now fetched through the deal_guarantors join above
 
         // Transform the data to match our interface
         const transformedData: DealWithRelations[] = (deals || []).map(
@@ -569,24 +549,29 @@ export function DealsDataTable() {
             funding_date: string | null;
             project_type: string | null;
             property_id: number | null;
-            primary_guarantor_id: number | null;
             loan_number: string | null;
+            deal_guarantors: Array<{
+              guarantor_id: number;
+              is_primary: boolean | null;
+              guarantor: { id: number; name: string | null } | null;
+            }> | null;
           }) => {
             const propertyAddress = deal.property_id
               ? propertyData[deal.property_id] ||
                 `Property ID: ${deal.property_id}`
               : "No property";
 
-            const guarantorName = deal.primary_guarantor_id
-              ? guarantorData[deal.primary_guarantor_id] ||
-                `Guarantor ID: ${deal.primary_guarantor_id}`
-              : "No guarantor";
+            // Find the primary guarantor from deal_guarantors junction table
+            const primaryGuarantor = deal.deal_guarantors?.find(dg => dg.is_primary);
+            const firstGuarantor = deal.deal_guarantors?.[0];
+            const guarantorRecord = primaryGuarantor || firstGuarantor;
+            const guarantorName = guarantorRecord?.guarantor?.name || "No guarantor";
 
             console.log(
               `Deal ${deal.id}: property_id=${deal.property_id}, address=${propertyAddress}`
             );
             console.log(
-              `Deal ${deal.id}: guarantor_id=${deal.primary_guarantor_id}, name=${guarantorName}`
+              `Deal ${deal.id}: guarantor=${guarantorName}`
             );
 
             return {
