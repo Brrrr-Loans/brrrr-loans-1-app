@@ -10,9 +10,9 @@ export default function GrapesJSPage() {
       <RouteProtection requiredRoles={["admin"]}>
         <div className="flex flex-1 flex-col space-y-6">
           <div>
-            <h1 className="text-3xl font-bold">GrapesJS Pages</h1>
+            <h1 className="text-3xl font-bold">Template Studio</h1>
             <p className="text-muted-foreground">
-              Visual web page editor for creating and editing content
+              AI-powered design interface for building document & email templates
             </p>
           </div>
           <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -30,7 +30,7 @@ export default function GrapesJSPage() {
     <RouteProtection requiredRoles={["admin"]}>
       <div className="flex flex-1 flex-col space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">GrapesJS Pages</h1>
+          <h1 className="text-3xl font-bold">Template Studio</h1>
           <p className="text-muted-foreground">
             Visual web page editor for creating and editing content
           </p>

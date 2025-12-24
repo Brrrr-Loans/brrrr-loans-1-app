@@ -3,7 +3,7 @@
 import Link from "next/link";
 import React from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Plug, ExternalLink, Palette, Settings2, Globe } from "lucide-react";
+import { Plug, ExternalLink, Palette, Settings2, Sparkles, SunMoon } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -129,8 +129,8 @@ export function PlatformSettingsPopover({
                     : "text-foreground"
                 }`}
               >
-                <Globe className="h-4 w-4 text-muted-foreground" />
-                <span>GrapesJS Pages</span>
+                <Sparkles className="h-4 w-4 text-muted-foreground" />
+                <span>Template Studio</span>
               </Link>
             </div>
 
@@ -146,7 +146,10 @@ export function PlatformSettingsPopover({
             <div className="px-1 pb-2 space-y-1">
               {/* Theme Row */}
               <div className="flex items-center justify-between rounded-md px-2 py-1.5">
-                <span className="text-sm text-foreground">Theme</span>
+                <div className="flex items-center gap-3">
+                  <SunMoon className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-foreground">Theme</span>
+                </div>
                 <ThemeTogglePill />
               </div>
 
