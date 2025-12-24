@@ -120,18 +120,44 @@ export function PlatformSettingsPopover({
                 <Plug className="h-4 w-4 text-muted-foreground" />
                 <span>Ocean First</span>
               </Link>
+            </div>
+
+            {/* Divider */}
+            <div className="h-px bg-border" />
+
+            {/* White Label Section */}
+            <div className="px-3 py-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                White Label
+              </p>
+            </div>
+            <div className="px-1 pb-2">
               <Link
                 href="/platform-settings/integrations/grapesjs"
                 onClick={handleGrapesJSClick}
-                className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
+                className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
                   isGrapesJSActive
                     ? "bg-accent text-accent-foreground"
                     : "text-foreground"
                 }`}
               >
-                <Sparkles className="h-4 w-4 text-muted-foreground" />
-                <span>Template Studio</span>
+                <div className="flex items-center gap-3">
+                  <Sparkles className="h-4 w-4 text-muted-foreground" />
+                  <span>Template Studio</span>
+                </div>
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
               </Link>
+              <button
+                type="button"
+                onClick={handleThemeEditorClick}
+                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                <div className="flex items-center gap-3">
+                  <Palette className="h-4 w-4 text-muted-foreground" />
+                  <span>Theme Editor</span>
+                </div>
+                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
             </div>
 
             {/* Divider */}
@@ -152,19 +178,6 @@ export function PlatformSettingsPopover({
                 </div>
                 <ThemeTogglePill />
               </div>
-
-              {/* Theme Editor Link */}
-              <button
-                type="button"
-                onClick={handleThemeEditorClick}
-                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                <div className="flex items-center gap-3">
-                  <Palette className="h-4 w-4 text-muted-foreground" />
-                  <span>Theme Editor</span>
-                </div>
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
 
               {/* Theme Manager Link */}
               <button
