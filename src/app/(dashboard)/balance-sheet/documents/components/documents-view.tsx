@@ -47,6 +47,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/forms/select";
+import { Label } from "@/components/ui/forms/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Dropzone,
   DropzoneContent,
@@ -62,8 +64,9 @@ import {
   FileCode,
   File,
   Search,
-  Grid3X3,
-  List,
+  Table2,
+  LayoutGrid,
+  Columns3,
   Plus,
   MoreHorizontal,
   Loader2,
@@ -77,6 +80,16 @@ import {
   X,
   Trash2,
 } from "lucide-react";
+import { NotionViewTabs, type ViewDefinition, type CardSize } from "@/components/ui/notion-view-tabs";
+import { DocumentsBoardView } from "./documents-board-view";
+
+// Default view settings
+const DEFAULT_VIEW_SETTINGS = {
+  cardSize: "medium" as CardSize,
+  fitImage: false,
+  wrapProperties: false,
+  showPageIcon: true,
+};
 import { useSupabase } from "@/hooks/use-supabase";
 import { useUser, useOrganizationList, useOrganization } from "@clerk/nextjs";
 import { useCanUpload } from "@/hooks/use-can-upload";
@@ -113,7 +126,157 @@ interface DocumentsViewProps {
   onUpload?: () => void;
 }
 
-type ViewMode = "grid" | "list";
+type ViewMode = "table" | "board" | "gallery";
+
+// View type options for the menu
+const VIEW_TYPE_OPTIONS = [
+  { id: "table", label: "Table", icon: Table2, description: "Traditional table layout with rows and columns" },
+  { id: "board", label: "Board", icon: Columns3, description: "Kanban-style board for organizing items in columns" },
+  { id: "gallery", label: "Gallery", icon: LayoutGrid, description: "Grid of cards, use for mood boards and visual content" },
+];
+
+// View Options Menu Component (Notion-style "..." button)
+interface ViewOptionsMenuProps {
+  viewSettings: typeof DEFAULT_VIEW_SETTINGS;
+  onViewSettingsChange: (settings: typeof DEFAULT_VIEW_SETTINGS) => void;
+  activeView: ViewMode;
+  onViewChange: (viewId: ViewMode) => void;
+}
+
+function ViewOptionsMenu({
+  viewSettings,
+  onViewSettingsChange,
+  activeView,
+  onViewChange,
+}: ViewOptionsMenuProps) {
+  // Only show card settings for board/gallery views
+  const showCardSettings = activeView === "board" || activeView === "gallery";
+  const activeViewOption = VIEW_TYPE_OPTIONS.find(v => v.id === activeView);
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9 text-muted-foreground hover:text-foreground"
+          suppressHydrationWarning
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" align="end">
+        <div className="p-4 space-y-4">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium text-sm">View options</h4>
+          </div>
+
+          {/* Current view indicator */}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            {activeViewOption && (
+              <>
+                <activeViewOption.icon className="h-4 w-4" />
+                <span>Current: {activeViewOption.label}</span>
+              </>
+            )}
+          </div>
+
+          {/* View type grid */}
+          <div className="grid grid-cols-3 gap-2">
+            {VIEW_TYPE_OPTIONS.map((option) => {
+              const Icon = option.icon;
+              const isSelected = activeView === option.id;
+              return (
+                <button
+                  key={option.id}
+                  onClick={() => onViewChange(option.id as ViewMode)}
+                  className={cn(
+                    "flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-colors",
+                    isSelected
+                      ? "border-primary bg-primary/5"
+                      : "border-transparent bg-muted/30 hover:bg-muted/50"
+                  )}
+                >
+                  <Icon className={cn("h-5 w-5", isSelected ? "text-primary" : "text-muted-foreground")} />
+                  <span className={cn("text-xs", isSelected ? "text-primary font-medium" : "text-muted-foreground")}>
+                    {option.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Description */}
+          <p className="text-xs text-muted-foreground">
+            {activeViewOption?.description}
+          </p>
+
+          {/* Settings section for board/gallery */}
+          {showCardSettings && (
+            <div className="space-y-3 pt-2 border-t">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Card size</Label>
+                <Select
+                  value={viewSettings.cardSize}
+                  onValueChange={(value: CardSize) =>
+                    onViewSettingsChange({ ...viewSettings, cardSize: value as CardSize })
+                  }
+                >
+                  <SelectTrigger className="w-24 h-8">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="small">Small</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="large">Large</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Fit image</Label>
+                <Switch
+                  checked={viewSettings.fitImage}
+                  onCheckedChange={(checked) =>
+                    onViewSettingsChange({ ...viewSettings, fitImage: checked })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Wrap properties</Label>
+                <Switch
+                  checked={viewSettings.wrapProperties}
+                  onCheckedChange={(checked) =>
+                    onViewSettingsChange({ ...viewSettings, wrapProperties: checked })
+                  }
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">Show page icon</Label>
+                <Switch
+                  checked={viewSettings.showPageIcon}
+                  onCheckedChange={(checked) =>
+                    onViewSettingsChange({ ...viewSettings, showPageIcon: checked })
+                  }
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// View definitions for Notion-style tabs
+const VIEW_DEFINITIONS: ViewDefinition[] = [
+  { id: "table", label: "Table", icon: Table2 },
+  { id: "board", label: "Board", icon: Columns3 },
+  { id: "gallery", label: "Gallery", icon: LayoutGrid },
+];
 
 export function DocumentsView({
   bucketName,
@@ -126,7 +289,8 @@ export function DocumentsView({
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
+  const [viewSettings, setViewSettings] = useState(DEFAULT_VIEW_SETTINGS);
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
   const [isDownloading, setIsDownloading] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
@@ -142,14 +306,14 @@ export function DocumentsView({
   const [isDeleting, setIsDeleting] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
 
-  // Column resize state
+  // Column resize state - optimized for less whitespace
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
-    checkbox: 48,
-    fileName: 280,
+    checkbox: 40,
+    fileName: 450,
     investors: 180,
-    tags: 150,
-    size: 80,
-    actions: 80,
+    tags: 100,
+    size: 70,
+    actions: 50,
   });
   const resizingRef = useRef<{
     column: string;
@@ -577,30 +741,116 @@ export function DocumentsView({
           }
         }
 
-        // Fetch investor assignments for all documents
+        // Fetch investor assignments for all documents through transaction relationship
+        // Path: document_files -> bsi_transactions_document_files -> bsi_transactions_investors -> auth_clerk_orgs
         if (allDocs.length > 0) {
           const paths = allDocs.map((d) => d.path);
-          const { data: assignments } = await currentSupabase
+          
+          // First, try to get investors through the transaction relationship
+          // This query joins document_files -> bsi_transactions_document_files -> bsi_transactions_investors
+          const { data: transactionInvestors } = await currentSupabase
+            .from("document_files")
+            .select(`
+              file_path,
+              bsi_transactions_document_files!inner (
+                transaction_id,
+                bsi_transactions_investors:bsi_transactions_investors!bsi_transactions_investors_transaction_id_fkey (
+                  clerk_org_id,
+                  clerk_user_id,
+                  auth_clerk_orgs:clerk_org_id (
+                    clerk_org_id,
+                    clerk_org_name
+                  )
+                )
+              )
+            `)
+            .in("file_path", paths);
+
+          // Build a map of investor names for quick lookup
+          const orgNameMap = new Map(
+            currentAllOrgs.map((o) => [o.clerk_org_id, o.clerk_org_name])
+          );
+          const userNameMap = new Map(
+            currentAllUsers.map((u) => [
+              u.clerk_user_id,
+              `${u.first_name} ${u.last_name}`.trim() || u.email,
+            ])
+          );
+
+          // Also build a map by org ID (numeric) for transaction investor lookups
+          const orgIdToNameMap = new Map(
+            currentAllOrgs.map((o) => [o.id, { clerk_org_id: o.clerk_org_id, clerk_org_name: o.clerk_org_name }])
+          );
+
+          // Group assignments by document path from transaction relationship
+          const assignmentsByPath = new Map<string, InvestorAssignment[]>();
+          
+          if (transactionInvestors && transactionInvestors.length > 0) {
+            for (const docFile of transactionInvestors) {
+              const filePath = docFile.file_path;
+              if (!filePath) continue;
+              
+              const investors: InvestorAssignment[] = [];
+              const seenInvestors = new Set<string>(); // Deduplicate by type+id
+              
+              // Process each transaction's investors
+              const txDocs = docFile.bsi_transactions_document_files;
+              if (Array.isArray(txDocs)) {
+                for (const txDoc of txDocs) {
+                  const txInvestors = txDoc.bsi_transactions_investors;
+                  if (Array.isArray(txInvestors)) {
+                    for (const inv of txInvestors) {
+                      // Handle org investors
+                      if (inv.clerk_org_id) {
+                        const orgInfo = inv.auth_clerk_orgs;
+                        const orgId = orgInfo?.clerk_org_id || String(inv.clerk_org_id);
+                        const orgName = orgInfo?.clerk_org_name || orgNameMap.get(orgId) || `Org ${inv.clerk_org_id}`;
+                        const key = `org-${orgId}`;
+                        
+                        if (!seenInvestors.has(key)) {
+                          seenInvestors.add(key);
+                          investors.push({
+                            type: "org",
+                            id: orgId,
+                            name: orgName,
+                          });
+                        }
+                      }
+                      // Handle user investors
+                      if (inv.clerk_user_id) {
+                        const userId = String(inv.clerk_user_id);
+                        const userName = userNameMap.get(userId) || `User ${inv.clerk_user_id}`;
+                        const key = `user-${userId}`;
+                        
+                        if (!seenInvestors.has(key)) {
+                          seenInvestors.add(key);
+                          investors.push({
+                            type: "user",
+                            id: userId,
+                            name: userName,
+                          });
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              
+              if (investors.length > 0) {
+                assignmentsByPath.set(filePath, investors);
+              }
+            }
+          }
+
+          // Fallback: Also check the document_investors table (legacy support)
+          const { data: legacyAssignments } = await currentSupabase
             .from("document_investors")
             .select("document_path, investor_type, investor_id")
             .eq("bucket_name", bucketName)
             .in("document_path", paths);
 
-          if (assignments && assignments.length > 0) {
-            // Build a map of investor names for quick lookup
-            const orgNameMap = new Map(
-              currentAllOrgs.map((o) => [o.clerk_org_id, o.clerk_org_name])
-            );
-            const userNameMap = new Map(
-              currentAllUsers.map((u) => [
-                u.clerk_user_id,
-                `${u.first_name} ${u.last_name}`.trim() || u.email,
-              ])
-            );
-
-            // Group assignments by document path
-            const assignmentsByPath = new Map<string, InvestorAssignment[]>();
-            for (const a of assignments) {
+          if (legacyAssignments && legacyAssignments.length > 0) {
+            for (const a of legacyAssignments) {
               const investorName =
                 a.investor_type === "org"
                   ? orgNameMap.get(a.investor_id) || a.investor_id
@@ -613,14 +863,20 @@ export function DocumentsView({
               };
 
               const existing = assignmentsByPath.get(a.document_path) || [];
-              existing.push(assignment);
-              assignmentsByPath.set(a.document_path, existing);
+              // Check if this investor is already added (from transaction relationship)
+              const alreadyExists = existing.some(
+                (inv) => inv.type === assignment.type && inv.id === assignment.id
+              );
+              if (!alreadyExists) {
+                existing.push(assignment);
+                assignmentsByPath.set(a.document_path, existing);
+              }
             }
+          }
 
-            // Merge assignments into documents
-            for (const doc of allDocs) {
-              doc.investors = assignmentsByPath.get(doc.path) || [];
-            }
+          // Merge assignments into documents
+          for (const doc of allDocs) {
+            doc.investors = assignmentsByPath.get(doc.path) || [];
           }
         }
 
@@ -1427,43 +1683,51 @@ export function DocumentsView({
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search or type filter"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-background"
+        {/* Left side: Notion-style View Tabs */}
+        <div className="flex items-center gap-2">
+          <NotionViewTabs
+            views={VIEW_DEFINITIONS}
+            activeView={viewMode}
+            onViewChange={(viewId) => setViewMode(viewId as ViewMode)}
+            showAddButton={true}
+            onAddView={(viewType, viewName) => {
+              // For now, just switch to the view type
+              if (viewType === "table" || viewType === "board" || viewType === "gallery") {
+                setViewMode(viewType as ViewMode);
+              }
+              toast.success(`Created "${viewName}" view`);
+            }}
+            viewSettings={viewSettings}
+            onViewSettingsChange={setViewSettings}
           />
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-          >
-            <Filter className="h-4 w-4 text-muted-foreground" />
-          </Button>
         </div>
 
+        {/* Right side: Search, View Options, and Add Button */}
         <div className="flex items-center gap-2">
-          {/* View Toggle */}
-          <div className="flex items-center border rounded-md">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search or type filter"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 bg-background"
+            />
             <Button
-              variant={viewMode === "grid" ? "secondary" : "ghost"}
+              variant="ghost"
               size="icon"
-              className="h-9 w-9 rounded-r-none"
-              onClick={() => setViewMode("grid")}
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
             >
-              <Grid3X3 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "secondary" : "ghost"}
-              size="icon"
-              className="h-9 w-9 rounded-l-none border-l"
-              onClick={() => setViewMode("list")}
-            >
-              <List className="h-4 w-4" />
+              <Filter className="h-4 w-4 text-muted-foreground" />
             </Button>
           </div>
+
+          {/* View Options Button (Notion-style "..." menu) */}
+          <ViewOptionsMenu
+            viewSettings={viewSettings}
+            onViewSettingsChange={setViewSettings}
+            activeView={viewMode}
+            onViewChange={setViewMode}
+          />
 
           {/* Add Button */}
           {canUpload && (
@@ -1481,15 +1745,20 @@ export function DocumentsView({
         </div>
       ) : (
         <>
-          {/* Grid View */}
+          {/* Views */}
           <AnimatePresence mode="wait">
-            {viewMode === "grid" ? (
+            {viewMode === "gallery" ? (
               <motion.div
-                key="grid"
+                key="gallery"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+                className={cn(
+                  "grid gap-4",
+                  viewSettings.cardSize === "small" && "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6",
+                  viewSettings.cardSize === "medium" && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+                  viewSettings.cardSize === "large" && "grid-cols-1 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3"
+                )}
               >
                 {filteredDocuments.map((doc) => (
                   <motion.div
@@ -1506,24 +1775,34 @@ export function DocumentsView({
                     {(() => {
                       const fileStyle = getFileIcon(doc.name, doc.type);
                       const IconComponent = fileStyle.icon;
+                      const thumbnailSizes = {
+                        small: { aspect: "aspect-[4/3]", box: "h-10 w-10 rounded-lg", icon: "h-5 w-5" },
+                        medium: { aspect: "aspect-[4/3]", box: "h-16 w-16 rounded-xl border-2", icon: "h-8 w-8" },
+                        large: { aspect: "aspect-[16/9]", box: "h-20 w-20 rounded-xl border-2", icon: "h-10 w-10" },
+                      };
+                      const sizes = thumbnailSizes[viewSettings.cardSize];
                       return (
                         <div
                           className={cn(
-                            "aspect-[4/3] flex items-center justify-center border-b",
+                            "flex items-center justify-center border-b",
+                            sizes.aspect,
                             fileStyle.bg
                           )}
                         >
-                          <div
-                            className={cn(
-                              "h-16 w-16 rounded-xl border-2 flex items-center justify-center",
-                              fileStyle.bg,
-                              fileStyle.border
-                            )}
-                          >
-                            <IconComponent
-                              className={cn("h-8 w-8", fileStyle.color)}
-                            />
-                          </div>
+                          {viewSettings.showPageIcon && (
+                            <div
+                              className={cn(
+                                "flex items-center justify-center",
+                                sizes.box,
+                                fileStyle.bg,
+                                fileStyle.border
+                              )}
+                            >
+                              <IconComponent
+                                className={cn(sizes.icon, fileStyle.color)}
+                              />
+                            </div>
+                          )}
                         </div>
                       );
                     })()}
@@ -1573,10 +1852,20 @@ export function DocumentsView({
                   </motion.div>
                 ))}
               </motion.div>
+            ) : viewMode === "board" ? (
+              /* Board View */
+              <DocumentsBoardView
+                documents={filteredDocuments}
+                selectedDocs={selectedDocs}
+                onSelectDoc={handleSelectDoc}
+                cardSize={viewSettings.cardSize}
+                fitImage={viewSettings.fitImage}
+                showPageIcon={viewSettings.showPageIcon}
+              />
             ) : (
-              /* List View */
+              /* Table View */
               <motion.div
-                key="list"
+                key="table"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
@@ -1590,7 +1879,7 @@ export function DocumentsView({
                     <TableHeader>
                       <TableRow className="bg-muted/30">
                         <TableHead
-                          className="relative group"
+                          className="relative group px-2"
                           style={{
                             width: columnWidths.checkbox,
                             minWidth: columnWidths.checkbox,
@@ -1611,7 +1900,7 @@ export function DocumentsView({
                           />
                         </TableHead>
                         <TableHead
-                          className="relative group px-1"
+                          className="relative group px-2"
                           style={{ width: columnWidths.fileName, minWidth: 80 }}
                         >
                           File Name
@@ -1623,7 +1912,7 @@ export function DocumentsView({
                           />
                         </TableHead>
                         <TableHead
-                          className="relative group"
+                          className="relative group px-2"
                           style={{
                             width: columnWidths.investors,
                             minWidth: 80,
@@ -1638,7 +1927,7 @@ export function DocumentsView({
                           />
                         </TableHead>
                         <TableHead
-                          className="relative group"
+                          className="relative group px-2"
                           style={{ width: columnWidths.tags, minWidth: 80 }}
                         >
                           Tags
@@ -1650,7 +1939,7 @@ export function DocumentsView({
                           />
                         </TableHead>
                         <TableHead
-                          className="relative group"
+                          className="relative group px-2"
                           style={{ width: columnWidths.size, minWidth: 60 }}
                         >
                           Size
@@ -1662,6 +1951,7 @@ export function DocumentsView({
                           />
                         </TableHead>
                         <TableHead
+                          className="px-2"
                           style={{
                             width: columnWidths.actions,
                             minWidth: columnWidths.actions,
@@ -1680,6 +1970,7 @@ export function DocumentsView({
                           onClick={() => handleSelectDoc(doc.id)}
                         >
                           <TableCell
+                            className="px-2"
                             onClick={(e) => e.stopPropagation()}
                             style={{ width: columnWidths.checkbox }}
                           >
@@ -1689,11 +1980,11 @@ export function DocumentsView({
                             />
                           </TableCell>
                           <TableCell
-                            className="px-1"
+                            className="px-2 pr-2"
                             onClick={(e) => e.stopPropagation()}
                             style={{ width: columnWidths.fileName }}
                           >
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 w-full">
                               {(() => {
                                 const fileStyle = getFileIcon(
                                   doc.name,
@@ -1758,7 +2049,7 @@ export function DocumentsView({
                                   )}
                                   onClick={() => canUpload && startEditing(doc)}
                                 >
-                                  <span className="font-medium truncate max-w-[250px]">
+                                  <span className="font-medium truncate flex-1">
                                     {doc.name}
                                   </span>
                                   {canUpload && (
@@ -1770,6 +2061,7 @@ export function DocumentsView({
                           </TableCell>
                           {/* Investors column */}
                           <TableCell
+                            className="px-2 pr-4 overflow-hidden"
                             onClick={(e) => e.stopPropagation()}
                             style={{ width: columnWidths.investors }}
                           >
@@ -1788,7 +2080,7 @@ export function DocumentsView({
                                 <PopoverTrigger asChild>
                                   <button
                                     className={cn(
-                                      "flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors group cursor-pointer min-w-[100px]",
+                                      "flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors group cursor-pointer w-full max-w-full",
                                       doc.investors.length === 0 && "italic"
                                     )}
                                   >
@@ -1799,7 +2091,7 @@ export function DocumentsView({
                                         ) : (
                                           <User className="h-3.5 w-3.5 shrink-0" />
                                         )}
-                                        <span className="truncate max-w-[100px]">
+                                        <span className="truncate">
                                           {doc.investors[0].name}
                                         </span>
                                         {doc.investors.length > 1 && (
@@ -1930,15 +2222,15 @@ export function DocumentsView({
                                 </PopoverContent>
                               </Popover>
                             ) : (
-                              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-1.5 text-sm text-muted-foreground w-full max-w-full overflow-hidden">
                                 {doc.investors.length > 0 ? (
                                   <>
                                     {doc.investors[0].type === "org" ? (
-                                      <Building2 className="h-3.5 w-3.5" />
+                                      <Building2 className="h-3.5 w-3.5 shrink-0" />
                                     ) : (
-                                      <User className="h-3.5 w-3.5" />
+                                      <User className="h-3.5 w-3.5 shrink-0" />
                                     )}
-                                    <span className="truncate max-w-[120px]">
+                                    <span className="truncate">
                                       {doc.investors[0].name}
                                     </span>
                                     {doc.investors.length > 1 && (
@@ -1953,11 +2245,11 @@ export function DocumentsView({
                                 ) : (
                                   <>
                                     {doc.source === "organization" ? (
-                                      <Building2 className="h-3.5 w-3.5" />
+                                      <Building2 className="h-3.5 w-3.5 shrink-0" />
                                     ) : (
-                                      <User className="h-3.5 w-3.5" />
+                                      <User className="h-3.5 w-3.5 shrink-0" />
                                     )}
-                                    <span className="truncate max-w-[120px]">
+                                    <span className="truncate">
                                       {doc.sourceName}
                                     </span>
                                   </>
@@ -1966,7 +2258,10 @@ export function DocumentsView({
                             )}
                           </TableCell>
                           {/* Tags column */}
-                          <TableCell style={{ width: columnWidths.tags }}>
+                          <TableCell
+                            className="px-2"
+                            style={{ width: columnWidths.tags }}
+                          >
                             <div className="flex flex-wrap gap-1">
                               {doc.tags.slice(0, 2).map((tag) => (
                                 <Badge
@@ -1988,13 +2283,13 @@ export function DocumentsView({
                             </div>
                           </TableCell>
                           <TableCell
-                            className="text-muted-foreground"
+                            className="px-2 text-muted-foreground"
                             style={{ width: columnWidths.size }}
                           >
                             {formatFileSize(doc.size)}
                           </TableCell>
                           <TableCell
-                            className="text-right"
+                            className="px-2 text-right"
                             style={{ width: columnWidths.actions }}
                           >
                             <DropdownMenu>
@@ -2051,62 +2346,80 @@ export function DocumentsView({
             )}
           </AnimatePresence>
 
-          {/* Selection Action Bar */}
+          {/* Selection Action Bar - Dice UI Style */}
           <AnimatePresence>
             {selectedDocs.size > 0 && (
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                className="fixed bottom-6 inset-x-0 z-50 flex justify-center pointer-events-none"
+                role="toolbar"
+                aria-label="Selection actions"
               >
-                <div className="flex items-center gap-3 bg-background border rounded-full shadow-lg px-6 py-3">
-                  <span className="text-sm font-medium">
-                    {selectedDocs.size} selected
-                  </span>
-                  <div className="h-4 w-px bg-border" />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedDocs(new Set())}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    Deselect
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleBulkDownload}
-                    disabled={isDownloading || isBulkDeleting}
-                    className="rounded-full gap-2"
-                  >
-                    {isDownloading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Download className="h-4 w-4" />
-                        Download
-                      </>
-                    )}
-                  </Button>
-                  {canUpload && (
+                <div className="flex items-center gap-1 bg-background/95 backdrop-blur-sm border border-border/50 rounded-lg shadow-lg px-2 py-1.5 pointer-events-auto">
+                  {/* Selection Section */}
+                  <div className="flex items-center gap-2 px-2 py-1">
+                    <span className="text-sm font-medium text-foreground">
+                      {selectedDocs.size} selected
+                    </span>
+                    <div 
+                      role="separator" 
+                      aria-orientation="vertical" 
+                      className="h-4 w-px bg-border ml-0.5"
+                    />
                     <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={handleBulkDelete}
-                      disabled={isDownloading || isBulkDeleting}
-                      className="rounded-full gap-2"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSelectedDocs(new Set())}
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      aria-label="Clear selection"
                     >
-                      {isBulkDeleting ? (
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Main Separator */}
+                  <div 
+                    role="separator" 
+                    aria-orientation="vertical" 
+                    className="h-6 w-px bg-border"
+                  />
+
+                  {/* Action Group */}
+                  <div className="flex items-center gap-0.5 px-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleBulkDownload}
+                      disabled={isDownloading || isBulkDeleting}
+                      className="gap-2 h-8 px-3 text-foreground hover:bg-muted/50"
+                    >
+                      {isDownloading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <>
-                          <Trash2 className="h-4 w-4" />
-                          Delete
-                        </>
+                        <Download className="h-4 w-4" />
                       )}
+                      <span className="text-sm">Download</span>
                     </Button>
-                  )}
+                    {canUpload && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleBulkDelete}
+                        disabled={isDownloading || isBulkDeleting}
+                        className="gap-2 h-8 px-3 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        {isBulkDeleting ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                        <span className="text-sm">Delete</span>
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             )}

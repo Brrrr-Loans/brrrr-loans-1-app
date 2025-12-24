@@ -231,8 +231,8 @@ The **sidebar team-switcher** (org switcher) acts as a **data isolation layer**.
 
 | Component            | Security Measure                                       |
 | -------------------- | ------------------------------------------------------ |
-| Clerk Authentication | JWT tokens with custom Supabase template               |
-| Supabase Client      | Custom fetch wrapper adds Bearer token to all requests |
+| Clerk Authentication | Native Supabase third-party auth integration           |
+| Supabase Client      | accessToken() callback for automatic token management  |
 | Session Storage      | Disabled (`storage: null`) - Clerk manages sessions    |
 | Organization Context | Reads from Clerk's `useOrganization()` hook            |
 

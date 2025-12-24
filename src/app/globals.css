@@ -323,15 +323,6 @@
   letter-spacing: 0.05em !important;
 }
 
-/* Footer NavUser button hover styling - high specificity, must come first */
-[data-sidebar="footer"] [data-sidebar="menu-button"]:hover {
-  background-color: hsl(
-    240deg 4.8% 85%
-  ) !important; /* Darker hover in light mode */
-
-  border-radius: 0.75rem !important; /* rounded-lg for more rounded corners */
-}
-
 /* Ask AI button specific styling - must come first for specificity */
 [data-sidebar="menu-button"].bg-primary {
   color: hsl(var(--primary-foreground)) !important;
@@ -407,6 +398,30 @@
 
 [data-sidebar="menu-sub-button"][data-active="true"] {
   color: hsl(var(--sidebar-foreground)) !important;
+}
+
+/* Kanban board column scrollbars */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.5);
 }
 
 /* Print styles - hide navigation, buttons, and non-essential elements */

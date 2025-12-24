@@ -3,7 +3,7 @@
 import Link from "next/link";
 import React from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Plug, ExternalLink, Palette, Settings2 } from "lucide-react";
+import { Plug, ExternalLink, Palette, Settings2, Globe } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -34,13 +34,14 @@ export function PlatformSettingsPopover({
   // Check if integration routes are active
   const isBrexActive = pathname.startsWith("/platform-settings/integrations/brex");
   const isOFBActive = pathname.startsWith("/platform-settings/integrations/ofb");
+  const isGrapesJSActive = pathname.startsWith("/platform-settings/integrations/grapesjs");
 
   // Auto-open popover if any integration route is active
   React.useEffect(() => {
-    if ((isBrexActive || isOFBActive) && !isControlled) {
+    if ((isBrexActive || isOFBActive || isGrapesJSActive) && !isControlled) {
       setInternalOpen(true);
     }
-  }, [isBrexActive, isOFBActive, isControlled]);
+  }, [isBrexActive, isOFBActive, isGrapesJSActive, isControlled]);
 
   const handleBrexClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -53,6 +54,13 @@ export function PlatformSettingsPopover({
     e.preventDefault();
     e.stopPropagation();
     router.push("/platform-settings/integrations/ofb");
+    setPopoverOpen(false);
+  };
+
+  const handleGrapesJSClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    router.push("/platform-settings/integrations/grapesjs");
     setPopoverOpen(false);
   };
 
@@ -111,6 +119,18 @@ export function PlatformSettingsPopover({
               >
                 <Plug className="h-4 w-4 text-muted-foreground" />
                 <span>Ocean First</span>
+              </Link>
+              <Link
+                href="/platform-settings/integrations/grapesjs"
+                onClick={handleGrapesJSClick}
+                className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
+                  isGrapesJSActive
+                    ? "bg-accent text-accent-foreground"
+                    : "text-foreground"
+                }`}
+              >
+                <Globe className="h-4 w-4 text-muted-foreground" />
+                <span>GrapesJS Pages</span>
               </Link>
             </div>
 

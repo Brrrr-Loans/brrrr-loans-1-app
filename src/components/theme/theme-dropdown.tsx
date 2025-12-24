@@ -13,7 +13,25 @@ import {
 import { Button } from "@/components/ui";
 
 export function ThemeDropdown() {
+  const [mounted, setMounted] = React.useState(false);
   const { theme, setTheme } = useTheme();
+
+  // Only render dropdown after mounting to prevent hydration mismatch
+  // (next-themes returns undefined on server, causing Radix ID differences)
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Render a placeholder button during SSR to prevent layout shift
+  if (!mounted) {
+    return (
+      <Button variant="outline" size="icon" className="h-8 w-8" disabled>
+        <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+        <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+        <span className="sr-only">Toggle theme</span>
+      </Button>
+    );
+  }
 
   return (
     <DropdownMenu>

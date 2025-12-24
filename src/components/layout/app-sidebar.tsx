@@ -38,7 +38,6 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarSeparator,
 } from "@/components/ui";
 
 export function AppSidebar(
@@ -149,7 +148,6 @@ export function AppSidebar(
         <NavMain items={mainNavItems} />
           <NavBalanceSheet items={balanceSheetItems} />
       </SidebarContent>
-      <SidebarSeparator />
       <SidebarFooter className="mt-auto border-t border-sidebar-border pt-2">
         <NavUser user={userData} />
       </SidebarFooter>
