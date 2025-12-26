@@ -162,7 +162,7 @@ export async function GET() {
     // Get contact info
     const { data: contact, error: contactError } = await supabase
       .from("contact")
-      .select("id, contact_type, contact_types")
+      .select("id, contact_types")
       .eq("user_id", confirmedProfileForContact.id)
       .single();
 
@@ -244,12 +244,14 @@ export async function GET() {
     const confirmedContact = contact!;
 
     // Determine primary contact type
-    const contactTypes = confirmedContact.contact_types || [];
+    const contactData = confirmedContact as any;
+    const contactTypes = contactData.contact_types;
     const primaryContactType =
-      confirmedContact.contact_type ||
-      ((contactTypes.length > 0
-        ? contactTypes[0]
-        : "Balance Sheet Investor") as ContactType);
+      Array.isArray(contactTypes) && contactTypes.length > 0
+        ? (contactTypes[0] as ContactType)
+        : typeof contactTypes === "string"
+          ? (contactTypes as ContactType)
+          : ("Balance Sheet Investor" as ContactType);
 
     // Also check line 200 for profile.id usage
     if (!profile) {

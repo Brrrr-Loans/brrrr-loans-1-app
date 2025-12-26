@@ -3,7 +3,7 @@
  * @param data - Array of objects to export
  * @param filename - Name of the CSV file
  */
-export function exportToCSV<T extends Record<string, any>>(
+export function exportToCSV<T extends Record<string, unknown>>(
   data: T[],
   filename: string
 ): void {
@@ -33,7 +33,11 @@ export function exportToCSV<T extends Record<string, any>>(
       stringValue = stringValue.replace(/"/g, '""');
 
       // Wrap in quotes if contains comma, newline, or quote
-      if (stringValue.includes(",") || stringValue.includes("\n") || stringValue.includes('"')) {
+      if (
+        stringValue.includes(",") ||
+        stringValue.includes("\n") ||
+        stringValue.includes('"')
+      ) {
         return `"${stringValue}"`;
       }
 
@@ -58,20 +62,26 @@ export function exportToCSV<T extends Record<string, any>>(
   window.URL.revokeObjectURL(url);
 }
 
+import type { TransactionWithDetails } from "@/types/transactions";
+
 /**
  * Format transaction data for CSV export
  */
-export function formatTransactionsForExport(transactions: any[]): any[] {
+export function formatTransactionsForExport(
+  transactions: TransactionWithDetails[]
+): Record<string, string | number>[] {
   return transactions.map((tx) => ({
     Date: tx.transaction_date,
-    From: tx.investors?.[0]?.auth_clerk_users?.full_name || 
-          tx.investors?.[0]?.auth_clerk_orgs?.clerk_org_name || 
-          (Number(tx.transaction_amount) > 0 ? "Brrrr Loans 1 LLC" : "Unknown"),
-    To: Number(tx.transaction_amount) > 0
-      ? tx.investors?.[0]?.auth_clerk_users?.full_name || 
-        tx.investors?.[0]?.auth_clerk_orgs?.clerk_org_name || 
-        "Unknown"
-      : "Brrrr Loans 1 LLC",
+    From:
+      tx.investors?.[0]?.auth_clerk_users?.full_name ||
+      tx.investors?.[0]?.auth_clerk_orgs?.clerk_org_name ||
+      (Number(tx.transaction_amount) > 0 ? "Brrrr Loans 1 LLC" : "Unknown"),
+    To:
+      Number(tx.transaction_amount) > 0
+        ? tx.investors?.[0]?.auth_clerk_users?.full_name ||
+          tx.investors?.[0]?.auth_clerk_orgs?.clerk_org_name ||
+          "Unknown"
+        : "Brrrr Loans 1 LLC",
     "Transaction Type": tx.transaction_method?.toUpperCase() || "N/A",
     Status: tx.transaction_status || "N/A",
     Amount: Math.abs(Number(tx.transaction_amount) || 0).toFixed(2),
@@ -79,4 +89,3 @@ export function formatTransactionsForExport(transactions: any[]): any[] {
     Notes: tx.external_memo || "",
   }));
 }
-

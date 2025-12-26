@@ -27,7 +27,7 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
         contact_id,
         contact:contact_id (
           id,
-          contact_type,
+          contact_types,
           email_address
         )
       `
@@ -40,7 +40,15 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
       return null;
     }
 
-    const contactType = userProfile.contact.contact_type as ContactType;
+    const contactTypes = (userProfile.contact as any).contact_types;
+    let contactType: ContactType = "Balance Sheet Investor";
+
+    if (Array.isArray(contactTypes) && contactTypes.length > 0) {
+      contactType = contactTypes[0] as ContactType;
+    } else if (typeof contactTypes === "string") {
+      contactType = contactTypes as ContactType;
+    }
+
     const role = userProfile.role as UserRole;
 
     // Define permission rules based on contact type and role

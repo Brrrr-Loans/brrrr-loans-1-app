@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useTheme } from "next-themes";
 import "@grapesjs/studio-sdk/style";
 
 // Dynamically import the StudioEditor to avoid SSR issues
@@ -14,11 +15,14 @@ interface GrapesJSEditorProps {
 }
 
 export function GrapesJSEditor({ licenseKey }: GrapesJSEditorProps) {
+  const { resolvedTheme } = useTheme();
+  
   return (
     <div className="h-[calc(100vh-200px)] w-full rounded-lg border border-border overflow-hidden">
       <StudioEditor
         options={{
           licenseKey,
+          theme: resolvedTheme === "dark" ? "dark" : "light",
           project: {
             type: "web",
             default: {

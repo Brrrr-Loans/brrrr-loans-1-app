@@ -1,13 +1,24 @@
-import type { HTMLAttributes } from "react";
-
 import type { UIMessage } from "ai";
+import type { HTMLAttributes } from "react";
 import { Streamdown } from "streamdown";
 
 import { cn } from "@/lib/utils";
 
+export type ThemeData = {
+  title?: string;
+  concept?: string;
+  light?: Record<string, string>;
+  dark?: Record<string, string>;
+  fonts?: { sans: string; mono: string };
+  radius?: Record<string, string>;
+};
+
 export type MessageProps = HTMLAttributes<HTMLDivElement> & {
   message: UIMessage;
-  onApplyTheme?: (theme: { light: any; dark: any }) => void;
+  onApplyTheme?: (theme: {
+    light: Record<string, string>;
+    dark: Record<string, string>;
+  }) => void;
 };
 
 export const Message = ({
@@ -21,21 +32,22 @@ export const Message = ({
       className={cn(
         "flex w-full gap-2 py-2",
         message.role === "user" ? "justify-end" : "justify-start",
-        className,
+        className
       )}
       {...props}
     >
       <div
         className={cn(
           "flex flex-col gap-3 max-w-[85%]",
-          message.role === "user" ? "items-end" : "items-start",
+          message.role === "user" ? "items-end" : "items-start"
         )}
       >
         {message.parts?.map((part, index) => {
           // Handle text parts
           if (part.type === "text") {
             return (
-              <Streamdown className="not-prose" key={index}>
+              // biome-ignore lint/suspicious/noArrayIndexKey: Message parts are stable and append-only
+              <Streamdown className="not-prose" key={`${index}-text`}>
                 {part.text}
               </Streamdown>
             );
@@ -47,12 +59,12 @@ export const Message = ({
               case "input-streaming":
               case "input-available": {
                 // Show live-building preview with partial data
-                const input = part.input as any;
+                const input = part.input as ThemeData;
                 const isStreaming = part.state === "input-streaming";
 
                 return (
                   <div
-                    key={index}
+                    key={`${index}-${part.type}-${part.state}`}
                     className="rounded-lg border border-border bg-card p-3 w-full shadow-sm"
                   >
                     {/* Theme Header - Compact */}
@@ -93,7 +105,7 @@ export const Message = ({
                             Object.entries(input.light)
                               .filter(([key]) => key !== "shadow")
                               .slice(0, 32)
-                              .map(([key, value]: [string, any]) => (
+                              .map(([key, value]: [string, string]) => (
                                 <div
                                   key={key}
                                   className="h-3 w-full rounded-[2px] animate-in fade-in duration-200"
@@ -119,7 +131,7 @@ export const Message = ({
                             Object.entries(input.dark)
                               .filter(([key]) => key !== "shadow")
                               .slice(0, 32)
-                              .map(([key, value]: [string, any]) => (
+                              .map(([key, value]: [string, string]) => (
                                 <div
                                   key={key}
                                   className="h-3 w-full rounded-[2px] animate-in fade-in duration-200"
@@ -147,7 +159,7 @@ export const Message = ({
               }
 
               case "output-available": {
-                const result = part.output as any;
+                const result = part.output as ThemeData;
 
                 if (!result?.light || !result?.dark) {
                   return null;
@@ -155,7 +167,7 @@ export const Message = ({
 
                 return (
                   <div
-                    key={index}
+                    key={`${index}-${part.type}-${part.state}`}
                     className="rounded-lg border-2 border-primary/20 bg-card p-3 w-full shadow-md"
                   >
                     {/* Theme Header - Compact */}
@@ -185,7 +197,7 @@ export const Message = ({
                           {Object.entries(result.light)
                             .filter(([key]) => key !== "shadow")
                             .slice(0, 32)
-                            .map(([key, value]: [string, any]) => (
+                            .map(([key, value]: [string, string]) => (
                               <div
                                 key={key}
                                 className="h-3 w-full rounded-[2px]"
@@ -205,7 +217,7 @@ export const Message = ({
                           {Object.entries(result.dark)
                             .filter(([key]) => key !== "shadow")
                             .slice(0, 32)
-                            .map(([key, value]: [string, any]) => (
+                            .map(([key, value]: [string, string]) => (
                               <div
                                 key={key}
                                 className="h-3 w-full rounded-[2px]"
@@ -230,8 +242,8 @@ export const Message = ({
                         type="button"
                         onClick={() =>
                           onApplyTheme?.({
-                            light: result.light,
-                            dark: result.dark,
+                            light: result.light as Record<string, string>,
+                            dark: result.dark as Record<string, string>,
                           })
                         }
                         className="w-full bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
@@ -246,7 +258,7 @@ export const Message = ({
               case "output-error":
                 return (
                   <div
-                    key={index}
+                    key={`${index}-${part.type}-${part.state}`}
                     className="rounded-lg border border-destructive bg-destructive/10 px-3 py-2 text-xs"
                   >
                     <div className="flex items-center gap-2">
