@@ -26,7 +26,7 @@ function TransactionsPageContent() {
     setMounted(true);
   }, []);
 
-  const activeTab = mounted ? (searchParams.get("tab") || "all") : "all";
+  const activeTab = mounted ? searchParams.get("tab") || "all" : "all";
 
   // Control sheet via URL query param for shareable state
   const isCreateSheetOpen = mounted && searchParams.get("create") === "true";
@@ -147,7 +147,7 @@ export default function TransactionsPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center">
+        <div className="flex items-center justify-center py-12">
           Loading...
         </div>
       }

@@ -1,6 +1,6 @@
-// middleware.ts
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 
 // Define which routes require authentication
 const isProtectedRoute = createRouteMatcher([
@@ -20,12 +20,8 @@ const isProtectedRoute = createRouteMatcher([
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {
   // Allow specific API routes to be public (webhooks, sync operations)
-  const publicApiRoutes = [
-    "/api/webhooks",
-    "/api/sync-clerk",
-  ];
+  const publicApiRoutes = ["/api/webhooks", "/api/sync-clerk"];
   if (publicApiRoutes.some((route) => req.nextUrl.pathname.startsWith(route))) {
-    console.log("🔓 Allowing public API route:", req.nextUrl.pathname);
     return NextResponse.next();
   }
 
@@ -33,21 +29,11 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   if (isProtectedRoute(req)) {
     const { userId } = await auth();
 
-    console.log("🔒 Middleware check:", {
-      path: req.nextUrl.pathname,
-      isProtected: isProtectedRoute(req),
-      userId: userId ? "present" : "missing",
-      fullUserId: userId,
-    });
-
     if (!userId) {
-      console.log("❌ No userId found, redirecting to sign-in");
       // Redirect to sign-in page for protected routes
       const signInUrl = new URL("/sign-in", req.url);
       signInUrl.searchParams.set("redirect_url", req.url);
       return NextResponse.redirect(signInUrl);
-    } else {
-      console.log("✅ User authenticated, allowing access");
     }
   }
 });

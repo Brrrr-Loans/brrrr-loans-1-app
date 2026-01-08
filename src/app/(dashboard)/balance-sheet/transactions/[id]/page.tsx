@@ -20,7 +20,7 @@ export default function TransactionDetailPage() {
 
   if (!transactionId || isNaN(transactionId)) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <p className="text-lg font-semibold">Invalid Transaction ID</p>
           <p className="text-sm text-muted-foreground mt-2">

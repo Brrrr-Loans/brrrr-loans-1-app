@@ -1,11 +1,10 @@
 import type { ReactNode } from "react";
 import type { Metadata } from "next";
-import { ClerkProvider, ClerkLoading, ClerkFailed } from "@clerk/nextjs";
+import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { SonnerToaster as Toaster } from "@/components/ui/index";
 import { ThemeFavicon } from "@/components/layout/theme-favicon";
 import { LyteNyteLicenseActivator } from "@/components/lytenyte-license-activator";
-import { ClerkFailedFallback } from "@/components/auth/clerk-failed-fallback";
 import "./globals.css";
 import { Geist, Geist_Mono } from "next/font/google";
 import { RootLayoutClient } from "@/components/layout/root-layout-client";
@@ -35,10 +34,23 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <ClerkProvider
+      dynamic
       appearance={{
+        variables: {
+          colorPrimary: "var(--primary)",
+          colorBackground: "var(--background)",
+          colorInputBackground: "var(--input)",
+          colorInputText: "var(--foreground)",
+          colorText: "var(--foreground)",
+          colorTextSecondary: "var(--muted-foreground)",
+          colorDanger: "var(--destructive)",
+        },
         elements: {
           rootBox: "w-full",
-          card: "shadow-none",
+          card: "shadow-none bg-transparent",
+          formButtonPrimary: "bg-primary text-primary-foreground hover:bg-primary/90",
+          formFieldInput: "bg-input border-border",
+          footerActionLink: "text-primary hover:text-primary/90",
         },
       }}
     >
@@ -47,19 +59,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
           suppressHydrationWarning
         >
-          <ClerkLoading>
-            <div className="flex min-h-screen items-center justify-center">
-              <div className="text-center">
-                <div className="mb-4 text-lg font-semibold">Loading...</div>
-                <div className="text-sm text-muted-foreground">
-                  Initializing authentication
-                </div>
-              </div>
-            </div>
-          </ClerkLoading>
-          <ClerkFailed>
-            <ClerkFailedFallback />
-          </ClerkFailed>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"

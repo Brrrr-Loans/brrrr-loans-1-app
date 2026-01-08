@@ -150,8 +150,11 @@
   * {
     @apply border-border;
   }
+  html,
   body {
     @apply bg-background text-foreground;
+    overflow: hidden;
+    height: 100%;
   }
 
   /* Ensure the main page has a slightly different background for inset contrast */
