@@ -2,39 +2,29 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-// Define which routes require authentication
-const isProtectedRoute = createRouteMatcher([
-  "/dashboard(.*)",
-  "/balance-sheet/investor-portfolio/deals(.*)",
-  "/balance-sheet(.*)",
-  "/platform-settings(.*)",
-  "/api/auth/permissions(.*)",
-  "/api/deals(.*)",
-  "/api/distributions(.*)",
-  "/api/documents(.*)",
-  "/api/investor-summary(.*)",
-  "/api/storage(.*)",
-  "/api/user-workflows(.*)",
-  "/api/brex(.*)",
+// Define public routes - only authentication flow pages and public API endpoints
+const isPublicRoute = createRouteMatcher([
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  // Public API routes (webhooks, external integrations)
+  "/api/webhooks(.*)",
+  "/api/sync-clerk(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req: NextRequest) => {
-  // Allow specific API routes to be public (webhooks, sync operations)
-  const publicApiRoutes = ["/api/webhooks", "/api/sync-clerk"];
-  if (publicApiRoutes.some((route) => req.nextUrl.pathname.startsWith(route))) {
+  // Allow public routes without authentication
+  if (isPublicRoute(req)) {
     return NextResponse.next();
   }
 
-  // Protect routes that require authentication
-  if (isProtectedRoute(req)) {
-    const { userId } = await auth();
+  // All other routes require authentication
+  const { userId } = await auth();
 
-    if (!userId) {
-      // Redirect to sign-in page for protected routes
-      const signInUrl = new URL("/sign-in", req.url);
-      signInUrl.searchParams.set("redirect_url", req.url);
-      return NextResponse.redirect(signInUrl);
-    }
+  if (!userId) {
+    // Redirect to sign-in page for protected routes
+    const signInUrl = new URL("/sign-in", req.url);
+    signInUrl.searchParams.set("redirect_url", req.url);
+    return NextResponse.redirect(signInUrl);
   }
 });
 

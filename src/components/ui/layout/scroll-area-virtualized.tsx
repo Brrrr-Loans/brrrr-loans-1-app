@@ -3,9 +3,9 @@
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 import * as React from "react";
 
-import { ScrollBar } from "@/components/ui";
-import { Separator } from "@/components/ui";
-import { Virtualized, VirtualizedVirtualizer } from "@/components/ui";
+import { ScrollBar } from "./scroll-area";
+import { Separator } from "./separator";
+import { Virtualized, VirtualizedVirtualizer } from "./virtualized";
 
 const tags = Array.from({ length: 10_000 }).map(
   (_, index, array) => `v1.2.0-beta.${array.length - index}`

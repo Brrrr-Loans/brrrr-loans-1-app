@@ -10,7 +10,7 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-} from "@/components/ui";
+} from "../overlays/dialog";
 
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,

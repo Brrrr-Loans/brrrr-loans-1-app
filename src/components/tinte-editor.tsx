@@ -29,10 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 import { TinteLogo } from "@/components/logos/tinte";
-import {
-  convertTinteToShadcn,
-  type TinteTheme,
-} from "@/lib/tinte-to-shadcn";
+import { convertTinteToShadcn, type TinteTheme } from "@/lib/tinte-to-shadcn";
 import { ChatInput } from "./chat-input";
 import { Message as ChatMessage } from "./chat-message";
 import { ColorInput } from "./color-input";
@@ -143,7 +140,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
   const [activeSearch, setActiveSearch] = useState("");
   const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  
+
   // Save to organization state
   const [showSaveToOrgDialog, setShowSaveToOrgDialog] = useState(false);
   const [saveToOrgName, setSaveToOrgName] = useState("");
@@ -233,7 +230,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
         styleElement.textContent = `:root {\n${lightTokens}\n}\n\n.dark {\n${darkTokens}\n}`;
       }, 100);
     },
-    [onChange, convertToHex],
+    [onChange, convertToHex]
   );
 
   // Detect color format
@@ -246,7 +243,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
       if (trimmed.startsWith("hsl(")) return "hsl";
       return "unknown";
     },
-    [],
+    []
   );
 
   // Load theme from DOM CSS variables
@@ -306,7 +303,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
     try {
       const searchParam = search ? `&search=${encodeURIComponent(search)}` : "";
       const response = await fetch(
-        `https://www.tinte.dev/api/themes/public?limit=20&page=${page}${searchParam}`,
+        `https://www.tinte.dev/api/themes/public?limit=20&page=${page}${searchParam}`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch themes from Tinte");
@@ -319,7 +316,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
     } catch (error) {
       console.error("Error fetching Tinte themes:", error);
       setTinteError(
-        error instanceof Error ? error.message : "Failed to load themes",
+        error instanceof Error ? error.message : "Failed to load themes"
       );
     } finally {
       setLoadingTinteThemes(false);
@@ -364,7 +361,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
         setHasUnsavedChanges(true);
       }
     },
-    [onChange, convertToHex],
+    [onChange, convertToHex]
   );
 
   // Initialize theme
@@ -409,7 +406,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
       // Mark as unsaved
       setHasUnsavedChanges(true);
     },
-    [mode, onChange],
+    [mode, onChange]
   );
 
   // Sync mode with DOM changes (controlled by next-themes)
@@ -456,7 +453,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
         if (rootMatch) {
           const rootContent = rootMatch[1];
           const variableMatches = rootContent.matchAll(
-            /--([^:]+):\s*([^;]+);/g,
+            /--([^:]+):\s*([^;]+);/g
           );
           for (const match of variableMatches) {
             const key = match[1].trim();
@@ -470,7 +467,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
         if (darkMatch) {
           const darkContent = darkMatch[1];
           const variableMatches = darkContent.matchAll(
-            /--([^:]+):\s*([^;]+);/g,
+            /--([^:]+):\s*([^;]+);/g
           );
           for (const match of variableMatches) {
             const key = match[1].trim();
@@ -485,7 +482,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
         console.error("Failed to parse CSS:", error);
       }
     },
-    [onChange],
+    [onChange]
   );
 
   // Update raw CSS when theme changes
@@ -543,9 +540,12 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
 
       setSaveStatus("success");
       setHasUnsavedChanges(false);
-      toast.success("Theme applied to site! Use 'Saved Themes' in settings to save permanently.", {
-        duration: 4000,
-      });
+      toast.success(
+        "Theme applied to site! Use 'Saved Themes' in settings to save permanently.",
+        {
+          duration: 4000,
+        }
+      );
       setTimeout(() => setSaveStatus("idle"), 2000);
     } catch (error) {
       console.error("Error applying theme to DOM:", error);
@@ -571,11 +571,11 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
 
     try {
       const currentTheme = themeRef.current;
-      
+
       // Filter to only editable tokens
       const lightTokens: Record<string, string> = {};
       const darkTokens: Record<string, string> = {};
-      
+
       for (const token of EDITABLE_THEME_TOKENS) {
         if (currentTheme.light[token]) {
           lightTokens[token] = convertToHex(currentTheme.light[token]);
@@ -609,10 +609,16 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
     } finally {
       setIsSavingToOrg(false);
     }
-  }, [saveToOrgName, saveToOrgAsDefault, internalOrgId, saveNewTheme, convertToHex]);
+  }, [
+    saveToOrgName,
+    saveToOrgAsDefault,
+    internalOrgId,
+    saveNewTheme,
+    convertToHex,
+  ]);
 
   const _availableTokens = TOKEN_GROUPS.flatMap((group) =>
-    group.tokens.filter((token) => theme[mode]?.[token] !== undefined),
+    group.tokens.filter((token) => theme[mode]?.[token] !== undefined)
   );
 
   return (
@@ -735,7 +741,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
                   >
                     {TOKEN_GROUPS.map((group) => {
                       const groupTokens = group.tokens.filter(
-                        (token) => theme[mode]?.[token] !== undefined,
+                        (token) => theme[mode]?.[token] !== undefined
                       );
                       if (groupTokens.length === 0) return null;
 
@@ -848,6 +854,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
                               {searchQuery && (
                                 <button
                                   type="button"
+                                  aria-label="Clear search"
                                   onClick={() => {
                                     setSearchQuery("");
                                     setActiveSearch("");
@@ -1143,10 +1150,15 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
         {showSaveToOrgDialog && (
           <div className="absolute inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center z-50 rounded-lg">
             <div className="bg-card border rounded-lg p-6 w-full max-w-sm shadow-lg">
-              <h3 className="text-lg font-semibold mb-4">Save Theme to Organization</h3>
+              <h3 className="text-lg font-semibold mb-4">
+                Save Theme to Organization
+              </h3>
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="org-theme-name" className="text-sm font-medium block mb-1.5">
+                  <label
+                    htmlFor="org-theme-name"
+                    className="text-sm font-medium block mb-1.5"
+                  >
                     Theme Name
                   </label>
                   <Input

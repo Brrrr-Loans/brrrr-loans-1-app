@@ -1,16 +1,16 @@
 "use client";
 
-import { useSignIn } from "@clerk/nextjs";
-import { useState } from "react";
-import { Button } from "@/components/ui";
-import { Checkbox } from "@/components/ui";
-import { Input } from "@/components/ui";
-import { Label } from "@/components/ui";
-import { Separator } from "@/components/ui";
 import { GitHubIcon } from "@/components/assets/github-icon";
+import { Button, Checkbox, Input, Label, Separator } from "@/components/ui";
+import { useSignIn } from "@clerk/nextjs";
 import Link from "next/link";
+import { useState } from "react";
 
-type SignInStep = "start" | "verifications" | "forgot-password" | "reset-password";
+type SignInStep =
+  | "start"
+  | "verifications"
+  | "forgot-password"
+  | "reset-password";
 
 export function SignInForm() {
   const { isLoaded, signIn, setActive } = useSignIn();
@@ -33,7 +33,9 @@ export function SignInForm() {
     );
   }
 
-  const handleOAuthSignIn = async (provider: "oauth_google" | "oauth_github") => {
+  const handleOAuthSignIn = async (
+    provider: "oauth_google" | "oauth_github"
+  ) => {
     try {
       setError("");
       await signIn?.authenticateWithRedirect({
@@ -42,7 +44,8 @@ export function SignInForm() {
         redirectUrlComplete: "/dashboard",
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "OAuth sign in failed";
+      const message =
+        err instanceof Error ? err.message : "OAuth sign in failed";
       setError(message);
     }
   };
@@ -95,7 +98,8 @@ export function SignInForm() {
         window.location.href = "/dashboard";
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Verification failed";
+      const message =
+        err instanceof Error ? err.message : "Verification failed";
       setError(message);
     } finally {
       setIsLoading(false);
@@ -116,7 +120,8 @@ export function SignInForm() {
       });
       setStep("reset-password");
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to send reset email";
+      const message =
+        err instanceof Error ? err.message : "Failed to send reset email";
       setError(message);
     } finally {
       setIsLoading(false);
@@ -147,7 +152,8 @@ export function SignInForm() {
         window.location.href = "/dashboard";
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Password reset failed";
+      const message =
+        err instanceof Error ? err.message : "Password reset failed";
       setError(message);
     } finally {
       setIsLoading(false);
@@ -159,11 +165,11 @@ export function SignInForm() {
     return (
       <div className="m-auto w-full max-w-sm space-y-6">
         {/* Header */}
-        <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-semibold">Sign in</h1>
+        <div className="space-y-2 text-left">
+          <h1 className="text-3xl font-semibold">Sign In to Repeat</h1>
           <p className="text-muted-foreground text-sm">
             The open source, enterprise-grade application for business purpose
-            lending at scale.
+            lending at scale
           </p>
         </div>
 
@@ -182,7 +188,10 @@ export function SignInForm() {
               viewBox="0 0 16 16"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
+              aria-labelledby="googleLogoTitle"
+              role="img"
             >
+              <title id="googleLogoTitle">Google logo</title>
               <g clipPath="url(#clip0_772_376)">
                 <path
                   d="M8 6.54543V9.64361H12.3054C12.1164 10.64 11.549 11.4836 10.6981 12.0509L13.2945 14.0655C14.8072 12.6692 15.68 10.6182 15.68 8.18187C15.68 7.61461 15.6291 7.0691 15.5345 6.54551L8 6.54543Z"
@@ -265,9 +274,7 @@ export function SignInForm() {
             </div>
           </div>
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
           {/* Sign-in button */}
           <Button type="submit" className="w-full" disabled={isLoading}>
@@ -305,9 +312,7 @@ export function SignInForm() {
             required
           />
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Verifying..." : "Verify"}
@@ -346,9 +351,7 @@ export function SignInForm() {
             required
           />
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Sending..." : "Send reset code"}
@@ -402,9 +405,7 @@ export function SignInForm() {
             required
           />
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Resetting..." : "Set new password"}

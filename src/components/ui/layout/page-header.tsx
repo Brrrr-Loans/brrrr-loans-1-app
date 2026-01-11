@@ -13,7 +13,7 @@ interface PageHeaderProps {
     label: string;
     content: React.ReactNode;
     href?: string; // Optional href for making tabs into links
-    icon?: LucideIcon; // Optional icon component
+    icon?: any; // Changed from LucideIcon to any to avoid serialization issues
   }>;
   defaultTab?: string;
 }
@@ -24,6 +24,8 @@ export function PageHeader({
   tabs,
   defaultTab,
 }: PageHeaderProps) {
+  
+  // Use the first tab as fallback if defaultTab is not provided or not found
   const fallbackTab = tabs[0]?.id;
   const [activeTab, setActiveTab] = useState(defaultTab || fallbackTab);
 
@@ -58,10 +60,13 @@ export function PageHeader({
                 : "border-transparent text-muted-foreground hover:border-muted-foreground/50 hover:text-foreground"
             );
 
+            // Dynamically render icon if provided
+            const TabIcon = tab.icon;
+            
             const TabContent = (
               <>
-                {tab.icon && (
-                  <tab.icon className={cn("h-4 w-4", isActive ? "" : "")} />
+                {TabIcon && (
+                  <TabIcon className={cn("h-4 w-4", isActive ? "" : "")} />
                 )}
                 {tab.label}
               </>

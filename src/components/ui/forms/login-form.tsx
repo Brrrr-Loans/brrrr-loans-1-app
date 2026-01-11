@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui";
-import { Input } from "@/components/ui";
-import { Label } from "@/components/ui";
+import { Button } from "./button";
+import { Input } from "./input";
+import { Label } from "./label";
 
 export function LoginForm({
   className,

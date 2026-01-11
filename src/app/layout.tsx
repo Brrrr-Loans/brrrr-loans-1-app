@@ -8,6 +8,7 @@ import { LyteNyteLicenseActivator } from "@/components/lytenyte-license-activato
 import "./globals.css";
 import { Geist, Geist_Mono } from "next/font/google";
 import { RootLayoutClient } from "@/components/layout/root-layout-client";
+import Script from "next/script";
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -55,6 +56,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       }}
     >
       <html lang="en" suppressHydrationWarning>
+        <head>
+          <Script
+            src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}&libraries=places`}
+            strategy="beforeInteractive"
+          />
+        </head>
         <body
           className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
           suppressHydrationWarning

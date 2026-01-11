@@ -8,23 +8,23 @@ import { PanelLeft } from "lucide-react";
 
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui";
-import { Input } from "@/components/ui";
-import { Separator } from "@/components/ui";
+import { Button } from "../forms/button";
+import { Input } from "../forms/input";
+import { Separator } from "./separator";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui";
-import { Skeleton } from "@/components/ui";
+} from "../overlays/sheet";
+import { Skeleton } from "../feedback/skeleton";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui";
+} from "../overlays/tooltip";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;

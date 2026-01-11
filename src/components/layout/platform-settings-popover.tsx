@@ -31,17 +31,10 @@ export function PlatformSettingsPopover({
   const popoverOpen = isControlled ? open : internalOpen;
   const setPopoverOpen = isControlled ? onOpenChange || (() => {}) : setInternalOpen;
 
-  // Check if integration routes are active
+  // Check if integration routes are active (for highlighting active menu items)
   const isBrexActive = pathname.startsWith("/platform-settings/integrations/brex");
   const isOFBActive = pathname.startsWith("/platform-settings/integrations/ofb");
-  const isGrapesJSActive = pathname.startsWith("/platform-settings/integrations/grapesjs");
-
-  // Auto-open popover if any integration route is active
-  React.useEffect(() => {
-    if ((isBrexActive || isOFBActive || isGrapesJSActive) && !isControlled) {
-      setInternalOpen(true);
-    }
-  }, [isBrexActive, isOFBActive, isGrapesJSActive, isControlled]);
+  const isTemplateEditorActive = pathname.startsWith("/platform-settings/integrations/template-editor");
 
   const handleBrexClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -57,10 +50,10 @@ export function PlatformSettingsPopover({
     setPopoverOpen(false);
   };
 
-  const handleGrapesJSClick = (e: React.MouseEvent) => {
+  const handleTemplateEditorClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    router.push("/platform-settings/integrations/grapesjs");
+    router.push("/platform-settings/integrations/template-editor");
     setPopoverOpen(false);
   };
 
@@ -133,17 +126,17 @@ export function PlatformSettingsPopover({
             </div>
             <div className="px-1 pb-2">
               <Link
-                href="/platform-settings/integrations/grapesjs"
-                onClick={handleGrapesJSClick}
+                href="/platform-settings/integrations/template-editor"
+                onClick={handleTemplateEditorClick}
                 className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
-                  isGrapesJSActive
+                  isTemplateEditorActive
                     ? "bg-accent text-accent-foreground"
                     : "text-foreground"
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <Sparkles className="h-4 w-4 text-muted-foreground" />
-                  <span>Template Studio</span>
+                  <span>Template Editor</span>
                 </div>
                 <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
               </Link>

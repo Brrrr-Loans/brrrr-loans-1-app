@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronsUpDown, Plus, Building2, Settings } from "lucide-react";
 import {
   useOrganization,
@@ -25,6 +25,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui";
+import { Skeleton } from "@/components/ui/feedback/skeleton";
 
 export function TeamSwitcherV2() {
   const { isMobile } = useSidebar();
@@ -34,6 +35,12 @@ export function TeamSwitcherV2() {
       infinite: true,
     },
   });
+  
+  // Prevent hydration mismatch by only rendering dynamic content after mount
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // State for managing modals and dropdown
   const [showCreateOrg, setShowCreateOrg] = useState(false);
@@ -89,6 +96,23 @@ export function TeamSwitcherV2() {
       closeHandler();
     }
   };
+
+  // Show skeleton during SSR/initial mount to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <div className="h-12 flex items-center gap-2 px-2">
+            <Skeleton className="h-8 w-8 rounded-lg" />
+            <div className="flex-1 space-y-1">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+          </div>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    );
+  }
 
   // If no organization, show create organization button
   if (!currentOrg) {

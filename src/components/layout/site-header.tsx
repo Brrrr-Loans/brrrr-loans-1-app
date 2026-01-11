@@ -250,7 +250,7 @@ function generateBreadcrumbs(
   // Handle Platform Settings / Integrations routes
   if (path.startsWith("/platform-settings/integrations/")) {
     const integrationSlug = path.split("/").pop();
-    const integrationName = integrationSlug === "ofb" ? "Ocean First" : integrationSlug === "brex" ? "Brex" : integrationSlug === "grapesjs" ? "Template Studio" : integrationSlug;
+    const integrationName = integrationSlug === "ofb" ? "Ocean First" : integrationSlug === "brex" ? "Brex" : integrationSlug === "template-editor" ? "Template Editor" : integrationSlug;
 
     return (
       <Breadcrumb>
@@ -279,8 +279,8 @@ function generateBreadcrumbs(
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/platform-settings/integrations/grapesjs" className="cursor-pointer">
-                    Template Studio
+                  <Link href="/platform-settings/integrations/template-editor" className="cursor-pointer">
+                    Template Editor
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>

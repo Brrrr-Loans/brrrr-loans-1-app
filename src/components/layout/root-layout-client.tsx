@@ -10,6 +10,11 @@ const TinteEditor = dynamic(
   { ssr: false }
 );
 
+const AIAssistant = dynamic(
+  () => import("@/components/ai-assistant").then((mod) => mod.AIAssistant),
+  { ssr: false }
+);
+
 export function RootLayoutClient({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Function to update the input type attribute
@@ -34,6 +39,7 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
     <OrgThemeProvider>
       {children}
       <TinteEditor />
+      <AIAssistant />
     </OrgThemeProvider>
   );
 }

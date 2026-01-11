@@ -148,11 +148,12 @@
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
   html,
   body {
-    @apply bg-background text-foreground;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
     overflow: hidden;
     height: 100%;
   }
@@ -403,10 +404,101 @@
   color: hsl(var(--sidebar-foreground)) !important;
 }
 
+/* TipTap Editor - Theme-aware text styling */
+.tiptap-content {
+  color: hsl(var(--foreground));
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.tiptap-content h1,
+.tiptap-content h2,
+.tiptap-content h3,
+.tiptap-content h4,
+.tiptap-content h5,
+.tiptap-content h6 {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.tiptap-content h1 {
+  font-size: 2.25rem;
+}
+
+.tiptap-content h2 {
+  font-size: 1.5rem;
+}
+
+.tiptap-content h3 {
+  font-size: 1.25rem;
+}
+
+.tiptap-content p {
+  color: hsl(var(--foreground));
+  margin-top: 1em;
+  margin-bottom: 1em;
+}
+
+.tiptap-content strong {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}
+
+.tiptap-content em {
+  color: hsl(var(--foreground));
+}
+
+.tiptap-content code {
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--muted));
+  padding: 0.2em 0.4em;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+}
+
+.tiptap-content blockquote {
+  color: hsl(var(--muted-foreground));
+  border-left: 4px solid hsl(var(--border));
+  padding-left: 1rem;
+  margin: 1.5em 0;
+  font-style: italic;
+}
+
+.tiptap-content ul,
+.tiptap-content ol {
+  color: hsl(var(--foreground));
+  padding-left: 1.5rem;
+  margin: 1em 0;
+}
+
+.tiptap-content li {
+  color: hsl(var(--foreground));
+  margin: 0.5em 0;
+}
+
+.tiptap-content ul {
+  list-style-type: disc;
+}
+
+.tiptap-content ol {
+  list-style-type: decimal;
+}
+
+/* TipTap placeholder styling */
+.tiptap-content p.is-editor-empty:first-child::before {
+  color: hsl(var(--muted-foreground));
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
 /* Kanban board column scrollbars */
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  scrollbar-color: hsl(var(--muted-foreground) / 30%) transparent;
 }
 
 .scrollbar-thin::-webkit-scrollbar {
@@ -419,12 +511,12 @@
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: hsl(var(--muted-foreground) / 0.3);
+  background-color: hsl(var(--muted-foreground) / 30%);
   border-radius: 3px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background-color: hsl(var(--muted-foreground) / 0.5);
+  background-color: hsl(var(--muted-foreground) / 50%);
 }
 
 /* Print styles - hide navigation, buttons, and non-essential elements */
