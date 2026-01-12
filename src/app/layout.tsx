@@ -49,7 +49,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         elements: {
           rootBox: "w-full",
           card: "shadow-none bg-transparent",
-          formButtonPrimary: "bg-primary text-primary-foreground hover:bg-primary/90",
+          formButtonPrimary:
+            "bg-primary text-primary-foreground hover:bg-primary/90",
           formFieldInput: "bg-input border-border",
           footerActionLink: "text-primary hover:text-primary/90",
         },
@@ -57,10 +58,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     >
       <html lang="en" suppressHydrationWarning>
         <head>
-          <Script
-            src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}&libraries=places`}
-            strategy="beforeInteractive"
-          />
+          {process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY && (
+            <Script
+              src={`https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}&libraries=places`}
+              strategy="beforeInteractive"
+            />
+          )}
         </head>
         <body
           className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}

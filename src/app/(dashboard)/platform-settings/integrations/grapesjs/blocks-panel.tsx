@@ -121,7 +121,6 @@ export function BlocksPanel({ onClose }: BlocksPanelProps) {
           added = wrapper.components().add(content);
         } else if (content && typeof content === 'object') {
           // Object content (e.g., { type: "property-address" })
-          // Use the wrapper's components collection
           added = wrapper.components().add(content);
         } else {
           console.warn("Unknown content type for block:", blockId);

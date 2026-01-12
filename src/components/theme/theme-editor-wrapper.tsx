@@ -11,6 +11,14 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from "@/components/ui/overlays/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -234,20 +242,20 @@ export function ThemeEditorWrapper({ open, onOpenChange }: ThemeEditorWrapperPro
 
   return (
     <>
-      {/* Theme Manager Dialog */}
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+      {/* Theme Manager Sheet */}
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <SheetContent side="right" className="sm:max-w-md w-full flex flex-col">
+          <SheetHeader className="pr-8">
+            <SheetTitle className="flex items-center gap-2">
               <Palette className="h-5 w-5" />
               Theme Manager
-            </DialogTitle>
-            <DialogDescription>
+            </SheetTitle>
+            <SheetDescription>
               Manage your organization&apos;s custom themes. Use the Theme Editor to create or modify themes, then save them here.
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
 
-          <div className="space-y-4 py-4">
+          <div className="flex-1 overflow-y-auto space-y-4 py-4">
             {/* Current Theme Selector */}
             <div className="space-y-2">
               <Label>Active Theme</Label>
@@ -279,7 +287,7 @@ export function ThemeEditorWrapper({ open, onOpenChange }: ThemeEditorWrapperPro
             {/* Saved Themes List */}
             <div className="space-y-2">
               <Label>Saved Themes ({availableThemes.length})</Label>
-              <div className="max-h-[200px] overflow-y-auto space-y-2 rounded-md border p-2">
+              <div className="flex-1 overflow-y-auto space-y-2 rounded-md border p-2">
                 {availableThemes.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     No themes saved yet. Use the Theme Editor to create one!
@@ -330,7 +338,7 @@ export function ThemeEditorWrapper({ open, onOpenChange }: ThemeEditorWrapperPro
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <SheetFooter className="gap-2 sm:gap-0 border-t pt-4">
             <Button variant="outline" onClick={() => setIsOpen(false)}>
               Close
             </Button>
@@ -340,9 +348,9 @@ export function ThemeEditorWrapper({ open, onOpenChange }: ThemeEditorWrapperPro
                 Save Current Theme
               </Button>
             )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
 
       {/* Save Theme Dialog */}
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>

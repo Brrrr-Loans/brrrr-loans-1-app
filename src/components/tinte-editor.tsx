@@ -18,12 +18,11 @@ import {
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/overlays/sheet";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -114,10 +113,17 @@ const TOKEN_GROUPS = [
 
 interface TinteEditorProps {
   onChange?: (theme: ShadcnTheme) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function TinteEditor({ onChange }: TinteEditorProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function TinteEditor({ onChange, open, onOpenChange }: TinteEditorProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  
+  // Controlled/uncontrolled pattern
+  const isControlled = open !== undefined;
+  const isOpen = isControlled ? open : internalOpen;
+  const setIsOpen = isControlled ? onOpenChange || (() => {}) : setInternalOpen;
   const [theme, setTheme] = useState<ShadcnTheme>({ light: {}, dark: {} });
   const themeRef = useRef<ShadcnTheme>({ light: {}, dark: {} });
   const [_originalFormats, setOriginalFormats] = useState<
@@ -622,28 +628,14 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
   );
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {/* Floating Ball Trigger */}
-      <div className="fixed bottom-4 right-4 z-50">
-        <DialogTrigger asChild>
-          <button
-            type="button"
-            className="w-14 h-14 bg-card border-2 border-border rounded-full shadow-lg hover:scale-110 transition-all duration-200 flex items-center justify-center hover:shadow-xl"
-            title="Open Theme Editor"
-          >
-            <TinteLogo className="w-7 h-7 drop-shadow-sm" />
-          </button>
-        </DialogTrigger>
-      </div>
-
-      {/* Dialog Content */}
-      <DialogContent showCloseButton={false} className="sm:max-w-2xl">
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+      <SheetContent side="right" className="sm:max-w-2xl w-full flex flex-col overflow-hidden">
         {/* Header */}
-        <DialogHeader>
+        <SheetHeader className="pr-8">
           <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-2">
               <TinteLogo className="w-5 h-5" />
-              <DialogTitle className="text-base">Theme Editor</DialogTitle>
+              <SheetTitle className="text-base">Theme Editor</SheetTitle>
               <a
                 href="https://tinte.dev"
                 target="_blank"
@@ -707,7 +699,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
               )}
             </div>
           </div>
-        </DialogHeader>
+        </SheetHeader>
 
         {/* Content */}
         <div className="flex-1 overflow-hidden flex flex-col">
@@ -732,7 +724,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
                 value="editor"
                 className="flex-1 h-0 flex flex-col overflow-hidden px-4 pb-4"
               >
-                <div className="h-[500px] border rounded-md bg-muted/20 overflow-y-auto p-4">
+                <div className="flex-1 border rounded-md bg-muted/20 overflow-y-auto p-4">
                   <Accordion
                     type="single"
                     collapsible
@@ -790,116 +782,118 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
                 value="browse"
                 className="flex-1 h-0 flex flex-col overflow-hidden px-4 pb-4"
               >
-                <div className="flex flex-col gap-4 h-[500px]">
-                  <div className="flex-1 border rounded-md bg-muted/20 overflow-y-auto p-4">
-                    {loadingTinteThemes ? (
-                      <div className="flex flex-col items-center justify-center h-full gap-3">
-                        <Loader2 className="animate-spin" size={32} />
+                <div className="flex flex-col flex-1 min-h-0 border rounded-md bg-muted/20">
+                  {loadingTinteThemes ? (
+                    <div className="flex flex-col items-center justify-center flex-1 gap-3 p-4">
+                      <Loader2 className="animate-spin" size={32} />
+                      <p className="text-sm text-muted-foreground">
+                        Loading themes from tinte.dev...
+                      </p>
+                    </div>
+                  ) : tinteError ? (
+                    <div className="flex flex-col items-center justify-center flex-1 gap-4 p-4">
+                      <div className="text-4xl">⚠️</div>
+                      <div className="text-center space-y-2 max-w-md">
+                        <h3 className="font-semibold text-lg">
+                          Failed to Load Themes
+                        </h3>
                         <p className="text-sm text-muted-foreground">
-                          Loading themes from tinte.dev...
-                        </p>
-                      </div>
-                    ) : tinteError ? (
-                      <div className="flex flex-col items-center justify-center h-full gap-4">
-                        <div className="text-4xl">⚠️</div>
-                        <div className="text-center space-y-2 max-w-md">
-                          <h3 className="font-semibold text-lg">
-                            Failed to Load Themes
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {tinteError}
-                          </p>
-                          <Button
-                            variant="outline"
-                            onClick={() => fetchTinteThemes()}
-                            className="mt-2"
-                          >
-                            <RefreshCw size={16} className="mr-2" />
-                            Try Again
-                          </Button>
-                        </div>
-                      </div>
-                    ) : tinteThemes.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full gap-3">
-                        <p className="text-sm text-muted-foreground">
-                          No themes available
+                          {tinteError}
                         </p>
                         <Button
                           variant="outline"
                           onClick={() => fetchTinteThemes()}
-                          size="sm"
+                          className="mt-2"
                         >
                           <RefreshCw size={16} className="mr-2" />
-                          Refresh
+                          Try Again
                         </Button>
                       </div>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="space-y-3 mb-4">
-                          <div className="flex items-center gap-2">
-                            <div className="relative flex-1">
-                              <Input
-                                type="text"
-                                placeholder="Search themes..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    setActiveSearch(searchQuery);
-                                    fetchTinteThemes(1, searchQuery);
-                                  }
-                                }}
-                                className="h-9 pr-8"
-                              />
-                              {searchQuery && (
-                                <button
-                                  type="button"
-                                  aria-label="Clear search"
-                                  onClick={() => {
-                                    setSearchQuery("");
-                                    setActiveSearch("");
-                                    fetchTinteThemes(1);
-                                  }}
-                                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-sm transition-colors"
-                                >
-                                  <X className="h-3 w-3 text-muted-foreground" />
-                                </button>
-                              )}
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setActiveSearch(searchQuery);
-                                fetchTinteThemes(1, searchQuery);
+                    </div>
+                  ) : tinteThemes.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center flex-1 gap-3 p-4">
+                      <p className="text-sm text-muted-foreground">
+                        No themes available
+                      </p>
+                      <Button
+                        variant="outline"
+                        onClick={() => fetchTinteThemes()}
+                        size="sm"
+                      >
+                        <RefreshCw size={16} className="mr-2" />
+                        Refresh
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Search bar - sticky at top */}
+                      <div className="sticky top-0 z-10 bg-muted/95 backdrop-blur-sm border-b p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                            <Input
+                              type="text"
+                              placeholder="Search themes..."
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  setActiveSearch(searchQuery);
+                                  fetchTinteThemes(1, searchQuery);
+                                }
                               }}
-                              disabled={!searchQuery}
-                              className="h-9"
-                            >
-                              <Search className="h-3.5 w-3.5 mr-1.5" />
-                              Search
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="icon"
-                              onClick={() =>
-                                fetchTinteThemes(currentPage, activeSearch)
-                              }
-                              title="Refresh themes"
-                              className="h-9 w-9"
-                            >
-                              <RefreshCw className="h-3.5 w-3.5" />
-                            </Button>
+                              className="h-9 pr-8"
+                            />
+                            {searchQuery && (
+                              <button
+                                type="button"
+                                aria-label="Clear search"
+                                onClick={() => {
+                                  setSearchQuery("");
+                                  setActiveSearch("");
+                                  fetchTinteThemes(1);
+                                }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-muted rounded-sm transition-colors"
+                              >
+                                <X className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            )}
                           </div>
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs text-muted-foreground">
-                              {tinteThemes.length} themes
-                              {activeSearch
-                                ? ` matching "${activeSearch}"`
-                                : ""}
-                            </p>
-                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setActiveSearch(searchQuery);
+                              fetchTinteThemes(1, searchQuery);
+                            }}
+                            disabled={!searchQuery}
+                            className="h-9"
+                          >
+                            <Search className="h-3.5 w-3.5 mr-1.5" />
+                            Search
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() =>
+                              fetchTinteThemes(currentPage, activeSearch)
+                            }
+                            title="Refresh themes"
+                            className="h-9 w-9"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-muted-foreground">
+                            {tinteThemes.length} themes
+                            {activeSearch
+                              ? ` matching "${activeSearch}"`
+                              : ""}
+                          </p>
+                        </div>
+                      </div>
+                      {/* Scrollable theme grid */}
+                      <div className="flex-1 overflow-y-auto p-3">
                         <div className="grid gap-3">
                           {tinteThemes.map((tinteTheme) => {
                             const isSelected =
@@ -959,13 +953,8 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
                           })}
                         </div>
                       </div>
-                    )}
-                  </div>
-                  {/* Pagination Controls */}
-                  {!loadingTinteThemes &&
-                    !tinteError &&
-                    tinteThemes.length > 0 && (
-                      <div className="flex items-center justify-between px-2 py-3 border-t">
+                      {/* Pagination Controls */}
+                      <div className="flex items-center justify-between px-3 py-2 border-t bg-muted/50">
                         <div className="text-xs text-muted-foreground">
                           Page {currentPage} of {totalPages}
                         </div>
@@ -992,7 +981,8 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
                           </Button>
                         </div>
                       </div>
-                    )}
+                    </>
+                  )}
                 </div>
               </TabsContent>
 
@@ -1006,7 +996,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
                     setRawCss(e.target.value);
                     parseRawCss(e.target.value);
                   }}
-                  className="h-[500px] w-full bg-muted/40 font-mono text-xs resize-none border border-border focus-visible:ring-0 p-4"
+                  className="flex-1 w-full bg-muted/40 font-mono text-xs resize-none border border-border focus-visible:ring-0 p-4"
                   placeholder="Paste your CSS here..."
                   spellCheck={false}
                 />
@@ -1016,7 +1006,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
                 value="agent"
                 className="flex-1 h-0 flex flex-col overflow-hidden px-4 pb-4"
               >
-                <div className="h-[500px] flex flex-col gap-3">
+                <div className="flex-1 flex flex-col gap-3">
                   <div className="flex-1 border rounded-md bg-muted/20 overflow-y-auto p-4 space-y-2">
                     {apiKeyError ? (
                       <div className="flex flex-col items-center justify-center h-full gap-4">
@@ -1205,7 +1195,7 @@ export function TinteEditor({ onChange }: TinteEditorProps) {
             </div>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

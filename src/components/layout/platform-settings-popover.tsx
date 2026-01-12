@@ -11,6 +11,7 @@ import {
 } from "@/components/ui";
 import { ThemeTogglePill } from "@/components/theme/theme-toggle-pill";
 import { ThemeEditorWrapper } from "@/components/theme/theme-editor-wrapper";
+import { TinteEditor } from "@/components/tinte-editor";
 
 interface PlatformSettingsPopoverProps {
   trigger: React.ReactNode;
@@ -27,6 +28,7 @@ export function PlatformSettingsPopover({
   const router = useRouter();
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [themeManagerOpen, setThemeManagerOpen] = React.useState(false);
+  const [themeEditorOpen, setThemeEditorOpen] = React.useState(false);
   const isControlled = open !== undefined;
   const popoverOpen = isControlled ? open : internalOpen;
   const setPopoverOpen = isControlled ? onOpenChange || (() => {}) : setInternalOpen;
@@ -58,11 +60,7 @@ export function PlatformSettingsPopover({
   };
 
   const handleThemeEditorClick = () => {
-    // Trigger the floating Tinte editor by clicking its button
-    const tinteButton = document.querySelector('[title="Open Theme Editor"]') as HTMLButtonElement;
-    if (tinteButton) {
-      tinteButton.click();
-    }
+    setThemeEditorOpen(true);
     setPopoverOpen(false);
   };
 
@@ -149,7 +147,16 @@ export function PlatformSettingsPopover({
                   <Palette className="h-4 w-4 text-muted-foreground" />
                   <span>Theme Editor</span>
                 </div>
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+              <button
+                type="button"
+                onClick={handleThemeManagerClick}
+                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                <div className="flex items-center gap-3">
+                  <Settings2 className="h-4 w-4 text-muted-foreground" />
+                  <span>Saved Themes</span>
+                </div>
               </button>
             </div>
 
@@ -162,7 +169,7 @@ export function PlatformSettingsPopover({
                 Preferences
               </p>
             </div>
-            <div className="px-1 pb-2 space-y-1">
+            <div className="px-1 pb-2">
               {/* Theme Row */}
               <div className="flex items-center justify-between rounded-md px-2 py-1.5">
                 <div className="flex items-center gap-3">
@@ -171,28 +178,26 @@ export function PlatformSettingsPopover({
                 </div>
                 <ThemeTogglePill />
               </div>
-
-              {/* Theme Manager Link */}
-              <button
-                type="button"
-                onClick={handleThemeManagerClick}
-                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                <div className="flex items-center gap-3">
-                  <Settings2 className="h-4 w-4 text-muted-foreground" />
-                  <span>Saved Themes</span>
-                </div>
-              </button>
             </div>
           </div>
         </PopoverContent>
       </Popover>
 
-      {/* Theme Manager Dialog */}
-      <ThemeEditorWrapper 
-        open={themeManagerOpen} 
-        onOpenChange={setThemeManagerOpen} 
-      />
+      {/* Theme Manager Sheet - conditionally rendered to avoid Radix portal conflicts */}
+      {themeManagerOpen && (
+        <ThemeEditorWrapper 
+          open={themeManagerOpen} 
+          onOpenChange={setThemeManagerOpen} 
+        />
+      )}
+
+      {/* Theme Editor Sheet - conditionally rendered to avoid Radix portal conflicts */}
+      {themeEditorOpen && (
+        <TinteEditor 
+          open={themeEditorOpen} 
+          onOpenChange={setThemeEditorOpen} 
+        />
+      )}
     </>
   );
 }
