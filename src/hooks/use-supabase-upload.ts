@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  type DropEvent,
   type FileError,
   type FileRejection,
   useDropzone,
@@ -8,19 +9,26 @@ import {
 // Custom file extractor that bypasses File System Access API entirely
 // This avoids the "NotAllowedError: getFile" error when dragging files in dialogs/modals
 async function getFilesFromEvent(
-  event: React.DragEvent<HTMLElement> | Event
+  event: DropEvent
 ): Promise<Array<File | DataTransferItem>> {
+  // Handle FileSystemFileHandle array (from File System Access API - we still need to handle it)
+  if (Array.isArray(event)) {
+    // This is an array of FileSystemFileHandle - we shouldn't reach here
+    // since we disabled useFsAccessApi, but handle gracefully
+    return [];
+  }
+
   // Handle input element change events (click to browse)
   if (event.type === "change") {
-    const target = event.target as HTMLInputElement;
+    const target = (event as React.ChangeEvent<HTMLInputElement>).target;
     if (target.files) {
       return Array.from(target.files);
     }
     return [];
   }
 
-  // Handle drag and drop events
-  const dragEvent = event as React.DragEvent<HTMLElement>;
+  // Handle drag and drop events (React.DragEvent, DragEvent, or Event)
+  const dragEvent = event as React.DragEvent<HTMLElement> | DragEvent;
   const dataTransfer = dragEvent.dataTransfer;
 
   if (!dataTransfer) {

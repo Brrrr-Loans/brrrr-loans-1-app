@@ -63,7 +63,7 @@ const transactionSchema = z.object({
       message: "Amount must be a positive number",
     }),
   date: z.date({
-    required_error: "Transaction date is required",
+    error: "Transaction date is required",
   }),
   method: z.enum(["wire", "ach", "check", "cash", "internal", "other"]),
   type: z.enum(["contribution", "distribution"]),
@@ -280,16 +280,15 @@ export function CreateTransactionForm({
       const investorAllocations = values.investorAllocations.map((alloc) => {
         if (alloc.investorType === "entity") {
           return {
-            investorId: undefined, // No user ID for entities
+            investorId: 0, // Placeholder for entity allocations (orgId is used)
             amount: parseFloat(alloc.amount),
             orgId: parseInt(alloc.investorId),
           };
         } else {
-        return {
-          investorId: parseInt(alloc.investorId),
-          amount: parseFloat(alloc.amount),
-            orgId: undefined,
-        };
+          return {
+            investorId: parseInt(alloc.investorId),
+            amount: parseFloat(alloc.amount),
+          };
         }
       });
 

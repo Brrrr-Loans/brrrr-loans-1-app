@@ -25,7 +25,7 @@ export function useInvestorPermissions(): InvestorPermissions {
       return permissionCache.get(cacheKey)!;
     }
 
-    if (!user) {
+    if (!user || !supabase) {
       permissionCache.set(cacheKey, false);
       return false;
     }
@@ -66,7 +66,7 @@ export function useInvestorPermissions(): InvestorPermissions {
       return permissionCache.get(cacheKey)!;
     }
 
-    if (!user) {
+    if (!user || !supabase) {
       permissionCache.set(cacheKey, false);
       return false;
     }
@@ -115,6 +115,11 @@ export function useInvestorPermissions(): InvestorPermissions {
       return permissionCache.get(cacheKey)!;
     }
 
+    if (!supabase) {
+      permissionCache.set(cacheKey, false);
+      return false;
+    }
+
     try {
       const { data, error } = await supabase
         .from("bsi_transactions")
@@ -139,6 +144,11 @@ export function useInvestorPermissions(): InvestorPermissions {
     const cacheKey = `distribution:${distributionId}`;
     if (permissionCache.has(cacheKey)) {
       return permissionCache.get(cacheKey)!;
+    }
+
+    if (!supabase) {
+      permissionCache.set(cacheKey, false);
+      return false;
     }
 
     // For "all" distributions, check if user is logged in and has investor role

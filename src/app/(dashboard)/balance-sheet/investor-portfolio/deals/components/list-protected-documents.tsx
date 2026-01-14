@@ -34,6 +34,8 @@ function UnprotectedDocumentsList({ dealId }: DocumentsListProps) {
 
   useEffect(() => {
     async function fetchDocuments() {
+      if (!supabase) return;
+      
       const { data, error } = await supabase
         .from("document_files")
         .select("*")
@@ -58,6 +60,8 @@ function UnprotectedDocumentsList({ dealId }: DocumentsListProps) {
   }, [dealId, supabase]);
 
   const handleDownload = async (storagePath: string, fileName: string) => {
+    if (!supabase) return;
+    
     const { data, error } = await supabase.storage
       .from("documents")
       .download(storagePath);

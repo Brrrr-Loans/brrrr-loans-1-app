@@ -23,7 +23,7 @@ import {
   Trash2,
   Pencil,
 } from "lucide-react";
-import { useDropzone } from "react-dropzone";
+import { useDropzone, type DropEvent } from "react-dropzone";
 import Papa from "papaparse";
 import { useSupabase } from "@/hooks/use-supabase";
 import { toast } from "sonner";
@@ -32,11 +32,16 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 // Custom file extractor that bypasses File System Access API entirely
 // This avoids the "NotAllowedError: getFile" error when dragging files
 async function getFilesFromEvent(
-  event: React.DragEvent<HTMLElement> | Event
+  event: DropEvent
 ): Promise<Array<File | DataTransferItem>> {
+  // Handle FileSystemFileHandle array (from File System Access API)
+  if (Array.isArray(event)) {
+    return [];
+  }
+
   // Handle input element change events (click to browse)
   if (event.type === "change") {
-    const target = event.target as HTMLInputElement;
+    const target = (event as React.ChangeEvent<HTMLInputElement>).target;
     if (target.files) {
       return Array.from(target.files);
     }
@@ -44,7 +49,7 @@ async function getFilesFromEvent(
   }
 
   // Handle drag and drop events
-  const dragEvent = event as React.DragEvent<HTMLElement>;
+  const dragEvent = event as React.DragEvent<HTMLElement> | DragEvent;
   const dataTransfer = dragEvent.dataTransfer;
   
   if (!dataTransfer) {

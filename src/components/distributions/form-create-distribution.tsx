@@ -50,11 +50,13 @@ const formSchema = z.object({
   distributionType: z.string().min(1, "Please select a distribution type"),
   totalAmount: z.string().min(1, "Please enter a total amount"),
   distributionDate: z.date({
-    required_error: "Please select a distribution date",
+    error: "Please select a distribution date",
   }),
-  status: z.string().default("Scheduled"),
+  status: z.string().min(1, "Please select a status"),
   notes: z.string().optional(),
 });
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface Investor {
   id: string;
@@ -82,7 +84,7 @@ export function CreateDistributionForm({
   const supabase = useSupabase();
 
   // Initialize the form
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       dealId: "",
@@ -100,6 +102,7 @@ export function CreateDistributionForm({
   // Fetch deals on component mount
   useEffect(() => {
     async function fetchDeals() {
+      if (!supabase) return;
       // setIsLoading(true);
       try {
         const { data, error } = await supabase
@@ -136,7 +139,7 @@ export function CreateDistributionForm({
   // Fetch investors when deal changes
   useEffect(() => {
     async function fetchInvestors() {
-      if (!watchDealId) {
+      if (!watchDealId || !supabase) {
         setInvestors([]);
         setInvestorPayments([]);
         return;
@@ -258,7 +261,7 @@ export function CreateDistributionForm({
   };
 
   // Handle form submission
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: FormValues) {
     // Validate that we have investors
     if (investors.length === 0) {
       toast.error(
