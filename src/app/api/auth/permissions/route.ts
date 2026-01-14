@@ -82,10 +82,10 @@ export async function GET() {
 
     const supabase = await getSupabaseClient();
 
-    // Get user profile from auth_user_profile table
+    // Get user profile from auth_clerk_users table (includes role)
     const { data: profile, error: profileError } = await supabase
       .from("auth_clerk_users")
-      .select("id, email, clerk_user_id")
+      .select("id, email, clerk_user_id, role")
       .eq("clerk_user_id", finalUserId as string)
       .single();
 
@@ -262,8 +262,8 @@ export async function GET() {
       );
     }
 
-    // Determine role from public metadata or default to viewer
-    const role = (finalUser.publicMetadata?.role as UserRole) || "viewer";
+    // Determine role from auth_clerk_users table, fallback to public metadata, then default to viewer
+    const role = (confirmedProfile.role as UserRole) || (finalUser.publicMetadata?.role as UserRole) || "viewer";
 
     const userPermissions: UserPermissions = {
       userId: finalUserId as string,
