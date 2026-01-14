@@ -6,12 +6,21 @@
 export interface TransactionWithDetails {
   id: number;
   transaction_amount: number | null;
-  transaction_date: string;
+  transaction_date: string | null;
   transaction_method: string | null;
   transaction_status: string | null;
   reference_number: string | null;
   external_memo: string | null;
-  ledger_entry_type: string;
+  ledger_entry_type: string | null;
+  // Additional fields from database
+  clerk_org_id?: number | null;
+  clerk_user_id?: number | null;
+  created_at?: string | null;
+  internal_memo?: string | null;
+  is_recurring?: boolean | null;
+  recurring_frequency?: string | null;
+  source_batch_id?: number | null;
+  updated_at?: string | null;
   
   // Brex transfer data
   brex_link?: Array<{

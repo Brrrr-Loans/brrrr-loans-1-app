@@ -32,14 +32,14 @@ interface Transfer {
   id: number;
   ofb_transfer_id: string;
   counterparty_name: string | null;
-  amount: number;
+  amount: number | null;
   process_date: string | null;
   description: string | null;
 }
 
 interface Vendor {
   id: number;
-  name: string;
+  name: string | null;
   email: string | null;
 }
 
