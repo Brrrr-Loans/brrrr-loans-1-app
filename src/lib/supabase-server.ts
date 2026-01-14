@@ -13,13 +13,14 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 // Create a server-side Supabase client for Clerk authentication.
 // Use in API routes and server components.
-// Uses Clerk's native integration approach.
+// Uses Clerk's native integration approach with 'supabase' JWT template.
 export async function getSupabaseClient(): Promise<SupabaseClient<Database>> {
   const { getToken } = await auth();
 
   const client = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     async accessToken() {
-      return await getToken();
+      // Use 'supabase' JWT template - configured in Clerk Dashboard with Supabase's JWT secret
+      return await getToken({ template: 'supabase' });
     },
   });
 
