@@ -11,7 +11,10 @@ import { useLyteNyte, useClientRowDataSource } from "@/hooks/use-lytenyte-pro";
 // or
 import { useLyteNyte, useServerDataSource } from "@/hooks/use-lytenyte-pro";
 // or
-import { useLyteNyte, useClientRowDataSourcePaginated } from "@/hooks/use-lytenyte-pro";
+import {
+  useLyteNyte,
+  useClientRowDataSourcePaginated,
+} from "@/hooks/use-lytenyte-pro";
 // or
 import { useLyteNyte, useClientTreeDataSource } from "@/hooks/use-lytenyte-pro";
 
@@ -21,24 +24,26 @@ import type { Column } from "@1771technologies/lytenyte-pro/types";
 
 ## ⚡ Bundling Best Practices
 
-| ✅ DO | ❌ DON'T |
-|-------|----------|
+| ✅ DO                                                    | ❌ DON'T                                                |
+| -------------------------------------------------------- | ------------------------------------------------------- |
 | `import { useLyteNyte } from "@/hooks/use-lytenyte-pro"` | `import * as All from "@1771technologies/lytenyte-pro"` |
-| Use specific imports | Use wildcard imports |
-| Import only what you need | Import entire packages |
-| Use ES modules (`import`/`export`) | Use CommonJS (`require`) |
+| Use specific imports                                     | Use wildcard imports                                    |
+| Import only what you need                                | Import entire packages                                  |
+| Use ES modules (`import`/`export`)                       | Use CommonJS (`require`)                                |
 
 ## 📦 Data Source Types
 
 ### Client-Side (Static Data)
+
 ```tsx
 const dataSource = useClientRowDataSource({
   data: myArray,
-  rowIdLeaf: (d, i) => d.data?.id ?? String(i),  // Not getRowId!
+  rowIdLeaf: (d, i) => d.data?.id ?? String(i), // Not getRowId!
 });
 ```
 
 ### Client-Side Paginated
+
 ```tsx
 const dataSource = useClientRowDataSourcePaginated({
   data: largeArray,
@@ -48,18 +53,20 @@ const dataSource = useClientRowDataSourcePaginated({
 ```
 
 ### Server-Side (Dynamic)
+
 ```tsx
 // Note: Server data source uses dataFetcher (more complex API)
-// For simpler use cases, fetch data with useEffect/useSWR 
+// For simpler use cases, fetch data with useEffect/useSWR
 // and use client data source
 ```
 
 ### Tree Data
+
 ```tsx
 const dataSource = useClientTreeDataSource({
   data: treeArray,
   rowIdLeaf: (d, i) => d.data?.id ?? String(i),
-  getChildren: (row) => row.children,
+  getChildren: (d) => d.data?.children, // Access via d.data, same as rowIdLeaf
 });
 ```
 
@@ -81,21 +88,21 @@ interface MyData {
 
 export function MyGrid({ data }: { data: MyData[] }) {
   const gridId = useId();
-  
+
   const columns: Column<MyData>[] = [
     { id: "name", name: "Name", width: 200 },
     { id: "amount", name: "Amount", width: 150, type: "number" },
   ];
-  
+
   const dataSource = useClientRowDataSource({
     data: data,
     rowIdLeaf: (d, i) => d.data?.id ?? String(i),
   });
-  
+
   const grid = useLyteNyte<MyData>({
-    gridId,              // Required!
+    gridId, // Required!
     columns,
-    rowDataSource: dataSource,  // Not "dataSource"!
+    rowDataSource: dataSource, // Not "dataSource"!
     columnBase: {
       uiHints: {
         resizable: true,
@@ -117,13 +124,13 @@ export function MyGrid({ data }: { data: MyData[] }) {
 ```tsx
 const columns: Column<T>[] = [
   {
-    id: "column-id",              // Required: unique identifier
-    name: "Column Title",         // Display name (NOT "title"!)
-    width: 150,                   // Default width in pixels
-    widthMin: 100,                // Minimum width (NOT "minWidth"!)
-    widthMax: 300,                // Maximum width (NOT "maxWidth"!)
-    type: "number",               // "string" | "number" | "date" | "datetime"
-    
+    id: "column-id", // Required: unique identifier
+    name: "Column Title", // Display name (NOT "title"!)
+    width: 150, // Default width in pixels
+    widthMin: 100, // Minimum width (NOT "minWidth"!)
+    widthMax: 300, // Maximum width (NOT "maxWidth"!)
+    type: "number", // "string" | "number" | "date" | "datetime"
+
     // Custom cell rendering (no valueFormatter - use cellRenderer!)
     cellRenderer: ({ row, grid, column }) => {
       const value = grid.api.columnField(column, row);
@@ -136,11 +143,12 @@ const columns: Column<T>[] = [
 ## 🎯 Common Patterns
 
 ### Currency Formatting (via cellRenderer)
+
 ```tsx
 cellRenderer: ({ row, grid, column }) => {
   const value = grid.api.columnField(column, row) as number | null;
   if (value == null) return null;
-  
+
   return (
     <div className="flex h-full w-full items-center px-2">
       {new Intl.NumberFormat("en-US", {
@@ -149,15 +157,16 @@ cellRenderer: ({ row, grid, column }) => {
       }).format(value)}
     </div>
   );
-}
+};
 ```
 
 ### Date Formatting
+
 ```tsx
 cellRenderer: ({ row, grid, column }) => {
   const dateStr = grid.api.columnField(column, row) as string | null;
   if (!dateStr) return null;
-  
+
   const date = new Date(dateStr);
   return (
     <div className="flex h-full w-full items-center px-2">
@@ -168,38 +177,39 @@ cellRenderer: ({ row, grid, column }) => {
       })}
     </div>
   );
-}
+};
 ```
 
 ### Custom Cell with Badge
+
 ```tsx
 cellRenderer: ({ row, grid, column }) => {
   const status = grid.api.columnField(column, row) as string | null;
   if (!status) return null;
-  
+
   const variant = status === "Active" ? "default" : "secondary";
   return (
     <div className="flex h-full w-full items-center px-2">
       <Badge variant={variant}>{status}</Badge>
     </div>
   );
-}
+};
 ```
 
 ## ⚠️ API Gotchas
 
-| ❌ Wrong | ✅ Correct |
-|----------|-----------|
-| `title: "Name"` | `name: "Name"` |
-| `minWidth: 100` | `widthMin: 100` |
-| `maxWidth: 300` | `widthMax: 300` |
-| `dataSource: dataSource` | `rowDataSource: dataSource` |
-| `getRowId: (row) => row.id` | `rowIdLeaf: (d, i) => d.data?.id ?? String(i)` |
-| `params.value` | `grid.api.columnField(column, row)` |
-| `valueFormatter: (p) => ...` | `cellRenderer: ({ row, grid, column }) => ...` |
+| ❌ Wrong                      | ✅ Correct                                     |
+| ----------------------------- | ---------------------------------------------- |
+| `title: "Name"`               | `name: "Name"`                                 |
+| `minWidth: 100`               | `widthMin: 100`                                |
+| `maxWidth: 300`               | `widthMax: 300`                                |
+| `dataSource: dataSource`      | `rowDataSource: dataSource`                    |
+| `getRowId: (row) => row.id`   | `rowIdLeaf: (d, i) => d.data?.id ?? String(i)` |
+| `params.value`                | `grid.api.columnField(column, row)`            |
+| `valueFormatter: (p) => ...`  | `cellRenderer: ({ row, grid, column }) => ...` |
 | `resizable: true` (on column) | `columnBase: { uiHints: { resizable: true } }` |
-| `sortable: true` (on column) | `columnBase: { uiHints: { sortable: true } }` |
-| Missing `gridId` | `const gridId = useId();` (required!) |
+| `sortable: true` (on column)  | `columnBase: { uiHints: { sortable: true } }`  |
+| Missing `gridId`              | `const gridId = useId();` (required!)          |
 
 ## 🔑 License Activation
 
@@ -208,6 +218,7 @@ The license is automatically activated when you start your app.
 **To add your license key:**
 
 1. Add to `.env.local`:
+
    ```bash
    NEXT_PUBLIC_LYTENYTE_LICENSE_KEY=your-license-key-here
    ```
