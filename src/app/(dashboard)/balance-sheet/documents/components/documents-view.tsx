@@ -866,11 +866,83 @@ export function DocumentsView({
             }
           }
 
-          // Note: document_investors table was deprecated and removed.
-          // Investor assignments are now tracked via:
-          // - document_files_clerk_orgs (for org investors)
-          // - document_files_clerk_users (for user investors)
-          // TODO: Implement junction table queries if needed for direct investor assignments
+          // Query direct investor assignments from junction tables
+          // Get all storage paths from allDocs
+          const storagePaths = allDocs.map((d) => d.path).filter(Boolean);
+          
+          if (storagePaths.length > 0) {
+            // Query document_files to get IDs for our storage paths
+            const { data: docFilesData } = await currentSupabase
+              .from("document_files")
+              .select("id, storage_path")
+              .eq("storage_bucket", bucketName)
+              .in("storage_path", storagePaths);
+            
+            if (docFilesData && docFilesData.length > 0) {
+              const docFileIds = docFilesData.map((df) => df.id);
+              const pathToIdMap = new Map(docFilesData.map((df) => [df.id, df.storage_path]));
+              
+              // Query org assignments
+              const { data: orgAssignments } = await currentSupabase
+                .from("document_files_clerk_orgs")
+                .select("document_file_id, clerk_org_id, auth_clerk_orgs(clerk_org_id, clerk_org_name)")
+                .in("document_file_id", docFileIds);
+              
+              // Query user assignments
+              const { data: userAssignments } = await currentSupabase
+                .from("document_files_clerk_users")
+                .select("document_file_id, clerk_user_id, auth_clerk_users(clerk_user_id, first_name, last_name, email)")
+                .in("document_file_id", docFileIds);
+              
+              // Merge org assignments into assignmentsByPath
+              if (orgAssignments) {
+                for (const assignment of orgAssignments) {
+                  const storagePath = pathToIdMap.get(assignment.document_file_id);
+                  if (!storagePath) continue;
+                  
+                  const orgInfo = assignment.auth_clerk_orgs as { clerk_org_id: string; clerk_org_name: string } | null;
+                  if (!orgInfo) continue;
+                  
+                  const key = `org-${orgInfo.clerk_org_id}`;
+                  const existing = assignmentsByPath.get(storagePath) || [];
+                  
+                  // Check if already added
+                  if (!existing.some((i) => i.type === "org" && i.id === orgInfo.clerk_org_id)) {
+                    existing.push({
+                      type: "org",
+                      id: orgInfo.clerk_org_id,
+                      name: orgInfo.clerk_org_name,
+                    });
+                    assignmentsByPath.set(storagePath, existing);
+                  }
+                }
+              }
+              
+              // Merge user assignments into assignmentsByPath
+              if (userAssignments) {
+                for (const assignment of userAssignments) {
+                  const storagePath = pathToIdMap.get(assignment.document_file_id);
+                  if (!storagePath) continue;
+                  
+                  const userInfo = assignment.auth_clerk_users as { clerk_user_id: string; first_name: string | null; last_name: string | null; email: string | null } | null;
+                  if (!userInfo) continue;
+                  
+                  const userName = `${userInfo.first_name || ""} ${userInfo.last_name || ""}`.trim() || userInfo.email || "Unknown";
+                  const existing = assignmentsByPath.get(storagePath) || [];
+                  
+                  // Check if already added
+                  if (!existing.some((i) => i.type === "user" && i.id === userInfo.clerk_user_id)) {
+                    existing.push({
+                      type: "user",
+                      id: userInfo.clerk_user_id,
+                      name: userName,
+                    });
+                    assignmentsByPath.set(storagePath, existing);
+                  }
+                }
+              }
+            }
+          }
 
           // Merge assignments into documents
           for (const doc of allDocs) {
