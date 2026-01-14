@@ -1982,22 +1982,19 @@ export function DocumentsView({
     if (!start && !end) return "";
     
     const formatDate = (dateStr: string) => {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+      const date = new Date(dateStr + "T00:00:00"); // Ensure consistent parsing
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const year = date.getFullYear();
+      return `${month}/${day}/${year}`;
     };
     
     if (start && end) {
-      const startFormatted = formatDate(start);
-      const endFormatted = formatDate(end);
-      // If same month/year, show just once
-      if (startFormatted === endFormatted) {
-        return startFormatted;
-      }
-      return `${startFormatted} – ${endFormatted}`;
+      return `${formatDate(start)} - ${formatDate(end)}`;
     }
     
-    if (start) return `From ${formatDate(start)}`;
-    if (end) return `Until ${formatDate(end)}`;
+    if (start) return formatDate(start);
+    if (end) return formatDate(end);
     return "";
   }
 
