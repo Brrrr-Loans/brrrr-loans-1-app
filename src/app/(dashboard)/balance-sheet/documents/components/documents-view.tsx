@@ -870,13 +870,25 @@ export function DocumentsView({
           // Get all storage paths from allDocs
           const storagePaths = allDocs.map((d) => d.path).filter(Boolean);
           
+          // Map to store persisted tags by path
+          const persistedTagsByPath = new Map<string, string[]>();
+          
           if (storagePaths.length > 0) {
-            // Query document_files to get IDs for our storage paths
+            // Query document_files to get IDs and persisted tags for our storage paths
             const { data: docFilesData } = await currentSupabase
               .from("document_files")
-              .select("id, storage_path")
+              .select("id, storage_path, tags")
               .eq("storage_bucket", bucketName)
               .in("storage_path", storagePaths);
+            
+            // Build map of persisted tags by path
+            if (docFilesData) {
+              for (const df of docFilesData) {
+                if (df.storage_path && df.tags && Array.isArray(df.tags)) {
+                  persistedTagsByPath.set(df.storage_path, df.tags);
+                }
+              }
+            }
             
             if (docFilesData && docFilesData.length > 0) {
               const docFileIds = docFilesData.map((df) => df.id);
@@ -944,9 +956,17 @@ export function DocumentsView({
             }
           }
 
-          // Merge assignments into documents
+          // Merge assignments and persisted tags into documents
           for (const doc of allDocs) {
             doc.investors = assignmentsByPath.get(doc.path) || [];
+            
+            // Use persisted tags if they exist, otherwise keep auto-generated tags
+            const persistedTags = persistedTagsByPath.get(doc.path);
+            if (persistedTags !== undefined) {
+              // Use persisted tags (even if empty array - user may have intentionally cleared all tags)
+              doc.tags = persistedTags;
+            }
+            // If no persisted tags, keep the auto-generated tags from getDocumentTags()
           }
         }
 
