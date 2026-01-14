@@ -19,6 +19,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/overlays/dropdown-menu";
 import {
   Popover,
@@ -79,6 +82,9 @@ import {
   Check,
   X,
   Trash2,
+  FolderInput,
+  Folder,
+  ChevronRight,
 } from "lucide-react";
 import { NotionViewTabs, type ViewDefinition, type CardSize } from "@/components/ui/notion-view-tabs";
 import { DocumentsBoardView } from "./documents-board-view";
@@ -90,6 +96,14 @@ const DEFAULT_VIEW_SETTINGS = {
   wrapProperties: false,
   showPageIcon: true,
 };
+
+// Available document folders for Move functionality
+const DOCUMENT_FOLDERS = [
+  { id: "statements", label: "Statements" },
+  { id: "payments", label: "Payments" },
+  { id: "agreements", label: "Agreements" },
+] as const;
+
 import { useSupabase } from "@/hooks/use-supabase";
 import { useUser, useOrganizationList, useOrganization } from "@clerk/nextjs";
 import { useCanUpload } from "@/hooks/use-can-upload";
@@ -1710,6 +1724,85 @@ export function DocumentsView({
     }
   };
 
+  // State for tracking move operation
+  const [isMoving, setIsMoving] = useState(false);
+
+  // Move handler - moves document to a different folder
+  const handleMove = async (doc: Document, targetFolder: string) => {
+    if (!supabase || !canUpload) return;
+    
+    // Don't move to the same folder
+    if (doc.path.includes(`/${targetFolder}/`)) {
+      toast.info(`Document is already in ${targetFolder}`);
+      return;
+    }
+
+    setIsMoving(true);
+    try {
+      // Parse the current path to get the base (users/userId or orgs/orgId)
+      // Path format: users/{userId}/{basePath}/{filename} or orgs/{orgId}/{basePath}/{filename}
+      const pathParts = doc.path.split("/");
+      const filename = pathParts[pathParts.length - 1];
+      
+      // Determine the prefix (users/{id} or orgs/{id})
+      let prefix: string;
+      if (pathParts[0] === "users") {
+        prefix = `users/${pathParts[1]}`;
+      } else if (pathParts[0] === "orgs") {
+        prefix = `orgs/${pathParts[1]}`;
+      } else {
+        throw new Error("Unknown path format");
+      }
+      
+      const newPath = `${prefix}/${targetFolder}/${filename}`;
+      
+      // Move the file in storage
+      const { error: moveError } = await supabase.storage
+        .from(bucketName)
+        .move(doc.path, newPath);
+
+      if (moveError) {
+        console.error("Storage move error:", moveError);
+        throw new Error(moveError.message || "Failed to move file in storage");
+      }
+
+      // Update the document_files record if it exists
+      const { error: updateError } = await supabase
+        .from("document_files")
+        .update({ storage_path: newPath })
+        .eq("storage_bucket", bucketName)
+        .eq("storage_path", doc.path);
+
+      if (updateError) {
+        console.error("Database update error:", updateError);
+        // File was moved but database update failed - log but don't throw
+        // The file will still be accessible at the new path
+      }
+
+      // Remove from local state (it's now in a different folder)
+      setDocuments((prev) => prev.filter((d) => d.id !== doc.id));
+      setSelectedDocs((prev) => {
+        const next = new Set(prev);
+        next.delete(doc.id);
+        return next;
+      });
+
+      const targetLabel = DOCUMENT_FOLDERS.find(f => f.id === targetFolder)?.label || targetFolder;
+      toast.success(`Moved "${doc.name}" to ${targetLabel}`);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object" && error !== null && "message" in error
+          ? (error as { message: string }).message
+          : String(error);
+      console.error("Move error:", errorMessage);
+      toast.error(`Failed to move file: ${errorMessage}`);
+    } finally {
+      setIsMoving(false);
+    }
+  };
+
   // Column resize handler
   const handleColumnResizeStart = useCallback(
     (column: string, e: React.MouseEvent) => {
@@ -1925,6 +2018,90 @@ export function DocumentsView({
     } finally {
       setIsBulkDeleting(false);
     }
+  };
+
+  // Bulk move handler
+  const handleBulkMove = async (targetFolder: string) => {
+    if (!supabase || !canUpload || selectedDocs.size === 0) return;
+
+    const docsToMove = filteredDocuments.filter((d) =>
+      selectedDocs.has(d.id)
+    );
+    
+    // Filter out docs already in the target folder
+    const eligibleDocs = docsToMove.filter(
+      (d) => !d.path.includes(`/${targetFolder}/`)
+    );
+    
+    if (eligibleDocs.length === 0) {
+      toast.info("All selected documents are already in that folder");
+      return;
+    }
+
+    setIsMoving(true);
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const doc of eligibleDocs) {
+      try {
+        // Parse the current path to get the base
+        const pathParts = doc.path.split("/");
+        const filename = pathParts[pathParts.length - 1];
+        
+        let prefix: string;
+        if (pathParts[0] === "users") {
+          prefix = `users/${pathParts[1]}`;
+        } else if (pathParts[0] === "orgs") {
+          prefix = `orgs/${pathParts[1]}`;
+        } else {
+          throw new Error("Unknown path format");
+        }
+        
+        const newPath = `${prefix}/${targetFolder}/${filename}`;
+        
+        // Move the file in storage
+        const { error: moveError } = await supabase.storage
+          .from(bucketName)
+          .move(doc.path, newPath);
+
+        if (moveError) {
+          console.error(`Failed to move ${doc.name}:`, moveError);
+          errorCount++;
+          continue;
+        }
+
+        // Update the document_files record if it exists
+        await supabase
+          .from("document_files")
+          .update({ storage_path: newPath })
+          .eq("storage_bucket", bucketName)
+          .eq("storage_path", doc.path);
+
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to move ${doc.name}:`, error);
+        errorCount++;
+      }
+    }
+
+    // Update local state - remove moved docs
+    if (successCount > 0) {
+      const movedIds = new Set(eligibleDocs.slice(0, successCount).map((d) => d.id));
+      setDocuments((prev) => prev.filter((d) => !movedIds.has(d.id)));
+      setSelectedDocs(new Set());
+    }
+
+    const targetLabel = DOCUMENT_FOLDERS.find((f) => f.id === targetFolder)?.label || targetFolder;
+    
+    if (errorCount === 0) {
+      toast.success(`Moved ${successCount} file${successCount > 1 ? "s" : ""} to ${targetLabel}`);
+    } else if (successCount === 0) {
+      toast.error("Failed to move files");
+    } else {
+      toast.warning(`Moved ${successCount} file${successCount > 1 ? "s" : ""}, ${errorCount} failed`);
+    }
+
+    setIsMoving(false);
   };
 
   // Upload Dialog - extracted to render in all cases
@@ -2887,6 +3064,37 @@ export function DocumentsView({
                                   </DropdownMenuItem>
                                 )}
                                 {canUpload && (
+                                  <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger disabled={isMoving}>
+                                      <FolderInput className="h-4 w-4 mr-2" />
+                                      Move to
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuSubContent>
+                                      {DOCUMENT_FOLDERS.filter(
+                                        (folder) => !doc.path.includes(`/${folder.id}/`)
+                                      ).map((folder) => (
+                                        <DropdownMenuItem
+                                          key={folder.id}
+                                          onClick={() => handleMove(doc, folder.id)}
+                                          disabled={isMoving}
+                                        >
+                                          <Folder className="h-4 w-4 mr-2" />
+                                          {folder.label}
+                                        </DropdownMenuItem>
+                                      ))}
+                                      {DOCUMENT_FOLDERS.filter(
+                                        (folder) => !doc.path.includes(`/${folder.id}/`)
+                                      ).length === 0 && (
+                                        <DropdownMenuItem disabled>
+                                          <span className="text-muted-foreground text-sm">
+                                            No other folders
+                                          </span>
+                                        </DropdownMenuItem>
+                                      )}
+                                    </DropdownMenuSubContent>
+                                  </DropdownMenuSub>
+                                )}
+                                {canUpload && (
                                   <DropdownMenuItem
                                     onClick={() => handleDelete(doc)}
                                     disabled={isDeleting}
@@ -2955,7 +3163,7 @@ export function DocumentsView({
                       variant="ghost"
                       size="sm"
                       onClick={handleBulkDownload}
-                      disabled={isDownloading || isBulkDeleting}
+                      disabled={isDownloading || isBulkDeleting || isMoving}
                       className="gap-2 h-8 px-3 text-foreground hover:bg-muted/50"
                     >
                       {isDownloading ? (
@@ -2966,11 +3174,45 @@ export function DocumentsView({
                       <span className="text-sm">Download</span>
                     </Button>
                     {canUpload && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={isDownloading || isBulkDeleting || isMoving}
+                            className="gap-2 h-8 px-3 text-foreground hover:bg-muted/50"
+                          >
+                            {isMoving ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <FolderInput className="h-4 w-4" />
+                            )}
+                            <span className="text-sm">Move to</span>
+                            <ChevronRight className="h-3 w-3 opacity-50" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          {DOCUMENT_FOLDERS.filter(
+                            (folder) => folder.id !== basePath
+                          ).map((folder) => (
+                            <DropdownMenuItem
+                              key={folder.id}
+                              onClick={() => handleBulkMove(folder.id)}
+                              disabled={isMoving}
+                            >
+                              <Folder className="h-4 w-4 mr-2" />
+                              {folder.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                    {canUpload && (
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={handleBulkDelete}
-                        disabled={isDownloading || isBulkDeleting}
+                        disabled={isDownloading || isBulkDeleting || isMoving}
                         className="gap-2 h-8 px-3 text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
                         {isBulkDeleting ? (
