@@ -69,6 +69,9 @@ export interface DocumentFile {
   // Upload info
   uploaded_by: string | null;
   uploaded_at: string | null;
+
+  // Tags
+  tags: string[] | null;
 }
 
 /**

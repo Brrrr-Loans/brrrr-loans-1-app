@@ -3247,6 +3247,7 @@ export type Database = {
           public_notes: string | null
           storage_bucket: string | null
           storage_path: string | null
+          tags: string[] | null
           uploaded_at: string | null
           uploaded_by: string | null
         }
@@ -3269,6 +3270,7 @@ export type Database = {
           public_notes?: string | null
           storage_bucket?: string | null
           storage_path?: string | null
+          tags?: string[] | null
           uploaded_at?: string | null
           uploaded_by?: string | null
         }
@@ -3291,6 +3293,7 @@ export type Database = {
           public_notes?: string | null
           storage_bucket?: string | null
           storage_path?: string | null
+          tags?: string[] | null
           uploaded_at?: string | null
           uploaded_by?: string | null
         }

@@ -29,8 +29,8 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { TinteLogo } from "@/components/logos/tinte";
 import { convertTinteToShadcn, type TinteTheme } from "@/lib/tinte-to-shadcn";
-import { ChatInput } from "./chat-input";
-import { Message as ChatMessage } from "./chat-message";
+import { ChatInput } from "./ai-assistant/chat-input";
+import { Message as ChatMessage } from "./ai-assistant/chat-message";
 import { ColorInput } from "./color-input";
 
 type ShadcnTokens = Record<string, string>;

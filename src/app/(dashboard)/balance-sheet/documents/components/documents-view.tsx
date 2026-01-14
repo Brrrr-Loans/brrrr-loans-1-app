@@ -309,9 +309,9 @@ export function DocumentsView({
   // Column resize state - optimized for less whitespace
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
     checkbox: 40,
-    fileName: 450,
+    fileName: 400,
     investors: 180,
-    tags: 100,
+    tags: 150,
     size: 70,
     actions: 50,
   });
@@ -327,6 +327,12 @@ export function DocumentsView({
   >(null);
   const [investorSearchQuery, setInvestorSearchQuery] = useState("");
   const [isSavingInvestors, setIsSavingInvestors] = useState(false);
+
+  // Tag editing state
+  const [editingTagsDocId, setEditingTagsDocId] = useState<string | null>(null);
+  const [newTagInput, setNewTagInput] = useState("");
+  const [isSavingTags, setIsSavingTags] = useState(false);
+  const tagInputRef = useRef<HTMLInputElement>(null);
 
   // Track if initial fetch has been done to prevent re-fetching on every render
   const initialFetchDoneRef = useRef(false);
@@ -1319,6 +1325,116 @@ export function DocumentsView({
       inv.name.toLowerCase().includes(query)
     );
   }, [availableInvestors, investorSearchQuery]);
+
+  // Handle adding a new tag to a document
+  const handleAddTag = async (doc: Document, newTag: string) => {
+    if (!supabase || !newTag.trim()) return;
+
+    const trimmedTag = newTag.trim();
+    // Don't add duplicate tags
+    if (doc.tags.includes(trimmedTag)) {
+      setNewTagInput("");
+      return;
+    }
+
+    setIsSavingTags(true);
+    try {
+      // First, ensure we have a document_files record
+      const { data: docFileData, error: upsertError } = await supabase
+        .from("document_files")
+        .upsert(
+          {
+            storage_bucket: bucketName,
+            storage_path: doc.path,
+            document_name: doc.name,
+            tags: [...doc.tags, trimmedTag],
+          },
+          { onConflict: "storage_bucket,storage_path" }
+        )
+        .select("id, tags")
+        .single();
+
+      if (upsertError) {
+        console.error("Error saving tags:", upsertError);
+        throw new Error(upsertError.message || "Failed to save tags");
+      }
+
+      // Update local state
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d.id === doc.id
+            ? { ...d, tags: docFileData?.tags || [...d.tags, trimmedTag] }
+            : d
+        )
+      );
+
+      setNewTagInput("");
+      toast.success(`Added tag "${trimmedTag}"`);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object" && error !== null && "message" in error
+          ? (error as { message: string }).message
+          : String(error);
+      console.error("Error adding tag:", errorMessage);
+      toast.error(`Failed to add tag: ${errorMessage}`);
+    } finally {
+      setIsSavingTags(false);
+    }
+  };
+
+  // Handle removing a tag from a document
+  const handleRemoveTag = async (doc: Document, tagToRemove: string) => {
+    if (!supabase) return;
+
+    setIsSavingTags(true);
+    try {
+      const updatedTags = doc.tags.filter((t) => t !== tagToRemove);
+
+      // Update in database
+      const { data: docFileData, error: updateError } = await supabase
+        .from("document_files")
+        .upsert(
+          {
+            storage_bucket: bucketName,
+            storage_path: doc.path,
+            document_name: doc.name,
+            tags: updatedTags,
+          },
+          { onConflict: "storage_bucket,storage_path" }
+        )
+        .select("id, tags")
+        .single();
+
+      if (updateError) {
+        console.error("Error removing tag:", updateError);
+        throw new Error(updateError.message || "Failed to remove tag");
+      }
+
+      // Update local state
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d.id === doc.id
+            ? { ...d, tags: docFileData?.tags || updatedTags }
+            : d
+        )
+      );
+
+      toast.success(`Removed tag "${tagToRemove}"`);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object" && error !== null && "message" in error
+          ? (error as { message: string }).message
+          : String(error);
+      console.error("Error removing tag:", errorMessage);
+      toast.error(`Failed to remove tag: ${errorMessage}`);
+    } finally {
+      setIsSavingTags(false);
+    }
+  };
 
   // Delete handler
   const handleDelete = async (doc: Document) => {
@@ -2315,30 +2431,147 @@ export function DocumentsView({
                               </div>
                             )}
                           </TableCell>
-                          {/* Tags column */}
+                          {/* Tags column - inline editable */}
                           <TableCell
-                            className="px-2"
+                            className="px-2 cursor-pointer"
                             style={{ width: columnWidths.tags }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (canUpload) {
+                                setEditingTagsDocId(doc.id);
+                                setNewTagInput("");
+                              }
+                            }}
                           >
-                            <div className="flex flex-wrap gap-1">
-                              {doc.tags.slice(0, 2).map((tag) => (
-                                <Badge
-                                  key={tag}
-                                  variant="outline"
-                                  className="text-xs font-mono px-2 py-0"
+                            {editingTagsDocId === doc.id && canUpload ? (
+                              <Popover
+                                open={true}
+                                onOpenChange={(open) => {
+                                  if (!open) {
+                                    setEditingTagsDocId(null);
+                                    setNewTagInput("");
+                                  }
+                                }}
+                              >
+                                <PopoverTrigger asChild>
+                                  <div className="flex flex-wrap gap-1 min-h-[24px] p-1 border border-primary/50 rounded bg-muted/50">
+                                    {doc.tags.map((tag) => (
+                                      <Badge
+                                        key={tag}
+                                        variant="secondary"
+                                        className="text-xs font-mono px-2 py-0.5 gap-1 group"
+                                      >
+                                        {tag}
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleRemoveTag(doc, tag);
+                                          }}
+                                          disabled={isSavingTags}
+                                          className="opacity-60 hover:opacity-100 hover:text-destructive transition-opacity"
+                                        >
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      </Badge>
+                                    ))}
+                                    {doc.tags.length === 0 && (
+                                      <span className="text-xs text-muted-foreground">No tags</span>
+                                    )}
+                                  </div>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  className="w-64 p-2"
+                                  align="start"
+                                  onClick={(e) => e.stopPropagation()}
                                 >
-                                  {tag}
-                                </Badge>
-                              ))}
-                              {doc.tags.length > 2 && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs px-1.5 py-0"
-                                >
-                                  +{doc.tags.length - 2}
-                                </Badge>
-                              )}
-                            </div>
+                                  <div className="space-y-2">
+                                    <div className="flex gap-1">
+                                      <Input
+                                        ref={tagInputRef}
+                                        placeholder="Add a tag..."
+                                        value={newTagInput}
+                                        onChange={(e) => setNewTagInput(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            handleAddTag(doc, newTagInput);
+                                          } else if (e.key === "Escape") {
+                                            setEditingTagsDocId(null);
+                                            setNewTagInput("");
+                                          }
+                                        }}
+                                        className="h-8 text-sm"
+                                        autoFocus
+                                        disabled={isSavingTags}
+                                      />
+                                      <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        className="h-8 px-2"
+                                        onClick={() => handleAddTag(doc, newTagInput)}
+                                        disabled={!newTagInput.trim() || isSavingTags}
+                                      >
+                                        {isSavingTags ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <Plus className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    </div>
+                                    {doc.tags.length > 0 && (
+                                      <div className="flex flex-wrap gap-1 pt-1 border-t">
+                                        {doc.tags.map((tag) => (
+                                          <Badge
+                                            key={tag}
+                                            variant="secondary"
+                                            className="text-xs font-mono px-2 py-0.5 gap-1"
+                                          >
+                                            {tag}
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleRemoveTag(doc, tag);
+                                              }}
+                                              disabled={isSavingTags}
+                                              className="opacity-60 hover:opacity-100 hover:text-destructive transition-opacity"
+                                            >
+                                              <X className="h-3 w-3" />
+                                            </button>
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            ) : (
+                              <div className="flex flex-wrap gap-1 hover:bg-muted/50 rounded p-1 -m-1 transition-colors">
+                                {doc.tags.slice(0, 2).map((tag) => (
+                                  <Badge
+                                    key={tag}
+                                    variant="outline"
+                                    className="text-xs font-mono px-2 py-0"
+                                  >
+                                    {tag}
+                                  </Badge>
+                                ))}
+                                {doc.tags.length > 2 && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs px-1.5 py-0"
+                                  >
+                                    +{doc.tags.length - 2}
+                                  </Badge>
+                                )}
+                                {doc.tags.length === 0 && canUpload && (
+                                  <span className="text-xs text-muted-foreground/50 italic">
+                                    + Add tags
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell
                             className="px-2 text-muted-foreground"
