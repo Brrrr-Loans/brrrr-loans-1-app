@@ -5,6 +5,45 @@ import {
   useDropzone,
 } from "react-dropzone";
 
+// Custom file extractor that bypasses File System Access API entirely
+// This avoids the "NotAllowedError: getFile" error when dragging files in dialogs/modals
+async function getFilesFromEvent(
+  event: React.DragEvent<HTMLElement> | Event
+): Promise<Array<File | DataTransferItem>> {
+  // Handle input element change events (click to browse)
+  if (event.type === "change") {
+    const target = event.target as HTMLInputElement;
+    if (target.files) {
+      return Array.from(target.files);
+    }
+    return [];
+  }
+
+  // Handle drag and drop events
+  const dragEvent = event as React.DragEvent<HTMLElement>;
+  const dataTransfer = dragEvent.dataTransfer;
+
+  if (!dataTransfer) {
+    return [];
+  }
+
+  // Use the traditional DataTransfer.files API which doesn't require FSAA
+  // This is the key fix - we avoid using dataTransferItemToFile which uses FSAA
+  const files: File[] = [];
+
+  if (dataTransfer.files && dataTransfer.files.length > 0) {
+    // Direct access to files from DataTransfer - no FSAA needed
+    for (let i = 0; i < dataTransfer.files.length; i++) {
+      const file = dataTransfer.files[i];
+      if (file) {
+        files.push(file);
+      }
+    }
+  }
+
+  return files;
+}
+
 interface FileWithPreview extends File {
   preview?: string;
   errors: readonly FileError[];
@@ -107,6 +146,8 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
     // Disable File System Access API to avoid "NotAllowedError: getFile" errors
     // in certain browser contexts (dialogs, iframes, etc.)
     useFsAccessApi: false,
+    // Custom file extractor that bypasses FSAA entirely (belt and suspenders approach)
+    getFilesFromEvent,
     // Prevent drag events from bubbling up to parent elements
     noDragEventsBubbling: true,
     accept: allowedMimeTypes.reduce(

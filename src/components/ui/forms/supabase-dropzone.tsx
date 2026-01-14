@@ -29,6 +29,42 @@ export const formatBytes = (
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
 };
 
+/**
+ * Truncates a file name with "..." in the middle if it exceeds maxLength
+ * Preserves the file extension at the end
+ */
+export const truncateFileName = (fileName: string, maxLength: number = 40): string => {
+  if (fileName.length <= maxLength) {
+    return fileName;
+  }
+  
+  // Extract the file extension
+  const lastDotIndex = fileName.lastIndexOf(".");
+  const hasExtension = lastDotIndex > 0 && lastDotIndex < fileName.length - 1;
+  const extension = hasExtension ? fileName.slice(lastDotIndex) : "";
+  const nameWithoutExt = hasExtension ? fileName.slice(0, lastDotIndex) : fileName;
+  
+  // Calculate how much space we have for the name (minus extension and ellipsis)
+  const ellipsis = "...";
+  const availableLength = maxLength - extension.length - ellipsis.length;
+  
+  if (availableLength <= 0) {
+    // Edge case: very short maxLength, just truncate at the end
+    return fileName.slice(0, maxLength - 3) + "...";
+  }
+  
+  // Split the remaining length between start and end of the file name
+  const startLength = Math.ceil(availableLength / 2);
+  const endLength = Math.floor(availableLength / 2);
+  
+  const truncatedName = 
+    nameWithoutExt.slice(0, startLength) + 
+    ellipsis + 
+    nameWithoutExt.slice(-endLength);
+  
+  return truncatedName + extension;
+};
+
 type DropzoneContextType = Omit<
   UseSupabaseUploadReturn,
   "getRootProps" | "getInputProps"
@@ -147,9 +183,9 @@ const DropzoneContent = ({ className }: { className?: string }) => {
             <div className="flex-1 min-w-0 overflow-hidden flex flex-col items-start">
               <p
                 title={file.name}
-                className="text-sm truncate w-full max-w-full"
+                className="text-sm w-full max-w-full break-all"
               >
-                {file.name}
+                {truncateFileName(file.name, 45)}
               </p>
               {file.errors.length > 0 ? (
                 <p className="text-xs text-destructive">
