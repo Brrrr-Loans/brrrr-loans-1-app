@@ -3243,6 +3243,8 @@ export type Database = {
           file_type: string | null
           id: number
           is_required: boolean | null
+          period_end: string | null
+          period_start: string | null
           private_notes: string | null
           public_notes: string | null
           storage_bucket: string | null
@@ -3266,6 +3268,8 @@ export type Database = {
           file_type?: string | null
           id?: number
           is_required?: boolean | null
+          period_end?: string | null
+          period_start?: string | null
           private_notes?: string | null
           public_notes?: string | null
           storage_bucket?: string | null
@@ -3289,6 +3293,8 @@ export type Database = {
           file_type?: string | null
           id?: number
           is_required?: boolean | null
+          period_end?: string | null
+          period_start?: string | null
           private_notes?: string | null
           public_notes?: string | null
           storage_bucket?: string | null

@@ -121,21 +121,17 @@ export function NotionViewTabs({
               aria-selected={isActive}
               onClick={() => onViewChange(view.id)}
               className={cn(
-                "relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-colors",
-                "hover:bg-muted/50 rounded-md",
+                "relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-all rounded-md",
                 isActive
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               )}
             >
-              <Icon className="h-4 w-4" />
-              <span>{view.label}</span>
-              
-              {/* Animated underline indicator */}
+              {/* Animated background indicator */}
               {isActive && (
                 <motion.div
                   layoutId="notion-view-tab-indicator"
-                  className="absolute bottom-0 left-2 right-2 h-0.5 bg-foreground rounded-full"
+                  className="absolute inset-0 bg-muted rounded-md -z-10"
                   initial={false}
                   transition={{
                     type: "spring",
@@ -144,6 +140,8 @@ export function NotionViewTabs({
                   }}
                 />
               )}
+              <Icon className="h-4 w-4" />
+              <span>{view.label}</span>
             </button>
           );
         })}

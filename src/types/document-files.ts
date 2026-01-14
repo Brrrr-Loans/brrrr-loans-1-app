@@ -63,6 +63,10 @@ export interface DocumentFile {
   // Dates
   effective_date: string | null;
   expiration_date: string | null;
+  
+  // Period covered by the document (e.g., statement period)
+  period_start: string | null;
+  period_end: string | null;
 
   // Flags
   is_required: boolean | null;

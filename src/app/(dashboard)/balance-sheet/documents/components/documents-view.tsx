@@ -129,6 +129,8 @@ interface Document {
   source: "personal" | "organization";
   sourceName: string;
   investors: InvestorAssignment[];
+  periodStart: string | null;
+  periodEnd: string | null;
 }
 
 interface DocumentsViewProps {
@@ -323,9 +325,10 @@ export function DocumentsView({
   // Column resize state - optimized for less whitespace
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
     checkbox: 40,
-    fileName: 400,
-    investors: 180,
-    tags: 150,
+    fileName: 350,
+    investors: 160,
+    period: 140,
+    tags: 130,
     size: 70,
     actions: 50,
   });
@@ -347,6 +350,12 @@ export function DocumentsView({
   const [newTagInput, setNewTagInput] = useState("");
   const [isSavingTags, setIsSavingTags] = useState(false);
   const tagInputRef = useRef<HTMLInputElement>(null);
+  
+  // Period editing state
+  const [editingPeriodDocId, setEditingPeriodDocId] = useState<string | null>(null);
+  const [editingPeriodStart, setEditingPeriodStart] = useState("");
+  const [editingPeriodEnd, setEditingPeriodEnd] = useState("");
+  const [isSavingPeriod, setIsSavingPeriod] = useState(false);
   
   // Available tags for auto-complete (from document_tags table)
   const [availableTags, setAvailableTags] = useState<
@@ -642,6 +651,8 @@ export function DocumentsView({
                 source,
                 sourceName,
                 investors: [],
+                periodStart: null,
+                periodEnd: null,
               });
             }
           } else if (queryError) {
@@ -691,6 +702,8 @@ export function DocumentsView({
                       ? "Personal"
                       : `${u.first_name} ${u.last_name}`,
                   investors: [],
+                  periodStart: null,
+                  periodEnd: null,
                 }));
               allDocs.push(...userDocs);
             }
@@ -732,6 +745,8 @@ export function DocumentsView({
                   source: "organization" as const,
                   sourceName: org.clerk_org_name,
                   investors: [],
+                  periodStart: null,
+                  periodEnd: null,
                 }));
               allDocs.push(...orgDocs);
             }
@@ -767,6 +782,8 @@ export function DocumentsView({
                 source: "personal" as const,
                 sourceName: "Personal",
                 investors: [],
+                periodStart: null,
+                periodEnd: null,
               }));
             allDocs.push(...personalDocs);
           }
@@ -805,6 +822,8 @@ export function DocumentsView({
                   source: "organization" as const,
                   sourceName: orgName,
                   investors: [],
+                  periodStart: null,
+                  periodEnd: null,
                 }));
               allDocs.push(...orgDocs);
             }
@@ -918,12 +937,14 @@ export function DocumentsView({
           
           // Map to store persisted tags by path
           const persistedTagsByPath = new Map<string, string[]>();
+          // Map to store period dates by path
+          const periodByPath = new Map<string, { start: string | null; end: string | null }>();
           
           if (storagePaths.length > 0) {
-            // Query document_files to get IDs for our storage paths
+            // Query document_files to get IDs and period dates for our storage paths
             const { data: docFilesData } = await currentSupabase
               .from("document_files")
-              .select("id, storage_path")
+              .select("id, storage_path, period_start, period_end")
               .eq("storage_bucket", bucketName)
               .in("storage_path", storagePaths);
             
@@ -932,13 +953,26 @@ export function DocumentsView({
               const docFileIds = docFilesData.map((df) => df.id);
               const idToPathMap = new Map(docFilesData.map((df) => [df.id, df.storage_path]));
               
+              // IMPORTANT: Initialize ALL documents with document_files records to empty arrays
+              // This ensures that documents with no tags get an empty array (not undefined)
+              // which will override auto-generated tags from filenames
+              for (const df of docFilesData) {
+                if (df.storage_path) {
+                  persistedTagsByPath.set(df.storage_path, []);
+                  periodByPath.set(df.storage_path, {
+                    start: df.period_start,
+                    end: df.period_end,
+                  });
+                }
+              }
+              
               // Query tags via junction table with join to document_tags
               const { data: tagAssignments } = await currentSupabase
                 .from("document_files_tags")
                 .select("document_file_id, document_tags(id, name, slug)")
                 .in("document_file_id", docFileIds);
               
-              // Build map of tags by storage path
+              // Build map of tags by storage path (now populating the initialized arrays)
               if (tagAssignments) {
                 for (const assignment of tagAssignments) {
                   const storagePath = idToPathMap.get(assignment.document_file_id);
@@ -1020,7 +1054,7 @@ export function DocumentsView({
             }
           }
 
-          // Merge assignments and persisted tags into documents
+          // Merge assignments, persisted tags, and period dates into documents
           for (const doc of allDocs) {
             doc.investors = assignmentsByPath.get(doc.path) || [];
             
@@ -1031,6 +1065,13 @@ export function DocumentsView({
               doc.tags = persistedTags;
             }
             // If no persisted tags, keep the auto-generated tags from getDocumentTags()
+            
+            // Add period dates if they exist
+            const period = periodByPath.get(doc.path);
+            if (period) {
+              doc.periodStart = period.start;
+              doc.periodEnd = period.end;
+            }
           }
         }
 
@@ -1245,7 +1286,7 @@ export function DocumentsView({
 
       if (error) throw error;
 
-      // Update local state
+      // Update local state - preserve existing tags (don't regenerate from filename)
       setDocuments((prev) =>
         prev.map((d) =>
           d.id === doc.id
@@ -1254,11 +1295,18 @@ export function DocumentsView({
                 name: editingName,
                 path: newPath,
                 description: getDocumentDescription(editingName),
-                tags: getDocumentTags(editingName),
+                tags: d.tags, // Preserve existing tags
               }
             : d
         )
       );
+
+      // Also update the storage_path in document_files if it exists
+      await supabase
+        .from("document_files")
+        .update({ storage_path: newPath, document_name: editingName })
+        .eq("storage_bucket", bucketName)
+        .eq("storage_path", doc.path);
 
       toast.success(`Renamed to "${editingName}"`);
     } catch (error) {
@@ -1680,6 +1728,60 @@ export function DocumentsView({
     }
   };
 
+  // Handle saving period dates
+  const handleSavePeriod = async (doc: Document) => {
+    if (!supabase) return;
+
+    setIsSavingPeriod(true);
+    try {
+      // Upsert document_files record with period dates
+      const { error: upsertError } = await supabase
+        .from("document_files")
+        .upsert(
+          {
+            storage_bucket: bucketName,
+            storage_path: doc.path,
+            document_name: doc.name,
+            period_start: editingPeriodStart || null,
+            period_end: editingPeriodEnd || null,
+          },
+          { onConflict: "storage_bucket,storage_path" }
+        );
+
+      if (upsertError) {
+        console.error("Error saving period:", upsertError);
+        throw new Error(upsertError.message || "Failed to save period");
+      }
+
+      // Update local state
+      setDocuments((prev) =>
+        prev.map((d) =>
+          d.id === doc.id
+            ? {
+                ...d,
+                periodStart: editingPeriodStart || null,
+                periodEnd: editingPeriodEnd || null,
+              }
+            : d
+        )
+      );
+
+      setEditingPeriodDocId(null);
+      toast.success("Period updated");
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === "object" && error !== null && "message" in error
+          ? (error as { message: string }).message
+          : String(error);
+      console.error("Error saving period:", errorMessage);
+      toast.error(`Failed to save period: ${errorMessage}`);
+    } finally {
+      setIsSavingPeriod(false);
+    }
+  };
+
   // Delete handler
   const handleDelete = async (doc: Document) => {
     if (!supabase || !canUpload) return;
@@ -1873,6 +1975,30 @@ export function DocumentsView({
     const sizes = ["B", "kB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(0))} ${sizes[i]}`;
+  }
+
+  // Format period date range for display
+  function formatPeriod(start: string | null, end: string | null): string {
+    if (!start && !end) return "";
+    
+    const formatDate = (dateStr: string) => {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+    };
+    
+    if (start && end) {
+      const startFormatted = formatDate(start);
+      const endFormatted = formatDate(end);
+      // If same month/year, show just once
+      if (startFormatted === endFormatted) {
+        return startFormatted;
+      }
+      return `${startFormatted} – ${endFormatted}`;
+    }
+    
+    if (start) return `From ${formatDate(start)}`;
+    if (end) return `Until ${formatDate(end)}`;
+    return "";
   }
 
   // Get appropriate icon and color based on file type
@@ -2509,6 +2635,18 @@ export function DocumentsView({
                         </TableHead>
                         <TableHead
                           className="relative group px-2"
+                          style={{ width: columnWidths.period, minWidth: 80 }}
+                        >
+                          Period
+                          <div
+                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 bg-transparent group-hover:bg-border/50"
+                            onMouseDown={(e) =>
+                              handleColumnResizeStart("period", e)
+                            }
+                          />
+                        </TableHead>
+                        <TableHead
+                          className="relative group px-2"
                           style={{ width: columnWidths.tags, minWidth: 80 }}
                         >
                           Tags
@@ -2834,6 +2972,99 @@ export function DocumentsView({
                                       {doc.sourceName}
                                     </span>
                                   </>
+                                )}
+                              </div>
+                            )}
+                          </TableCell>
+                          {/* Period column - inline editable */}
+                          <TableCell
+                            className="px-2 cursor-pointer"
+                            style={{ width: columnWidths.period }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (canUpload) {
+                                setEditingPeriodDocId(doc.id);
+                                setEditingPeriodStart(doc.periodStart || "");
+                                setEditingPeriodEnd(doc.periodEnd || "");
+                              }
+                            }}
+                          >
+                            {editingPeriodDocId === doc.id && canUpload ? (
+                              <Popover
+                                open={true}
+                                onOpenChange={(open) => {
+                                  if (!open) {
+                                    setEditingPeriodDocId(null);
+                                  }
+                                }}
+                              >
+                                <PopoverTrigger asChild>
+                                  <div className="text-xs text-muted-foreground p-1 border border-primary/50 rounded bg-muted/50 min-h-[24px]">
+                                    {formatPeriod(editingPeriodStart, editingPeriodEnd) || "Set period..."}
+                                  </div>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  className="w-64 p-3"
+                                  align="start"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div className="space-y-3">
+                                    <div className="text-sm font-medium">Set Period</div>
+                                    <div className="space-y-2">
+                                      <div>
+                                        <Label className="text-xs text-muted-foreground">Start Date</Label>
+                                        <Input
+                                          type="date"
+                                          value={editingPeriodStart}
+                                          onChange={(e) => setEditingPeriodStart(e.target.value)}
+                                          className="h-8 text-sm"
+                                          disabled={isSavingPeriod}
+                                        />
+                                      </div>
+                                      <div>
+                                        <Label className="text-xs text-muted-foreground">End Date</Label>
+                                        <Input
+                                          type="date"
+                                          value={editingPeriodEnd}
+                                          onChange={(e) => setEditingPeriodEnd(e.target.value)}
+                                          className="h-8 text-sm"
+                                          disabled={isSavingPeriod}
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleSavePeriod(doc)}
+                                        disabled={isSavingPeriod}
+                                        className="flex-1"
+                                      >
+                                        {isSavingPeriod ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          "Save"
+                                        )}
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => setEditingPeriodDocId(null)}
+                                        disabled={isSavingPeriod}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            ) : (
+                              <div className="text-xs text-muted-foreground hover:bg-muted/50 rounded p-1 -m-1 transition-colors">
+                                {formatPeriod(doc.periodStart, doc.periodEnd) || (
+                                  canUpload && (
+                                    <span className="text-muted-foreground/50 italic">
+                                      + Set period
+                                    </span>
+                                  )
                                 )}
                               </div>
                             )}
