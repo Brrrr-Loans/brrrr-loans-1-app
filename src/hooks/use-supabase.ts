@@ -37,21 +37,8 @@ export function useSupabaseWithRefresh(): UseSupabaseReturn {
         detectSessionInUrl: false,
       },
       async accessToken() {
-        // #region agent log
-        // Use 'supabase' JWT template - this template must be configured in Clerk Dashboard
-        // with Supabase's JWT secret for proper token verification
-        const token = await session?.getToken({ template: 'supabase' });
-        // Decode JWT to see sub claim (without verifying)
-        let subClaim = null;
-        if (token) {
-          try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            subClaim = payload.sub;
-          } catch { /* ignore */ }
-        }
-        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'use-supabase.ts:accessToken',message:'Token callback invoked',data:{hasToken:!!token,subClaim,isLoaded,hasSession:!!session},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1-H2'})}).catch(()=>{});
-        // #endregion
-        return token ?? null;
+        // Use 'supabase' JWT template - configured in Clerk Dashboard with Supabase's JWT secret
+        return await session?.getToken({ template: 'supabase' }) ?? null;
       },
     });
   }, [session, isLoaded]);

@@ -89,10 +89,6 @@ export function OrgThemeProvider({ children }: { children: ReactNode }) {
   // Load internal org ID when Clerk org changes
   useEffect(() => {
     async function loadInternalOrgId() {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'theme-context.tsx:loadInternalOrgId:entry',message:'Function entry',data:{isOrgLoaded,hasOrg:!!organization,orgId:organization?.id,hasSupabase:!!supabase,membershipRole:membership?.role,membershipUserId:membership?.publicUserData?.userId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2-H4'})}).catch(()=>{});
-      // #endregion
-      
       if (!isOrgLoaded || !organization?.id || !supabase) {
         if (isOrgLoaded && supabase) {
           setInternalOrgId(null);
@@ -107,10 +103,6 @@ export function OrgThemeProvider({ children }: { children: ReactNode }) {
         .select("id")
         .eq("clerk_org_id", organization.id)
         .single();
-
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'theme-context.tsx:loadInternalOrgId:afterQuery',message:'Query result',data:{orgData:org,errorCode:orgError?.code,errorMessage:orgError?.message,orgIdQueried:organization.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1-H3'})}).catch(()=>{});
-      // #endregion
 
       if (orgError || !org) {
         // This is expected for new orgs that haven't been synced yet
