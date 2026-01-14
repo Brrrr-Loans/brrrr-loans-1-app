@@ -14,6 +14,9 @@ import { useLyteNyte, useServerDataSource } from "@/hooks/use-lytenyte-pro";
 import { useLyteNyte, useClientRowDataSourcePaginated } from "@/hooks/use-lytenyte-pro";
 // or
 import { useLyteNyte, useClientTreeDataSource } from "@/hooks/use-lytenyte-pro";
+
+// For types
+import type { Column } from "@1771technologies/lytenyte-pro/types";
 ```
 
 ## ⚡ Bundling Best Practices
@@ -31,7 +34,7 @@ import { useLyteNyte, useClientTreeDataSource } from "@/hooks/use-lytenyte-pro";
 ```tsx
 const dataSource = useClientRowDataSource({
   data: myArray,
-  getRowId: (row) => row.id,
+  rowIdLeaf: (d, i) => d.data?.id ?? String(i),  // Not getRowId!
 });
 ```
 
@@ -39,28 +42,23 @@ const dataSource = useClientRowDataSource({
 ```tsx
 const dataSource = useClientRowDataSourcePaginated({
   data: largeArray,
-  getRowId: (row) => row.id,
+  rowIdLeaf: (d, i) => d.data?.id ?? String(i),
   pageSize: 50,
 });
 ```
 
 ### Server-Side (Dynamic)
 ```tsx
-const dataSource = useServerDataSource({
-  getRows: async (params) => {
-    const res = await fetch(`/api/data?page=${params.startRow}`);
-    const data = await res.json();
-    return { rows: data.items, totalCount: data.total };
-  },
-  getRowId: (row) => row.id,
-});
+// Note: Server data source uses dataFetcher (more complex API)
+// For simpler use cases, fetch data with useEffect/useSWR 
+// and use client data source
 ```
 
 ### Tree Data
 ```tsx
 const dataSource = useClientTreeDataSource({
   data: treeArray,
-  getRowId: (row) => row.id,
+  rowIdLeaf: (d, i) => d.data?.id ?? String(i),
   getChildren: (row) => row.children,
 });
 ```
@@ -70,19 +68,40 @@ const dataSource = useClientTreeDataSource({
 ```tsx
 "use client";
 
+import { useId } from "react";
 import { LyteNyte } from "@/components/lytenyte-pro";
 import { useLyteNyte, useClientRowDataSource } from "@/hooks/use-lytenyte-pro";
+import type { Column } from "@1771technologies/lytenyte-pro/types";
 
-export function MyGrid({ data }) {
-  const grid = useLyteNyte({
-    columns: [
-      { id: "name", title: "Name", width: 200 },
-      { id: "amount", title: "Amount", width: 150 },
-    ],
-    dataSource: useClientRowDataSource({
-      data: data,
-      getRowId: (row) => row.id,
-    }),
+interface MyData {
+  id: string;
+  name: string;
+  amount: number;
+}
+
+export function MyGrid({ data }: { data: MyData[] }) {
+  const gridId = useId();
+  
+  const columns: Column<MyData>[] = [
+    { id: "name", name: "Name", width: 200 },
+    { id: "amount", name: "Amount", width: 150, type: "number" },
+  ];
+  
+  const dataSource = useClientRowDataSource({
+    data: data,
+    rowIdLeaf: (d, i) => d.data?.id ?? String(i),
+  });
+  
+  const grid = useLyteNyte<MyData>({
+    gridId,              // Required!
+    columns,
+    rowDataSource: dataSource,  // Not "dataSource"!
+    columnBase: {
+      uiHints: {
+        resizable: true,
+        sortable: true,
+      },
+    },
   });
 
   return (
@@ -96,79 +115,91 @@ export function MyGrid({ data }) {
 ## 📊 Column Configuration
 
 ```tsx
-{
-  id: "column-id",              // Required: unique identifier
-  title: "Column Title",        // Required: display name
-  width: 150,                   // Default width in pixels
-  minWidth: 100,                // Minimum width
-  maxWidth: 300,                // Maximum width
-  resizable: true,              // Allow column resizing
-  sortable: true,               // Enable sorting
-  filterable: true,             // Enable filtering
-  editable: true,               // Allow cell editing
-  
-  // Format displayed value
-  valueFormatter: (params) => {
-    return `$${params.value}`;
+const columns: Column<T>[] = [
+  {
+    id: "column-id",              // Required: unique identifier
+    name: "Column Title",         // Display name (NOT "title"!)
+    width: 150,                   // Default width in pixels
+    widthMin: 100,                // Minimum width (NOT "minWidth"!)
+    widthMax: 300,                // Maximum width (NOT "maxWidth"!)
+    type: "number",               // "string" | "number" | "date" | "datetime"
+    
+    // Custom cell rendering (no valueFormatter - use cellRenderer!)
+    cellRenderer: ({ row, grid, column }) => {
+      const value = grid.api.columnField(column, row);
+      return <div className="px-2">{formatValue(value)}</div>;
+    },
   },
-  
-  // Custom cell rendering
-  cellRenderer: (params) => {
-    return <CustomComponent value={params.value} />;
-  },
-}
+];
 ```
 
 ## 🎯 Common Patterns
 
-### Currency Formatting
+### Currency Formatting (via cellRenderer)
 ```tsx
-valueFormatter: (params) => {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(params.value);
+cellRenderer: ({ row, grid, column }) => {
+  const value = grid.api.columnField(column, row) as number | null;
+  if (value == null) return null;
+  
+  return (
+    <div className="flex h-full w-full items-center px-2">
+      {new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+      }).format(value)}
+    </div>
+  );
 }
 ```
 
 ### Date Formatting
 ```tsx
-valueFormatter: (params) => {
-  return new Date(params.value).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+cellRenderer: ({ row, grid, column }) => {
+  const dateStr = grid.api.columnField(column, row) as string | null;
+  if (!dateStr) return null;
+  
+  const date = new Date(dateStr);
+  return (
+    <div className="flex h-full w-full items-center px-2">
+      {date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })}
+    </div>
+  );
 }
 ```
 
 ### Custom Cell with Badge
 ```tsx
-cellRenderer: (params) => {
-  const variant = params.value === "Active" ? "default" : "secondary";
-  return <Badge variant={variant}>{params.value}</Badge>;
+cellRenderer: ({ row, grid, column }) => {
+  const status = grid.api.columnField(column, row) as string | null;
+  if (!status) return null;
+  
+  const variant = status === "Active" ? "default" : "secondary";
+  return (
+    <div className="flex h-full w-full items-center px-2">
+      <Badge variant={variant}>{status}</Badge>
+    </div>
+  );
 }
 ```
 
-## 🔧 Grid Features
+## ⚠️ API Gotchas
 
-```tsx
-const grid = useLyteNyte({
-  columns: [...],
-  dataSource: dataSource,
-  
-  // Features
-  enableSorting: true,
-  enableFiltering: true,
-  enableColumnResize: true,
-  enableRowSelection: true,
-  
-  // Callbacks
-  onRowClick: (row) => console.log(row.data),
-  onSelectionChange: (selection) => console.log(selection),
-  onCellValueChanged: (params) => console.log(params),
-});
-```
+| ❌ Wrong | ✅ Correct |
+|----------|-----------|
+| `title: "Name"` | `name: "Name"` |
+| `minWidth: 100` | `widthMin: 100` |
+| `maxWidth: 300` | `widthMax: 300` |
+| `dataSource: dataSource` | `rowDataSource: dataSource` |
+| `getRowId: (row) => row.id` | `rowIdLeaf: (d, i) => d.data?.id ?? String(i)` |
+| `params.value` | `grid.api.columnField(column, row)` |
+| `valueFormatter: (p) => ...` | `cellRenderer: ({ row, grid, column }) => ...` |
+| `resizable: true` (on column) | `columnBase: { uiHints: { resizable: true } }` |
+| `sortable: true` (on column) | `columnBase: { uiHints: { sortable: true } }` |
+| Missing `gridId` | `const gridId = useId();` (required!) |
 
 ## 🔑 License Activation
 
@@ -209,4 +240,3 @@ The `LyteNyteLicenseActivator` component in your root layout handles activation 
 3. Customize columns for your data
 4. Add to your page
 5. Test and iterate!
-
