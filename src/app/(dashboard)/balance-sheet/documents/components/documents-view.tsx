@@ -89,12 +89,24 @@ import {
 import { NotionViewTabs, type ViewDefinition, type CardSize } from "@/components/ui/notion-view-tabs";
 import { DocumentsBoardView } from "./documents-board-view";
 
+// Board grouping options
+type BoardGroupBy = "dateCreated" | "period" | "tags" | "investors" | "source";
+
+const BOARD_GROUP_OPTIONS: { id: BoardGroupBy; label: string; description: string }[] = [
+  { id: "dateCreated", label: "Date Created", description: "Group by when documents were uploaded" },
+  { id: "period", label: "Period", description: "Group by the document's date range" },
+  { id: "tags", label: "Tags", description: "Group by document tags" },
+  { id: "investors", label: "Investor(s)", description: "Group by assigned investors" },
+  { id: "source", label: "Source", description: "Group by personal vs organization" },
+];
+
 // Default view settings
 const DEFAULT_VIEW_SETTINGS = {
   cardSize: "medium" as CardSize,
   fitImage: false,
   wrapProperties: false,
   showPageIcon: true,
+  groupBy: "dateCreated" as BoardGroupBy,
 };
 
 // Available document folders for Move functionality
@@ -231,6 +243,30 @@ function ViewOptionsMenu({
           {/* Settings section for board/gallery */}
           {showCardSettings && (
             <div className="space-y-3 pt-2 border-t">
+              {/* Group By - Board view only */}
+              {activeView === "board" && (
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm">Group by</Label>
+                  <Select
+                    value={viewSettings.groupBy}
+                    onValueChange={(value: BoardGroupBy) =>
+                      onViewSettingsChange({ ...viewSettings, groupBy: value })
+                    }
+                  >
+                    <SelectTrigger className="w-32 h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BOARD_GROUP_OPTIONS.map((option) => (
+                        <SelectItem key={option.id} value={option.id}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="flex items-center justify-between">
                 <Label className="text-sm">Card size</Label>
                 <Select
@@ -2565,6 +2601,7 @@ export function DocumentsView({
                 cardSize={viewSettings.cardSize}
                 fitImage={viewSettings.fitImage}
                 showPageIcon={viewSettings.showPageIcon}
+                groupBy={viewSettings.groupBy}
               />
             ) : (
               /* Table View */

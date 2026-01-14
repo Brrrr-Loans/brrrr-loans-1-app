@@ -15,6 +15,9 @@ import {
   Building2,
   User,
   Calendar,
+  Tag,
+  Users,
+  Inbox,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CardSize } from "@/components/ui/notion-view-tabs";
@@ -38,7 +41,11 @@ interface Document {
   source: "personal" | "organization";
   sourceName: string;
   investors: InvestorAssignment[];
+  periodStart: string | null;
+  periodEnd: string | null;
 }
+
+type BoardGroupBy = "dateCreated" | "period" | "tags" | "investors" | "source";
 
 interface DocumentsBoardViewProps {
   documents: Document[];
@@ -47,6 +54,7 @@ interface DocumentsBoardViewProps {
   cardSize?: CardSize;
   fitImage?: boolean;
   showPageIcon?: boolean;
+  groupBy?: BoardGroupBy;
 }
 
 interface BoardColumn {
@@ -332,6 +340,35 @@ function BoardColumnComponent({
   );
 }
 
+// Helper to format period as column title
+function formatPeriodColumnTitle(start: string | null, end: string | null): string {
+  if (!start && !end) return "No Period";
+  
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+  };
+  
+  if (start && end) {
+    const startFormatted = formatDate(start);
+    const endFormatted = formatDate(end);
+    if (startFormatted === endFormatted) {
+      return startFormatted;
+    }
+    return `${startFormatted} - ${endFormatted}`;
+  }
+  
+  if (start) return `From ${formatDate(start)}`;
+  if (end) return `Until ${formatDate(end)}`;
+  return "No Period";
+}
+
+// Get unique period key for grouping
+function getPeriodKey(doc: Document): string {
+  if (!doc.periodStart && !doc.periodEnd) return "no-period";
+  return `${doc.periodStart || ""}_${doc.periodEnd || ""}`;
+}
+
 export function DocumentsBoardView({
   documents,
   selectedDocs,
@@ -339,49 +376,202 @@ export function DocumentsBoardView({
   cardSize = "medium",
   fitImage = false,
   showPageIcon = true,
+  groupBy = "dateCreated",
 }: DocumentsBoardViewProps) {
-  // Group documents by date period
+  // Group documents based on groupBy setting
   const columns = useMemo<BoardColumn[]>(() => {
-    const now = new Date();
-    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    switch (groupBy) {
+      case "dateCreated": {
+        const now = new Date();
+        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const thisWeek: Document[] = [];
-    const thisMonth: Document[] = [];
-    const older: Document[] = [];
+        const thisWeek: Document[] = [];
+        const thisMonth: Document[] = [];
+        const older: Document[] = [];
 
-    for (const doc of documents) {
-      const createdDate = new Date(doc.createdAt);
-      if (createdDate >= oneWeekAgo) {
-        thisWeek.push(doc);
-      } else if (createdDate >= oneMonthAgo) {
-        thisMonth.push(doc);
-      } else {
-        older.push(doc);
+        for (const doc of documents) {
+          const createdDate = new Date(doc.createdAt);
+          if (createdDate >= oneWeekAgo) {
+            thisWeek.push(doc);
+          } else if (createdDate >= oneMonthAgo) {
+            thisMonth.push(doc);
+          } else {
+            older.push(doc);
+          }
+        }
+
+        return [
+          { id: "this-week", title: "This Week", icon: Calendar, documents: thisWeek },
+          { id: "this-month", title: "This Month", icon: Calendar, documents: thisMonth },
+          { id: "older", title: "Older", icon: Calendar, documents: older },
+        ];
       }
-    }
 
-    return [
-      {
-        id: "this-week",
-        title: "This Week",
-        icon: Calendar,
-        documents: thisWeek,
-      },
-      {
-        id: "this-month",
-        title: "This Month",
-        icon: Calendar,
-        documents: thisMonth,
-      },
-      {
-        id: "older",
-        title: "Older",
-        icon: Calendar,
-        documents: older,
-      },
-    ];
-  }, [documents]);
+      case "period": {
+        // Group by document period (date range)
+        const periodGroups = new Map<string, { title: string; docs: Document[]; sortKey: string }>();
+        
+        for (const doc of documents) {
+          const key = getPeriodKey(doc);
+          const title = formatPeriodColumnTitle(doc.periodStart, doc.periodEnd);
+          const sortKey = doc.periodStart || doc.periodEnd || "0000-00-00";
+          
+          if (!periodGroups.has(key)) {
+            periodGroups.set(key, { title, docs: [], sortKey });
+          }
+          periodGroups.get(key)!.docs.push(doc);
+        }
+
+        // Sort by date (most recent first), with "No Period" at the end
+        const sortedGroups = Array.from(periodGroups.entries())
+          .sort((a, b) => {
+            if (a[0] === "no-period") return 1;
+            if (b[0] === "no-period") return -1;
+            return b[1].sortKey.localeCompare(a[1].sortKey);
+          });
+
+        return sortedGroups.map(([key, group]) => ({
+          id: key,
+          title: group.title,
+          icon: Calendar,
+          documents: group.docs,
+        }));
+      }
+
+      case "tags": {
+        // Group by tags (documents can appear in multiple columns)
+        const tagGroups = new Map<string, Document[]>();
+        const untagged: Document[] = [];
+
+        for (const doc of documents) {
+          if (doc.tags.length === 0) {
+            untagged.push(doc);
+          } else {
+            for (const tag of doc.tags) {
+              if (!tagGroups.has(tag)) {
+                tagGroups.set(tag, []);
+              }
+              tagGroups.get(tag)!.push(doc);
+            }
+          }
+        }
+
+        // Sort tags alphabetically
+        const sortedTags = Array.from(tagGroups.entries())
+          .sort((a, b) => a[0].localeCompare(b[0]));
+
+        const columns: BoardColumn[] = sortedTags.map(([tag, docs]) => ({
+          id: `tag-${tag}`,
+          title: tag,
+          icon: Tag,
+          documents: docs,
+        }));
+
+        // Add untagged column at the end if there are any
+        if (untagged.length > 0) {
+          columns.push({
+            id: "untagged",
+            title: "Untagged",
+            icon: Inbox,
+            documents: untagged,
+          });
+        }
+
+        return columns;
+      }
+
+      case "investors": {
+        // Group by assigned investors
+        const investorGroups = new Map<string, { name: string; docs: Document[] }>();
+        const unassigned: Document[] = [];
+
+        for (const doc of documents) {
+          if (doc.investors.length === 0) {
+            unassigned.push(doc);
+          } else {
+            for (const investor of doc.investors) {
+              const key = `${investor.type}-${investor.id}`;
+              if (!investorGroups.has(key)) {
+                investorGroups.set(key, { name: investor.name, docs: [] });
+              }
+              investorGroups.get(key)!.docs.push(doc);
+            }
+          }
+        }
+
+        // Sort by name
+        const sortedInvestors = Array.from(investorGroups.entries())
+          .sort((a, b) => a[1].name.localeCompare(b[1].name));
+
+        const columns: BoardColumn[] = sortedInvestors.map(([key, group]) => ({
+          id: key,
+          title: group.name,
+          icon: Users,
+          documents: group.docs,
+        }));
+
+        // Add unassigned column at the end if there are any
+        if (unassigned.length > 0) {
+          columns.push({
+            id: "unassigned",
+            title: "Unassigned",
+            icon: Inbox,
+            documents: unassigned,
+          });
+        }
+
+        return columns;
+      }
+
+      case "source": {
+        // Group by source (personal vs organization)
+        const personal: Document[] = [];
+        const organizations = new Map<string, Document[]>();
+
+        for (const doc of documents) {
+          if (doc.source === "personal") {
+            personal.push(doc);
+          } else {
+            if (!organizations.has(doc.sourceName)) {
+              organizations.set(doc.sourceName, []);
+            }
+            organizations.get(doc.sourceName)!.push(doc);
+          }
+        }
+
+        const columns: BoardColumn[] = [];
+
+        // Add personal column first if there are any
+        if (personal.length > 0) {
+          columns.push({
+            id: "personal",
+            title: "Personal",
+            icon: User,
+            documents: personal,
+          });
+        }
+
+        // Add organization columns sorted by name
+        const sortedOrgs = Array.from(organizations.entries())
+          .sort((a, b) => a[0].localeCompare(b[0]));
+
+        for (const [orgName, docs] of sortedOrgs) {
+          columns.push({
+            id: `org-${orgName}`,
+            title: orgName,
+            icon: Building2,
+            documents: docs,
+          });
+        }
+
+        return columns;
+      }
+
+      default:
+        return [];
+    }
+  }, [documents, groupBy]);
 
   return (
     <motion.div
