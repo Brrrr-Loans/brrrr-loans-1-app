@@ -9,7 +9,7 @@ const PROD_URL = 'https://gsxggtsgqskhchcbrmhe.supabase.co';
 const PROD_KEY = process.env.PROD_SUPABASE_SERVICE_KEY || '';
 
 const DEV_URL = 'https://cjbevtvvlthelhbjlqmp.supabase.co';
-const DEV_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNqYmV2dHZ2bHRoZWxoYmpscW1wIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTQwMjQ0OCwiZXhwIjoyMDgwOTc4NDQ4fQ.UTC6ri8wVZ0vwYoB2gKnchEzD5dp7LQ9SM9kdIAV_Ug';
+const DEV_KEY = process.env.DEV_SUPABASE_SERVICE_KEY || '';
 
 // Generated columns to exclude
 const GENERATED_COLS: Record<string, string[]> = {
