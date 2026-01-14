@@ -347,15 +347,15 @@ export function DocumentsView({
 
   // Admin-only: all orgs and users for upload target selection
   const [allOrgs, setAllOrgs] = useState<
-    { id: string; clerk_org_id: string; clerk_org_name: string }[]
+    { id: number; clerk_org_id: string; clerk_org_name: string }[]
   >([]);
   const [allUsers, setAllUsers] = useState<
     {
       id: number;
-      clerk_user_id: string;
-      email: string;
-      first_name: string;
-      last_name: string;
+      clerk_user_id: string | null;
+      email: string | null;
+      first_name: string | null;
+      last_name: string | null;
     }[]
   >([]);
   const [isAdminDataLoaded, setIsAdminDataLoaded] = useState(false);
@@ -514,8 +514,26 @@ export function DocumentsView({
         if (currentCanUpload && currentAllUsers.length > 0) {
           // Query all files in the bucket that match our basePath pattern
           // This is a single query instead of N queries per user/org
-          const { data: allFiles, error: queryError } = await currentSupabase
-            .from("storage_objects_view")
+          // Note: storage_objects_view is a custom view not in generated types
+          // Using type assertion to bypass TypeScript check
+          const { data: allFiles, error: queryError } = await (currentSupabase as unknown as {
+            from: (table: string) => {
+              select: (columns: string) => {
+                eq: (column: string, value: string) => {
+                  like: (column: string, pattern: string) => Promise<{
+                    data: Array<{
+                      id: string;
+                      name: string;
+                      bucket_id: string;
+                      created_at: string | null;
+                      metadata: Record<string, unknown> | null;
+                    }> | null;
+                    error: Error | null;
+                  }>;
+                };
+              };
+            };
+          }).from("storage_objects_view")
             .select("id, name, bucket_id, created_at, metadata")
             .eq("bucket_id", bucketName)
             .like("name", `%/${basePath}/%`);
@@ -751,7 +769,7 @@ export function DocumentsView({
           const { data: transactionInvestors } = await currentSupabase
             .from("document_files")
             .select(`
-              file_path,
+              storage_path,
               bsi_transactions_document_files!inner (
                 transaction_id,
                 bsi_transactions_investors:bsi_transactions_investors!bsi_transactions_investors_transaction_id_fkey (
@@ -764,7 +782,7 @@ export function DocumentsView({
                 )
               )
             `)
-            .in("file_path", paths);
+            .in("storage_path", paths);
 
           // Build a map of investor names for quick lookup
           const orgNameMap = new Map(
@@ -787,7 +805,7 @@ export function DocumentsView({
           
           if (transactionInvestors && transactionInvestors.length > 0) {
             for (const docFile of transactionInvestors) {
-              const filePath = docFile.file_path;
+              const filePath = docFile.storage_path;
               if (!filePath) continue;
               
               const investors: InvestorAssignment[] = [];
@@ -842,37 +860,11 @@ export function DocumentsView({
             }
           }
 
-          // Fallback: Also check the document_investors table (legacy support)
-          const { data: legacyAssignments } = await currentSupabase
-            .from("document_investors")
-            .select("document_path, investor_type, investor_id")
-            .eq("bucket_name", bucketName)
-            .in("document_path", paths);
-
-          if (legacyAssignments && legacyAssignments.length > 0) {
-            for (const a of legacyAssignments) {
-              const investorName =
-                a.investor_type === "org"
-                  ? orgNameMap.get(a.investor_id) || a.investor_id
-                  : userNameMap.get(a.investor_id) || a.investor_id;
-
-              const assignment: InvestorAssignment = {
-                type: a.investor_type as "org" | "user",
-                id: a.investor_id,
-                name: investorName,
-              };
-
-              const existing = assignmentsByPath.get(a.document_path) || [];
-              // Check if this investor is already added (from transaction relationship)
-              const alreadyExists = existing.some(
-                (inv) => inv.type === assignment.type && inv.id === assignment.id
-              );
-              if (!alreadyExists) {
-                existing.push(assignment);
-                assignmentsByPath.set(a.document_path, existing);
-              }
-            }
-          }
+          // Note: document_investors table was deprecated and removed.
+          // Investor assignments are now tracked via:
+          // - document_files_clerk_orgs (for org investors)
+          // - document_files_clerk_users (for user investors)
+          // TODO: Implement junction table queries if needed for direct investor assignments
 
           // Merge assignments into documents
           for (const doc of allDocs) {
@@ -1126,6 +1118,11 @@ export function DocumentsView({
   };
 
   // Investor editing handlers
+  // TODO: Implement with new junction tables (document_files_clerk_orgs, document_files_clerk_users)
+  // The old document_investors table has been deprecated and removed.
+  // New implementation needs to:
+  // 1. Find or create a document_files record for the storage path
+  // 2. Add/remove entries from document_files_clerk_orgs or document_files_clerk_users
   const handleToggleInvestor = async (
     doc: Document,
     investor: InvestorAssignment
@@ -1142,24 +1139,64 @@ export function DocumentsView({
         (i) => i.type === investor.type && i.id === investor.id
       );
 
-      if (isCurrentlyAssigned) {
-        // Remove the assignment
-        const { error } = await supabase
-          .from("document_investors")
-          .delete()
-          .eq("document_path", doc.path)
-          .eq("bucket_name", bucketName)
-          .eq("investor_type", investor.type)
-          .eq("investor_id", investor.id);
+      // First, ensure we have a document_files record for this storage path
+      // Upsert the document_files record
+      const { data: docFileData, error: upsertError } = await supabase
+        .from("document_files")
+        .upsert(
+          {
+            storage_bucket: bucketName,
+            storage_path: doc.path,
+            document_name: doc.name,
+          },
+          { onConflict: "storage_bucket,storage_path" }
+        )
+        .select("id")
+        .single();
 
-        if (error) {
-          console.error("Delete error details:", {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code,
-          });
-          throw new Error(error.message || "Failed to remove investor");
+      if (upsertError || !docFileData) {
+        console.error("Error upserting document_files:", upsertError);
+        throw new Error(upsertError?.message || "Failed to create document record");
+      }
+
+      const documentFileId = docFileData.id;
+
+      if (isCurrentlyAssigned) {
+        // Remove the assignment from the appropriate junction table
+        if (investor.type === "org") {
+          // Need to get the internal clerk_org_id from clerk_org_id string
+          const { data: orgData } = await supabase
+            .from("auth_clerk_orgs")
+            .select("id")
+            .eq("clerk_org_id", investor.id)
+            .single();
+
+          if (orgData) {
+            const { error } = await supabase
+              .from("document_files_clerk_orgs")
+              .delete()
+              .eq("document_file_id", documentFileId)
+              .eq("clerk_org_id", orgData.id);
+
+            if (error) throw new Error(error.message);
+          }
+        } else {
+          // User investor
+          const { data: userData } = await supabase
+            .from("auth_clerk_users")
+            .select("id")
+            .eq("clerk_user_id", investor.id)
+            .single();
+
+          if (userData) {
+            const { error } = await supabase
+              .from("document_files_clerk_users")
+              .delete()
+              .eq("document_file_id", documentFileId)
+              .eq("clerk_user_id", userData.id);
+
+            if (error) throw new Error(error.message);
+          }
         }
 
         // Update local state
@@ -1177,28 +1214,48 @@ export function DocumentsView({
         );
         toast.success(`Removed ${investor.name}`);
       } else {
-        // Add the assignment
-        const { data, error } = await supabase
-          .from("document_investors")
-          .insert({
-            document_path: doc.path,
-            bucket_name: bucketName,
-            investor_type: investor.type,
-            investor_id: investor.id,
-          })
-          .select();
+        // Add the assignment to the appropriate junction table
+        if (investor.type === "org") {
+          // Need to get the internal clerk_org_id from clerk_org_id string
+          const { data: orgData } = await supabase
+            .from("auth_clerk_orgs")
+            .select("id")
+            .eq("clerk_org_id", investor.id)
+            .single();
 
-        if (error) {
-          console.error("Insert error details:", {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code,
-          });
-          throw new Error(error.message || "Failed to add investor");
+          if (orgData) {
+            const { error } = await supabase
+              .from("document_files_clerk_orgs")
+              .insert({
+                document_file_id: documentFileId,
+                clerk_org_id: orgData.id,
+              });
+
+            if (error) throw new Error(error.message);
+          } else {
+            throw new Error("Organization not found");
+          }
+        } else {
+          // User investor
+          const { data: userData } = await supabase
+            .from("auth_clerk_users")
+            .select("id")
+            .eq("clerk_user_id", investor.id)
+            .single();
+
+          if (userData) {
+            const { error } = await supabase
+              .from("document_files_clerk_users")
+              .insert({
+                document_file_id: documentFileId,
+                clerk_user_id: userData.id,
+              });
+
+            if (error) throw new Error(error.message);
+          } else {
+            throw new Error("User not found");
+          }
         }
-
-        console.log("Insert successful:", data);
 
         // Update local state
         setDocuments((prev) =>
@@ -1243,10 +1300,11 @@ export function DocumentsView({
 
     // Add all users
     for (const u of allUsers) {
+      if (!u.clerk_user_id) continue; // Skip users without clerk_user_id
       investors.push({
         type: "user",
         id: u.clerk_user_id,
-        name: `${u.first_name} ${u.last_name}`.trim() || u.email,
+        name: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || "Unknown",
       });
     }
 

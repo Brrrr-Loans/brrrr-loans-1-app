@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "13.0.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       _function_backups_20251118: {
@@ -934,6 +959,60 @@ export type Database = {
           },
         ]
       }
+      auth_clerk_orgs_themes: {
+        Row: {
+          created_at: string
+          created_by_user_id: number | null
+          id: number
+          is_default: boolean
+          name: string
+          org_id: number
+          radius: Json
+          tokens_dark: Json
+          tokens_light: Json
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by_user_id?: number | null
+          id?: number
+          is_default?: boolean
+          name: string
+          org_id: number
+          radius?: Json
+          tokens_dark?: Json
+          tokens_light?: Json
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by_user_id?: number | null
+          id?: number
+          is_default?: boolean
+          name?: string
+          org_id?: number
+          radius?: Json
+          tokens_dark?: Json
+          tokens_light?: Json
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auth_clerk_orgs_themes_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_clerk_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "auth_clerk_orgs_themes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "auth_clerk_orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auth_clerk_users: {
         Row: {
           activated_date: string | null
@@ -1576,6 +1655,42 @@ export type Database = {
           },
         ]
       }
+      bsi_distributions_transactions: {
+        Row: {
+          created_at: string | null
+          distribution_id: number
+          id: number
+          transaction_id: number
+        }
+        Insert: {
+          created_at?: string | null
+          distribution_id: number
+          id?: number
+          transaction_id: number
+        }
+        Update: {
+          created_at?: string | null
+          distribution_id?: number
+          id?: number
+          transaction_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bsi_distributions_transactions_distribution_id_fkey"
+            columns: ["distribution_id"]
+            isOneToOne: true
+            referencedRelation: "bsi_distributions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bsi_distributions_transactions_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "bsi_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bsi_statements: {
         Row: {
           auth_clerk_users_id: number | null
@@ -1653,6 +1768,42 @@ export type Database = {
             columns: ["clerk_org_id"]
             isOneToOne: false
             referencedRelation: "auth_clerk_orgs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bsi_statements_transactions: {
+        Row: {
+          created_at: string | null
+          id: number
+          statement_id: number
+          transaction_id: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: number
+          statement_id: number
+          transaction_id: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          statement_id?: number
+          transaction_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bsi_statements_transactions_statement_id_fkey"
+            columns: ["statement_id"]
+            isOneToOne: false
+            referencedRelation: "bsi_statements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bsi_statements_transactions_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "bsi_transactions"
             referencedColumns: ["id"]
           },
         ]
@@ -2405,8 +2556,6 @@ export type Database = {
         Row: {
           cell_phone: string | null
           company_id: number | null
-          contact_type: Database["public"]["Enums"]["contact_type"] | null
-          contact_types: Database["public"]["Enums"]["contact_type"][] | null
           created_at: string | null
           email_address: string | null
           first_name: string | null
@@ -2424,8 +2573,6 @@ export type Database = {
         Insert: {
           cell_phone?: string | null
           company_id?: number | null
-          contact_type?: Database["public"]["Enums"]["contact_type"] | null
-          contact_types?: Database["public"]["Enums"]["contact_type"][] | null
           created_at?: string | null
           email_address?: string | null
           first_name?: string | null
@@ -2443,8 +2590,6 @@ export type Database = {
         Update: {
           cell_phone?: string | null
           company_id?: number | null
-          contact_type?: Database["public"]["Enums"]["contact_type"] | null
-          contact_types?: Database["public"]["Enums"]["contact_type"][] | null
           created_at?: string | null
           email_address?: string | null
           first_name?: string | null
@@ -2476,53 +2621,77 @@ export type Database = {
           },
         ]
       }
-      contact_types: {
+      contact_contact_types: {
         Row: {
-          id: number
-          name: string | null
-        }
-        Insert: {
-          id?: number
-          name?: string | null
-        }
-        Update: {
-          id?: number
-          name?: string | null
-        }
-        Relationships: []
-      }
-      contact_types_jt: {
-        Row: {
-          contact_id: number | null
-          contact_types_id: number | null
+          contact_id: number
+          contact_types_id: number
+          created_at: string | null
           id: number
         }
         Insert: {
-          contact_id?: number | null
-          contact_types_id?: number | null
+          contact_id: number
+          contact_types_id: number
+          created_at?: string | null
           id?: number
         }
         Update: {
-          contact_id?: number | null
-          contact_types_id?: number | null
+          contact_id?: number
+          contact_types_id?: number
+          created_at?: string | null
           id?: number
         }
         Relationships: [
           {
-            foreignKeyName: "public_contact_contact_types_contact_id_fkey"
+            foreignKeyName: "contacts_contact_types_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contact"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "public_contact_contact_types_contact_types_id_fkey"
+            foreignKeyName: "contacts_contact_types_contact_types_id_fkey"
             columns: ["contact_types_id"]
             isOneToOne: false
             referencedRelation: "contact_types"
             referencedColumns: ["id"]
           },
         ]
+      }
+      contact_types: {
+        Row: {
+          allows_multiple: boolean | null
+          code: string
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          id: number
+          is_active: boolean | null
+          name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          allows_multiple?: boolean | null
+          code: string
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: number
+          is_active?: boolean | null
+          name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          allows_multiple?: boolean | null
+          code?: string
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: number
+          is_active?: boolean | null
+          name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       countries: {
         Row: {
@@ -2588,12 +2757,8 @@ export type Database = {
       }
       deal: {
         Row: {
-          account_executive_id: number | null
-          appraisal_poc_contact_id: number | null
           broker_company_id: number | null
-          broker_id: number | null
           cash_out_purpose: string | null
-          closing_agent_contact_id: number | null
           company_id: number | null
           construction_holdback: number | null
           cost_of_capital: number | null
@@ -2614,24 +2779,18 @@ export type Database = {
           declaration_3_felony_explanation: string | null
           declaration_5_license: boolean | null
           escrow_company_id: number | null
-          escrow_contact_id: number | null
-          fourth_guarantor_id: number | null
           funding_date: string | null
           guarantor_count: number | null
           guarantor_fico_score: number | null
           id: number
           insurance_carrier_company_id: number | null
-          insurance_carrier_contact_id: number | null
           io_period: number | null
           lead_source_name: string | null
           lead_source_type: Database["public"]["Enums"]["lead_source"] | null
           loan_amount_initial: number | null
           loan_amount_total: number | null
           loan_buyer_company_id: number | null
-          loan_buyer_contact_id: number | null
           loan_number: string
-          loan_opener_id: number | null
-          loan_processor_id: number | null
           loan_sale_date: string | null
           loan_structure_dscr:
             | Database["public"]["Enums"]["loan_structure_dscr"]
@@ -2649,7 +2808,6 @@ export type Database = {
           pricing_file_path: string | null
           pricing_file_url: string | null
           pricing_is_locked: boolean
-          primary_guarantor_id: number | null
           project_type: Database["public"]["Enums"]["project_type"] | null
           property_id: number | null
           purchase_price: number | null
@@ -2657,10 +2815,7 @@ export type Database = {
           recourse_type: string | null
           renovation_completed: string | null
           renovation_cost: number | null
-          second_guarantor_id: number | null
           target_closing_date: string | null
-          third_guarantor_id: number | null
-          title_company_contact_id: number | null
           title_company_id: number | null
           title_file_number: string | null
           transaction_type:
@@ -2670,12 +2825,8 @@ export type Database = {
           vesting_type: Database["public"]["Enums"]["vesting_type"] | null
         }
         Insert: {
-          account_executive_id?: number | null
-          appraisal_poc_contact_id?: number | null
           broker_company_id?: number | null
-          broker_id?: number | null
           cash_out_purpose?: string | null
-          closing_agent_contact_id?: number | null
           company_id?: number | null
           construction_holdback?: number | null
           cost_of_capital?: number | null
@@ -2696,24 +2847,18 @@ export type Database = {
           declaration_3_felony_explanation?: string | null
           declaration_5_license?: boolean | null
           escrow_company_id?: number | null
-          escrow_contact_id?: number | null
-          fourth_guarantor_id?: number | null
           funding_date?: string | null
           guarantor_count?: number | null
           guarantor_fico_score?: number | null
           id?: number
           insurance_carrier_company_id?: number | null
-          insurance_carrier_contact_id?: number | null
           io_period?: number | null
           lead_source_name?: string | null
           lead_source_type?: Database["public"]["Enums"]["lead_source"] | null
           loan_amount_initial?: number | null
           loan_amount_total?: number | null
           loan_buyer_company_id?: number | null
-          loan_buyer_contact_id?: number | null
           loan_number: string
-          loan_opener_id?: number | null
-          loan_processor_id?: number | null
           loan_sale_date?: string | null
           loan_structure_dscr?:
             | Database["public"]["Enums"]["loan_structure_dscr"]
@@ -2733,7 +2878,6 @@ export type Database = {
           pricing_file_path?: string | null
           pricing_file_url?: string | null
           pricing_is_locked?: boolean
-          primary_guarantor_id?: number | null
           project_type?: Database["public"]["Enums"]["project_type"] | null
           property_id?: number | null
           purchase_price?: number | null
@@ -2741,10 +2885,7 @@ export type Database = {
           recourse_type?: string | null
           renovation_completed?: string | null
           renovation_cost?: number | null
-          second_guarantor_id?: number | null
           target_closing_date?: string | null
-          third_guarantor_id?: number | null
-          title_company_contact_id?: number | null
           title_company_id?: number | null
           title_file_number?: string | null
           transaction_type?:
@@ -2754,12 +2895,8 @@ export type Database = {
           vesting_type?: Database["public"]["Enums"]["vesting_type"] | null
         }
         Update: {
-          account_executive_id?: number | null
-          appraisal_poc_contact_id?: number | null
           broker_company_id?: number | null
-          broker_id?: number | null
           cash_out_purpose?: string | null
-          closing_agent_contact_id?: number | null
           company_id?: number | null
           construction_holdback?: number | null
           cost_of_capital?: number | null
@@ -2780,24 +2917,18 @@ export type Database = {
           declaration_3_felony_explanation?: string | null
           declaration_5_license?: boolean | null
           escrow_company_id?: number | null
-          escrow_contact_id?: number | null
-          fourth_guarantor_id?: number | null
           funding_date?: string | null
           guarantor_count?: number | null
           guarantor_fico_score?: number | null
           id?: number
           insurance_carrier_company_id?: number | null
-          insurance_carrier_contact_id?: number | null
           io_period?: number | null
           lead_source_name?: string | null
           lead_source_type?: Database["public"]["Enums"]["lead_source"] | null
           loan_amount_initial?: number | null
           loan_amount_total?: number | null
           loan_buyer_company_id?: number | null
-          loan_buyer_contact_id?: number | null
           loan_number?: string
-          loan_opener_id?: number | null
-          loan_processor_id?: number | null
           loan_sale_date?: string | null
           loan_structure_dscr?:
             | Database["public"]["Enums"]["loan_structure_dscr"]
@@ -2817,7 +2948,6 @@ export type Database = {
           pricing_file_path?: string | null
           pricing_file_url?: string | null
           pricing_is_locked?: boolean
-          primary_guarantor_id?: number | null
           project_type?: Database["public"]["Enums"]["project_type"] | null
           property_id?: number | null
           purchase_price?: number | null
@@ -2825,10 +2955,7 @@ export type Database = {
           recourse_type?: string | null
           renovation_completed?: string | null
           renovation_cost?: number | null
-          second_guarantor_id?: number | null
           target_closing_date?: string | null
-          third_guarantor_id?: number | null
-          title_company_contact_id?: number | null
           title_company_id?: number | null
           title_file_number?: string | null
           transaction_type?:
@@ -2839,25 +2966,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "deal_appraisal_poc_contact_id_fkey"
-            columns: ["appraisal_poc_contact_id"]
-            isOneToOne: false
-            referencedRelation: "contact"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "deal_broker_company_id_fkey"
             columns: ["broker_company_id"]
             isOneToOne: false
             referencedRelation: "company"
             referencedColumns: ["co_id"]
-          },
-          {
-            foreignKeyName: "deal_closing_agent_contact_id_fkey"
-            columns: ["closing_agent_contact_id"]
-            isOneToOne: false
-            referencedRelation: "contact"
-            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "deal_escrow_company_id_fkey"
@@ -2867,32 +2980,11 @@ export type Database = {
             referencedColumns: ["co_id"]
           },
           {
-            foreignKeyName: "deal_escrow_contact_id_fkey"
-            columns: ["escrow_contact_id"]
-            isOneToOne: false
-            referencedRelation: "contact"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "deal_fourth_guarantor_id_fkey"
-            columns: ["fourth_guarantor_id"]
-            isOneToOne: false
-            referencedRelation: "guarantor"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "deal_insurance_carrier_company_id_fkey"
             columns: ["insurance_carrier_company_id"]
             isOneToOne: false
             referencedRelation: "company"
             referencedColumns: ["co_id"]
-          },
-          {
-            foreignKeyName: "deal_insurance_carrier_contact_id_fkey"
-            columns: ["insurance_carrier_contact_id"]
-            isOneToOne: false
-            referencedRelation: "contact"
-            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "deal_loan_buyer_company_id_fkey"
@@ -2902,67 +2994,11 @@ export type Database = {
             referencedColumns: ["co_id"]
           },
           {
-            foreignKeyName: "deal_loan_buyer_contact_id_fkey"
-            columns: ["loan_buyer_contact_id"]
-            isOneToOne: false
-            referencedRelation: "contact"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "deal_loan_opener_id_fkey"
-            columns: ["loan_opener_id"]
-            isOneToOne: false
-            referencedRelation: "auth_clerk_users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "deal_loan_processor_id_fkey"
-            columns: ["loan_processor_id"]
-            isOneToOne: false
-            referencedRelation: "auth_clerk_users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "deal_primary_guarantor_id_fkey"
-            columns: ["primary_guarantor_id"]
-            isOneToOne: false
-            referencedRelation: "guarantor"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "deal_second_guarantor_id_fkey"
-            columns: ["second_guarantor_id"]
-            isOneToOne: false
-            referencedRelation: "guarantor"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "deal_third_guarantor_id_fkey"
-            columns: ["third_guarantor_id"]
-            isOneToOne: false
-            referencedRelation: "guarantor"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "deal_title_company_id_fkey"
             columns: ["title_company_id"]
             isOneToOne: false
             referencedRelation: "company"
             referencedColumns: ["co_id"]
-          },
-          {
-            foreignKeyName: "public_deal_account_executive_id_fkey"
-            columns: ["account_executive_id"]
-            isOneToOne: false
-            referencedRelation: "auth_clerk_users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "public_deal_broker_id_fkey"
-            columns: ["broker_id"]
-            isOneToOne: false
-            referencedRelation: "contact"
-            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "public_deal_company_id_fkey"
@@ -2976,13 +3012,6 @@ export type Database = {
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "property"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "public_deal_title_company_contact_id_fkey"
-            columns: ["title_company_contact_id"]
-            isOneToOne: false
-            referencedRelation: "contact"
             referencedColumns: ["id"]
           },
         ]
@@ -3030,6 +3059,51 @@ export type Database = {
           },
         ]
       }
+      deal_guarantors: {
+        Row: {
+          created_at: string | null
+          deal_id: number
+          display_order: number | null
+          guarantor_id: number
+          id: number
+          is_primary: boolean | null
+          notes: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          deal_id: number
+          display_order?: number | null
+          guarantor_id: number
+          id?: number
+          is_primary?: boolean | null
+          notes?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          deal_id?: number
+          display_order?: number | null
+          guarantor_id?: number
+          id?: number
+          is_primary?: boolean | null
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deals_guarantors_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_guarantors_guarantor_id_fkey"
+            columns: ["guarantor_id"]
+            isOneToOne: false
+            referencedRelation: "guarantor"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deal_property: {
         Row: {
           deal_id: number
@@ -3063,79 +3137,121 @@ export type Database = {
           },
         ]
       }
-      deal_roles: {
+      deal_role_types: {
         Row: {
-          contact_id: number | null
-          contact_types_id: number | null
-          deal_id: number | null
+          allows_multiple: boolean | null
+          code: string
+          created_at: string | null
+          description: string | null
+          display_order: number | null
           id: number
+          is_active: boolean | null
+          name: string
         }
         Insert: {
-          contact_id?: number | null
-          contact_types_id?: number | null
-          deal_id?: number | null
+          allows_multiple?: boolean | null
+          code: string
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
           id?: number
+          is_active?: boolean | null
+          name: string
         }
         Update: {
-          contact_id?: number | null
-          contact_types_id?: number | null
-          deal_id?: number | null
+          allows_multiple?: boolean | null
+          code?: string
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
           id?: number
+          is_active?: boolean | null
+          name?: string
+        }
+        Relationships: []
+      }
+      deal_roles: {
+        Row: {
+          auth_clerk_users_id: number | null
+          contact_id: number | null
+          created_at: string | null
+          deal_id: number | null
+          deal_role_types_id: number | null
+          id: number
+          notes: string | null
+        }
+        Insert: {
+          auth_clerk_users_id?: number | null
+          contact_id?: number | null
+          created_at?: string | null
+          deal_id?: number | null
+          deal_role_types_id?: number | null
+          id?: number
+          notes?: string | null
+        }
+        Update: {
+          auth_clerk_users_id?: number | null
+          contact_id?: number | null
+          created_at?: string | null
+          deal_id?: number | null
+          deal_role_types_id?: number | null
+          id?: number
+          notes?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "public_deal_roles_contact_id_fkey"
+            foreignKeyName: "deal_roles_auth_clerk_users_id_fkey"
+            columns: ["auth_clerk_users_id"]
+            isOneToOne: false
+            referencedRelation: "auth_clerk_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_roles_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contact"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "public_deal_roles_contact_types_id_fkey"
-            columns: ["contact_types_id"]
-            isOneToOne: false
-            referencedRelation: "contact_types"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "public_deal_roles_deal_id_fkey"
+            foreignKeyName: "deal_roles_deal_id_fkey"
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_roles_deal_role_types_id_fkey"
+            columns: ["deal_role_types_id"]
+            isOneToOne: false
+            referencedRelation: "deal_role_types"
             referencedColumns: ["id"]
           },
         ]
       }
       document_files: {
         Row: {
-          borrower_id: number | null
           created_at: string
-          deal_id: number | null
           document_category:
             | Database["public"]["Enums"]["document_category"]
             | null
           document_name: string | null
           document_status: Database["public"]["Enums"]["document_status"] | null
           effective_date: string | null
-          entity_id: number | null
           expiration_date: string | null
-          file_path: string | null
           file_size: number | null
           file_type: string | null
-          file_url: string | null
-          guarantor_id: number | null
           id: number
           is_required: boolean | null
           private_notes: string | null
-          property_id: number | null
           public_notes: string | null
+          storage_bucket: string | null
+          storage_path: string | null
           uploaded_at: string | null
           uploaded_by: string | null
         }
         Insert: {
-          borrower_id?: number | null
           created_at?: string
-          deal_id?: number | null
           document_category?:
             | Database["public"]["Enums"]["document_category"]
             | null
@@ -3144,25 +3260,20 @@ export type Database = {
             | Database["public"]["Enums"]["document_status"]
             | null
           effective_date?: string | null
-          entity_id?: number | null
           expiration_date?: string | null
-          file_path?: string | null
           file_size?: number | null
           file_type?: string | null
-          file_url?: string | null
-          guarantor_id?: number | null
           id?: number
           is_required?: boolean | null
           private_notes?: string | null
-          property_id?: number | null
           public_notes?: string | null
+          storage_bucket?: string | null
+          storage_path?: string | null
           uploaded_at?: string | null
           uploaded_by?: string | null
         }
         Update: {
-          borrower_id?: number | null
           created_at?: string
-          deal_id?: number | null
           document_category?:
             | Database["public"]["Enums"]["document_category"]
             | null
@@ -3171,88 +3282,341 @@ export type Database = {
             | Database["public"]["Enums"]["document_status"]
             | null
           effective_date?: string | null
-          entity_id?: number | null
           expiration_date?: string | null
-          file_path?: string | null
           file_size?: number | null
           file_type?: string | null
-          file_url?: string | null
-          guarantor_id?: number | null
           id?: number
           is_required?: boolean | null
           private_notes?: string | null
-          property_id?: number | null
           public_notes?: string | null
+          storage_bucket?: string | null
+          storage_path?: string | null
           uploaded_at?: string | null
           uploaded_by?: string | null
         }
+        Relationships: []
+      }
+      document_files_borrowers: {
+        Row: {
+          borrower_id: number
+          created_at: string | null
+          created_by: string | null
+          document_file_id: number
+          id: number
+        }
+        Insert: {
+          borrower_id: number
+          created_at?: string | null
+          created_by?: string | null
+          document_file_id: number
+          id?: number
+        }
+        Update: {
+          borrower_id?: number
+          created_at?: string | null
+          created_by?: string | null
+          document_file_id?: number
+          id?: number
+        }
         Relationships: [
           {
-            foreignKeyName: "documents_borrower_id_fkey"
+            foreignKeyName: "document_files_borrowers_borrower_id_fkey"
             columns: ["borrower_id"]
             isOneToOne: false
             referencedRelation: "borrower"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "documents_deal_id_fkey"
+            foreignKeyName: "document_files_borrowers_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_borrowers_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_documents_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_files_clerk_orgs: {
+        Row: {
+          clerk_org_id: number
+          created_at: string | null
+          created_by: string | null
+          document_file_id: number
+          id: number
+        }
+        Insert: {
+          clerk_org_id: number
+          created_at?: string | null
+          created_by?: string | null
+          document_file_id: number
+          id?: number
+        }
+        Update: {
+          clerk_org_id?: number
+          created_at?: string | null
+          created_by?: string | null
+          document_file_id?: number
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_files_clerk_orgs_clerk_org_id_fkey"
+            columns: ["clerk_org_id"]
+            isOneToOne: false
+            referencedRelation: "auth_clerk_orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_clerk_orgs_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_clerk_orgs_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_documents_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_files_clerk_users: {
+        Row: {
+          clerk_user_id: number
+          created_at: string | null
+          created_by: string | null
+          document_file_id: number
+          id: number
+        }
+        Insert: {
+          clerk_user_id: number
+          created_at?: string | null
+          created_by?: string | null
+          document_file_id: number
+          id?: number
+        }
+        Update: {
+          clerk_user_id?: number
+          created_at?: string | null
+          created_by?: string | null
+          document_file_id?: number
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_files_clerk_users_clerk_user_id_fkey"
+            columns: ["clerk_user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_clerk_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_clerk_users_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_clerk_users_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_documents_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_files_companies: {
+        Row: {
+          company_id: number
+          created_at: string | null
+          created_by: string | null
+          document_file_id: number
+          id: number
+        }
+        Insert: {
+          company_id: number
+          created_at?: string | null
+          created_by?: string | null
+          document_file_id: number
+          id?: number
+        }
+        Update: {
+          company_id?: number
+          created_at?: string | null
+          created_by?: string | null
+          document_file_id?: number
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_files_companies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "company"
+            referencedColumns: ["co_id"]
+          },
+          {
+            foreignKeyName: "document_files_companies_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_companies_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_documents_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_files_deals: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          deal_id: number
+          document_file_id: number
+          id: number
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          deal_id: number
+          document_file_id: number
+          id?: number
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          deal_id?: number
+          document_file_id?: number
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_files_deals_deal_id_fkey"
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deal"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "documents_entity_id_fkey"
-            columns: ["entity_id"]
+            foreignKeyName: "document_files_deals_document_file_id_fkey"
+            columns: ["document_file_id"]
             isOneToOne: false
-            referencedRelation: "company"
-            referencedColumns: ["co_id"]
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "documents_guarantor_id_fkey"
+            foreignKeyName: "document_files_deals_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_documents_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_files_guarantors: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          document_file_id: number
+          guarantor_id: number
+          id: number
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          document_file_id: number
+          guarantor_id: number
+          id?: number
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          document_file_id?: number
+          guarantor_id?: number
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_files_guarantors_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_guarantors_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_documents_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_guarantors_guarantor_id_fkey"
             columns: ["guarantor_id"]
             isOneToOne: false
             referencedRelation: "guarantor"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      document_files_properties: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          document_file_id: number
+          id: number
+          property_id: number
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          document_file_id: number
+          id?: number
+          property_id: number
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          document_file_id?: number
+          id?: number
+          property_id?: number
+        }
+        Relationships: [
           {
-            foreignKeyName: "documents_property_id_fkey"
+            foreignKeyName: "document_files_properties_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_properties_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_documents_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_properties_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
             referencedRelation: "property"
             referencedColumns: ["id"]
           },
         ]
-      }
-      document_investors: {
-        Row: {
-          bucket_name: string
-          created_at: string | null
-          created_by: string | null
-          document_path: string
-          id: string
-          investor_id: string
-          investor_type: string
-        }
-        Insert: {
-          bucket_name: string
-          created_at?: string | null
-          created_by?: string | null
-          document_path: string
-          id?: string
-          investor_id: string
-          investor_type: string
-        }
-        Update: {
-          bucket_name?: string
-          created_at?: string | null
-          created_by?: string | null
-          document_path?: string
-          id?: string
-          investor_id?: string
-          investor_type?: string
-        }
-        Relationships: []
       }
       document_roles: {
         Row: {
@@ -3333,6 +3697,57 @@ export type Database = {
         }
         Relationships: []
       }
+      form_submissions: {
+        Row: {
+          application_id: string | null
+          created_at: string
+          error_code: string | null
+          error_detail: string | null
+          form_slug: string
+          form_version: number
+          id: string
+          ip_hash: string | null
+          lender_slug: string
+          payload: Json
+          processed_at: string | null
+          status: string
+          user_agent: string | null
+          validated_at: string | null
+        }
+        Insert: {
+          application_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_detail?: string | null
+          form_slug: string
+          form_version: number
+          id?: string
+          ip_hash?: string | null
+          lender_slug: string
+          payload: Json
+          processed_at?: string | null
+          status?: string
+          user_agent?: string | null
+          validated_at?: string | null
+        }
+        Update: {
+          application_id?: string | null
+          created_at?: string
+          error_code?: string | null
+          error_detail?: string | null
+          form_slug?: string
+          form_version?: number
+          id?: string
+          ip_hash?: string | null
+          lender_slug?: string
+          payload?: Json
+          processed_at?: string | null
+          status?: string
+          user_agent?: string | null
+          validated_at?: string | null
+        }
+        Relationships: []
+      }
       guarantor: {
         Row: {
           borrower_id: number | null
@@ -3343,7 +3758,6 @@ export type Database = {
             | Database["public"]["Enums"]["credit_check_status"]
             | null
           date_of_birth: string | null
-          deal_id: number | null
           email_address: string | null
           exp_flips_sold: number | null
           exp_ground_ups_sold: number | null
@@ -3417,7 +3831,6 @@ export type Database = {
             | Database["public"]["Enums"]["credit_check_status"]
             | null
           date_of_birth?: string | null
-          deal_id?: number | null
           email_address?: string | null
           exp_flips_sold?: number | null
           exp_ground_ups_sold?: number | null
@@ -3493,7 +3906,6 @@ export type Database = {
             | Database["public"]["Enums"]["credit_check_status"]
             | null
           date_of_birth?: string | null
-          deal_id?: number | null
           email_address?: string | null
           exp_flips_sold?: number | null
           exp_ground_ups_sold?: number | null
@@ -3566,13 +3978,6 @@ export type Database = {
             columns: ["borrower_id"]
             isOneToOne: false
             referencedRelation: "borrower"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "guarantor_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "deal"
             referencedColumns: ["id"]
           },
         ]
@@ -4466,27 +4871,6 @@ export type Database = {
           },
         ]
       }
-      roles: {
-        Row: {
-          created_at: string | null
-          id: string
-          name: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id?: string
-          name: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: string
-          name?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       select_uw_outcomes: {
         Row: {
           created_at: string
@@ -4650,7 +5034,28 @@ export type Database = {
           },
         ]
       }
-      users_roles: {
+      weweb_auth_roles: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      weweb_auth_users_roles: {
         Row: {
           created_at: string | null
           id: string
@@ -4677,7 +5082,7 @@ export type Database = {
             foreignKeyName: "users_roles_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
-            referencedRelation: "roles"
+            referencedRelation: "weweb_auth_roles"
             referencedColumns: ["id"]
           },
         ]
@@ -4686,68 +5091,28 @@ export type Database = {
     Views: {
       transaction_documents_view: {
         Row: {
-          borrower_id: number | null
           created_at: string | null
-          deal_id: number | null
           document_category:
             | Database["public"]["Enums"]["document_category"]
             | null
           document_name: string | null
           document_status: Database["public"]["Enums"]["document_status"] | null
           effective_date: string | null
-          entity_id: number | null
           expiration_date: string | null
-          file_path: string | null
           file_size: number | null
           file_type: string | null
-          file_url: string | null
-          guarantor_id: number | null
           id: number | null
           is_required: boolean | null
           junction_id: number | null
           private_notes: string | null
-          property_id: number | null
           public_notes: string | null
+          storage_bucket: string | null
+          storage_path: string | null
           transaction_id: number | null
           uploaded_at: string | null
           uploaded_by: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "documents_borrower_id_fkey"
-            columns: ["borrower_id"]
-            isOneToOne: false
-            referencedRelation: "borrower"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "documents_deal_id_fkey"
-            columns: ["deal_id"]
-            isOneToOne: false
-            referencedRelation: "deal"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "documents_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "company"
-            referencedColumns: ["co_id"]
-          },
-          {
-            foreignKeyName: "documents_guarantor_id_fkey"
-            columns: ["guarantor_id"]
-            isOneToOne: false
-            referencedRelation: "guarantor"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "documents_property_id_fkey"
-            columns: ["property_id"]
-            isOneToOne: false
-            referencedRelation: "property"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "fk_transaction"
             columns: ["transaction_id"]
@@ -4785,8 +5150,18 @@ export type Database = {
             Returns: string
           }
       format_deal_name: { Args: { property_id: number }; Returns: string }
+      get_accessible_transaction_ids: {
+        Args: never
+        Returns: {
+          transaction_id: number
+        }[]
+      }
       get_clerk_user_id: { Args: never; Returns: string }
+      get_co_investor_org_ids: { Args: never; Returns: number[] }
+      get_co_investor_user_ids: { Args: never; Returns: number[] }
       get_complete_schema: { Args: never; Returns: Json }
+      get_current_user_id: { Args: never; Returns: number }
+      get_current_user_org_ids: { Args: never; Returns: number[] }
       get_jsonb_array_element: {
         Args: { array_value: Json; index: number }
         Returns: string
@@ -4883,25 +5258,6 @@ export type Database = {
         | "Entity Member (Layer)"
       condo_type: "warrantable" | "non_warrantable"
       constant_types: "Text" | "Numeric" | "Boolean"
-      contact_type:
-        | "Appraisal Administration"
-        | "Appraisal Management Company"
-        | "Appraiser"
-        | "Borrower"
-        | "Borrower Assistant"
-        | "Broker"
-        | "Broker Loan Processor"
-        | "General Contractor"
-        | "Entity Member"
-        | "Escrow"
-        | "Insurance"
-        | "Balance Sheet Investor"
-        | "Lender"
-        | "Point of Contact"
-        | "Referring Party"
-        | "Title"
-        | "Transaction Coordinator"
-        | "Loan Buyer"
       continents:
         | "africa"
         | "antarctica"
@@ -5192,12 +5548,6 @@ export type Database = {
         | "Conditionally Approved"
         | "Clear to Close"
         | "Closed & Funded"
-      deal_status_primary__old_version_to_be_dropped:
-        | "Prequal"
-        | "Scenario"
-        | "Active"
-        | "Complete"
-        | "Dead/Archived"
       debt_instrument_type:
         | "mortgage_note"
         | "bridge_loan"
@@ -5288,6 +5638,7 @@ export type Database = {
         | "interest"
         | "fee"
         | "distribution"
+        | "return"
       loan_accrual_type: "30/360" | "30/365" | "Actual 360" | "Actual 365"
       loan_amortization: "interest_only" | "300" | "360"
       loan_program: "BPL Program A" | "BPL Program B"
@@ -5665,6 +6016,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       amortization_type: ["fixed_rate", "adjustable_rate"],
@@ -5725,26 +6079,6 @@ export const Constants = {
       ],
       condo_type: ["warrantable", "non_warrantable"],
       constant_types: ["Text", "Numeric", "Boolean"],
-      contact_type: [
-        "Appraisal Administration",
-        "Appraisal Management Company",
-        "Appraiser",
-        "Borrower",
-        "Borrower Assistant",
-        "Broker",
-        "Broker Loan Processor",
-        "General Contractor",
-        "Entity Member",
-        "Escrow",
-        "Insurance",
-        "Balance Sheet Investor",
-        "Lender",
-        "Point of Contact",
-        "Referring Party",
-        "Title",
-        "Transaction Coordinator",
-        "Loan Buyer",
-      ],
       continents: [
         "africa",
         "antarctica",
@@ -6040,13 +6374,6 @@ export const Constants = {
         "Clear to Close",
         "Closed & Funded",
       ],
-      deal_status_primary__old_version_to_be_dropped: [
-        "Prequal",
-        "Scenario",
-        "Active",
-        "Complete",
-        "Dead/Archived",
-      ],
       debt_instrument_type: [
         "mortgage_note",
         "bridge_loan",
@@ -6144,6 +6471,7 @@ export const Constants = {
         "interest",
         "fee",
         "distribution",
+        "return",
       ],
       loan_accrual_type: ["30/360", "30/365", "Actual 360", "Actual 365"],
       loan_amortization: ["interest_only", "300", "360"],

@@ -15,7 +15,7 @@ export async function DELETE(
     const { id } = await params;
     const supabase = await getSupabaseClient();
 
-    // First get the document to check ownership and get file path
+    // First get the document to check ownership and get storage location
     const { data: document, error: fetchError } = await supabase
       .from("document_files")
       .select("*")
@@ -36,11 +36,11 @@ export async function DELETE(
       );
     }
 
-    // Delete the file from storage if we have a path
-    if (document.file_path) {
+    // Delete the file from storage if we have bucket and path
+    if (document.storage_bucket && document.storage_path) {
       const { error: storageError } = await supabase.storage
-        .from("document_files")
-        .remove([document.file_path]);
+        .from(document.storage_bucket)
+        .remove([document.storage_path]);
 
       if (storageError) {
         console.error("Error deleting file from storage:", storageError);
@@ -49,6 +49,7 @@ export async function DELETE(
     }
 
     // Delete the document record
+    // Note: Junction table records will be deleted automatically via ON DELETE CASCADE
     const { error: deleteError } = await supabase
       .from("document_files")
       .delete()

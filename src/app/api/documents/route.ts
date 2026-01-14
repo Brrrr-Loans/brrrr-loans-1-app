@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseClient } from "@/lib/supabase-server";
 import { auth } from "@clerk/nextjs/server";
-import type { Tables, TablesInsert } from "@/types/supabase";
+import type { Tables, TablesInsert } from "@/types/database.types";
 
 const validCategories = [
   "application",
@@ -43,29 +43,23 @@ export async function GET(request: Request) {
       .select("*")
       .eq("uploaded_by", userId ?? "");
 
-    // Apply filters
+    // Apply category filter
     if (
       category &&
       category !== "all" &&
       validCategories.includes(category as CategoryType)
     ) {
-      query = query.eq("category", category as CategoryType);
+      query = query.eq("document_category", category as CategoryType);
     }
 
-    if (dealId && dealId !== "all-deals") {
-      if (dealId === "multiple") {
-        // Only filter if your schema allows 'multiple' as a string, otherwise skip
-        // query = query.eq("deal_id", "multiple");
-      } else {
-        const dealIdNum = Number(dealId);
-        if (!isNaN(dealIdNum)) {
-          query = query.eq("deal_id", dealIdNum);
-        }
-      }
-    }
+    // Note: dealId filtering now requires a JOIN with document_files_deals junction table
+    // For now, we skip deal filtering here - implement in a separate query if needed
+    // TODO: If dealId filtering is required, query document_files_deals first to get document_file_ids
 
     if (search) {
-      query = query.or(`name.ilike.%${search}%,id.ilike.%${search}%`);
+      query = query.or(
+        `document_name.ilike.%${search}%,public_notes.ilike.%${search}%`
+      );
     }
 
     // Order by upload date descending (newest first)
@@ -102,44 +96,66 @@ export async function POST(request: Request) {
 
     const supabase = await getSupabaseClient();
     const body = await request.json();
-    const { name, deal_id, category, file_type, file_size, file_url } = body;
-
-    // Generate a document ID
-    const documentId = `DOC-${Math.floor(100000 + Math.random() * 900000)}`;
+    const {
+      document_name,
+      category,
+      file_type,
+      file_size,
+      storage_bucket,
+      storage_path,
+      deal_ids, // Array of deal IDs to link (optional)
+    } = body;
 
     // Insert document record
     const categoryValue = validCategories.includes(category as CategoryType)
       ? (category as CategoryType)
       : undefined;
-    const dealIdValue =
-      typeof deal_id === "string" && deal_id !== "multiple"
-        ? Number(deal_id)
-        : typeof deal_id === "number"
-          ? deal_id
-          : null;
+
     const insertObj: TablesInsert<"document_files"> = {
-      name,
-      deal_id: dealIdValue,
-      category: categoryValue,
+      document_name,
+      document_category: categoryValue,
       file_type,
       file_size,
-      file_url,
+      storage_bucket,
+      storage_path,
       uploaded_by: userId,
       uploaded_at: new Date().toISOString(),
     };
-    // Let the DB auto-generate the id (it's a number field)
-    // documentId is used for tracking but not inserted into DB
+
     const { data, error } = await supabase
       .from("document_files")
       .insert(insertObj)
-      .select();
+      .select()
+      .single();
 
     if (error) {
       console.error("Error creating document:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(data?.[0] || { id: documentId });
+    // If deal_ids provided, create junction table entries
+    if (deal_ids && Array.isArray(deal_ids) && deal_ids.length > 0 && data) {
+      const junctionEntries = deal_ids.map((dealId: number) => ({
+        document_file_id: data.id,
+        deal_id: dealId,
+        created_by: userId,
+      }));
+
+      const { error: junctionError } = await supabase
+        .from("document_files_deals")
+        .insert(junctionEntries);
+
+      if (junctionError) {
+        console.error("Error linking document to deals:", junctionError);
+        // Document was created, but linking failed - still return success with warning
+        return NextResponse.json({
+          ...data,
+          warning: "Document created but failed to link to deals",
+        });
+      }
+    }
+
+    return NextResponse.json(data);
   } catch (error) {
     console.error("Unexpected error:", error);
     return NextResponse.json(

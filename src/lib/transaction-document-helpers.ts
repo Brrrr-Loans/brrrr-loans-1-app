@@ -14,6 +14,9 @@ export async function uploadTransactionDocument(
   orgId?: string | null
 ) {
   try {
+    // Define the storage bucket for transaction documents
+    const storageBucket = "transaction-documents";
+
     // 1. Generate unique file path with organization/user-based structure
     const timestamp = Date.now();
     const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-_]/g, "_");
@@ -23,12 +26,12 @@ export async function uploadTransactionDocument(
       ? `organizations/${orgId}/transactions`
       : `users/${uploadedBy}/transactions`;
 
-    const filePath = `${basePath}/${transactionId}/${timestamp}_${sanitizedFileName}`;
+    const storagePath = `${basePath}/${transactionId}/${timestamp}_${sanitizedFileName}`;
 
     // 2. Upload file to storage
     const { error: uploadError } = await supabase.storage
-      .from("transaction-documents")
-      .upload(filePath, file);
+      .from(storageBucket)
+      .upload(storagePath, file);
 
     if (uploadError) throw uploadError;
 
@@ -39,20 +42,19 @@ export async function uploadTransactionDocument(
         document_name: file.name,
         document_category: mapDocumentTypeToCategory(documentType),
         document_status: "pending_review",
-        file_path: filePath,
+        storage_bucket: storageBucket,
+        storage_path: storagePath,
         file_type: file.type,
         file_size: file.size,
         uploaded_by: uploadedBy,
         uploaded_at: new Date().toISOString(),
-        // Note: We're not setting deal_id here since this is for transactions
-        // which can have multiple deals
       })
       .select()
       .single();
 
     if (documentError) {
       // Cleanup: delete uploaded file if database insert fails
-      await supabase.storage.from("transaction-documents").remove([filePath]);
+      await supabase.storage.from(storageBucket).remove([storagePath]);
       throw documentError;
     }
 
@@ -69,7 +71,7 @@ export async function uploadTransactionDocument(
     if (junctionError) {
       // Cleanup: delete document record and file if junction insert fails
       await supabase.from("document_files").delete().eq("id", documentData.id);
-      await supabase.storage.from("transaction-documents").remove([filePath]);
+      await supabase.storage.from(storageBucket).remove([storagePath]);
       throw junctionError;
     }
 
@@ -101,15 +103,20 @@ function mapDocumentTypeToCategory(
 
 /**
  * Download a transaction document
+ *
+ * @param storageBucket - The storage bucket name (e.g., "transaction-documents")
+ * @param storagePath - The full path within the bucket
+ * @param fileName - The display name for the downloaded file
  */
 export async function downloadTransactionDocument(
   supabase: SupabaseClient<Database>,
-  filePath: string,
+  storageBucket: string,
+  storagePath: string,
   fileName: string
 ) {
   const { data, error } = await supabase.storage
-    .from("transaction-documents")
-    .download(filePath);
+    .from(storageBucket)
+    .download(storagePath);
 
   if (error) throw error;
 
