@@ -78,7 +78,7 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
 
         // Determine target user ID (impersonated user or current user)
         const targetUserId = isImpersonating && impersonatedUserId 
-          ? parseInt(impersonatedUserId) 
+          ? (typeof impersonatedUserId === 'string' ? parseInt(impersonatedUserId) : impersonatedUserId)
           : null;
 
         // Fetch all active deals first

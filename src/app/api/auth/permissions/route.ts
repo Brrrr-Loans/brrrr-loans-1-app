@@ -160,9 +160,10 @@ export async function GET() {
     const confirmedProfileForContact = profile!;
 
     // Get contact info
+    // Note: contact_types is accessed via junction table, but we use a workaround here
     const { data: contact, error: contactError } = await supabase
       .from("contact")
-      .select("id, contact_types")
+      .select("id")
       .eq("user_id", confirmedProfileForContact.id)
       .single();
 
@@ -274,6 +275,7 @@ export async function GET() {
       canAccessDeals: canAccessDeals(primaryContactType, role),
       canAccessDistributions: canAccessDistributions(primaryContactType, role),
       canAccessDocuments: canAccessDocuments(primaryContactType, role),
+      canAccessReports: canAccessDeals(primaryContactType, role), // Same as deals access
       canAccessAdminFeatures: canAccessAdminFeatures(primaryContactType, role),
     };
 

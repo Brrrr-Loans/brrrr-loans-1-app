@@ -38,6 +38,7 @@ export interface UserPermissions {
   canAccessDeals: boolean;
   canAccessDistributions: boolean;
   canAccessDocuments: boolean;
+  canAccessReports: boolean;
   canAccessAdminFeatures: boolean;
 }
 

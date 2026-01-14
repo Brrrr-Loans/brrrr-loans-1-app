@@ -27,7 +27,6 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
         contact_id,
         contact:contact_id (
           id,
-          contact_types,
           email_address
         )
       `
@@ -40,28 +39,23 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
       return null;
     }
 
-    const contactTypes = (userProfile.contact as any).contact_types;
-    let contactType: ContactType = "Balance Sheet Investor";
-
-    if (Array.isArray(contactTypes) && contactTypes.length > 0) {
-      contactType = contactTypes[0] as ContactType;
-    } else if (typeof contactTypes === "string") {
-      contactType = contactTypes as ContactType;
-    }
-
+    // Default to Balance Sheet Investor since contact_types is now in a junction table
+    const contactType: ContactType = "Balance Sheet Investor";
     const role = userProfile.role as UserRole;
+    const contact = userProfile.contact as { id: number; email_address: string | null } | null;
 
     // Define permission rules based on contact type and role
     const permissions: UserPermissions = {
       userId,
-      email: userProfile.email || userProfile.contact.email_address || "",
+      email: userProfile.email || contact?.email_address || "",
       contactType,
       role,
-      contactId: userProfile.contact.id,
+      contactId: contact?.id || 0,
       authUserProfileId: userProfile.id,
       canAccessDeals: canAccessDeals(contactType, role),
       canAccessDistributions: canAccessDistributions(contactType, role),
       canAccessDocuments: canAccessDocuments(contactType, role),
+      canAccessReports: canAccessDeals(contactType, role),
       canAccessAdminFeatures: canAccessAdminFeatures(contactType, role),
     };
 

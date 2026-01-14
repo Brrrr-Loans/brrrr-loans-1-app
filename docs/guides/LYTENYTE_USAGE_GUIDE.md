@@ -159,8 +159,8 @@ import { useClientTreeDataSource } from "@/hooks/use-lytenyte-pro";
 
 const dataSource = useClientTreeDataSource({
   data: treeData,
-  getRowId: (row) => row.id,
-  getChildren: (row) => row.children,
+  rowIdLeaf: (d, i) => d.data?.id ?? String(i),  // Not getRowId!
+  getChildren: (d) => d.data?.children,          // Access via d.data, same pattern
 });
 ```
 

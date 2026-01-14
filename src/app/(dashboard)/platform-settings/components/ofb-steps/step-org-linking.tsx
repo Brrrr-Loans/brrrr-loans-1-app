@@ -26,7 +26,7 @@ import { toast } from "sonner";
 
 interface Vendor {
   id: number;
-  name: string;
+  name: string | null;
   email: string | null;
   linked_org_id: number | null;
   linked_org_name: string | null;
@@ -36,13 +36,13 @@ interface Vendor {
 
 interface ClerkOrg {
   id: number;
-  clerk_org_name: string;
+  clerk_org_name: string | null;
 }
 
 interface ClerkUser {
   id: number;
-  full_name: string;
-  email: string;
+  full_name: string | null;
+  email: string | null;
 }
 
 interface StepOrgLinkingProps {

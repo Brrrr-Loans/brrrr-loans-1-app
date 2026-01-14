@@ -32,7 +32,7 @@ interface Transfer {
   id: number;
   ofb_transfer_id: string;
   counterparty_name: string | null;
-  amount: number;
+  amount: number | null;
   process_date: string | null;
   description: string | null;
   vendor_name: string | null;
@@ -220,14 +220,15 @@ export function StepLedgerSync({
           // Determine ledger entry type based on amount
           // Negative = money going out (could be contribution from their perspective)
           // Positive = money coming in (distribution)
-          const ledgerEntryType = transfer.amount < 0 ? "contribution" : "distribution";
+          const amount = transfer.amount ?? 0;
+          const ledgerEntryType = amount < 0 ? "contribution" : "distribution";
 
           // Create BSI transaction - link to org OR user
           // Use freshClient to ensure we have a valid JWT
           const { data: txn, error: txnError } = await freshClient
             .from("bsi_transactions")
             .insert({
-              transaction_amount: Math.abs(transfer.amount),
+              transaction_amount: Math.abs(amount),
               transaction_date: transfer.process_date,
               transaction_method: "wire",
               transaction_status: "completed",
@@ -290,12 +291,13 @@ export function StepLedgerSync({
     }
   };
 
-  const formatAmount = (amount: number) => {
+  const formatAmount = (amount: number | null) => {
+    const value = amount ?? 0;
     const formatted = new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
-    }).format(Math.abs(amount));
-    return amount < 0 ? `-${formatted}` : `+${formatted}`;
+    }).format(Math.abs(value));
+    return value < 0 ? `-${formatted}` : `+${formatted}`;
   };
 
   const formatDate = (date: string | null) => {
@@ -305,7 +307,7 @@ export function StepLedgerSync({
 
   const totalAmount = transfers
     .filter((t) => selectedTransfers.has(t.ofb_transfer_id))
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + (t.amount ?? 0), 0);
 
   if (isLoading) {
     return (
@@ -483,8 +485,8 @@ export function StepLedgerSync({
                       {formatAmount(transfer.amount)}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={transfer.amount < 0 ? "secondary" : "default"}>
-                        {transfer.amount < 0 ? "Contribution" : "Distribution"}
+                      <Badge variant={(transfer.amount ?? 0) < 0 ? "secondary" : "default"}>
+                        {(transfer.amount ?? 0) < 0 ? "Contribution" : "Distribution"}
                       </Badge>
                     </TableCell>
                   </TableRow>

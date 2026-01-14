@@ -52,7 +52,7 @@ interface Vendor {
 
 interface ClerkUser {
   id: number;
-  clerk_user_id: string;
+  clerk_user_id: string | null;
   full_name: string | null;
   email: string | null;
 }

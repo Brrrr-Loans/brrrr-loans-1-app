@@ -27,17 +27,19 @@ const formSchema = z.object({
   description: z.string().optional(),
   roi: z.string().min(1, "Please enter an expected ROI"),
   startDate: z.date({
-    required_error: "Please select a start date",
+    error: "Please select a start date",
   }),
-  status: z.string().default("Active"),
+  status: z.string().min(1, "Please select a status"),
 })
+
+type FormValues = z.infer<typeof formSchema>
 
 export function CreateDealForm({ onSuccess }: { onSuccess?: () => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
 
   // Initialize the form
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
@@ -51,7 +53,7 @@ export function CreateDealForm({ onSuccess }: { onSuccess?: () => void }) {
   })
 
   // Handle form submission
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: FormValues) {
     setIsSubmitting(true)
 
     try {

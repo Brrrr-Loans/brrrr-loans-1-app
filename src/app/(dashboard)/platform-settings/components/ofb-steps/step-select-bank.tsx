@@ -27,7 +27,14 @@ interface BankAccount {
   account_number_last4: string | null;
   account_type: string | null;
   integration_type: string;
-  is_active: boolean;
+  is_active: boolean | null;
+  // Additional fields from database that may be returned
+  api_credentials?: unknown;
+  created_at?: string | null;
+  csv_column_mapping?: unknown;
+  display_color?: string | null;
+  routing_number?: string | null;
+  updated_at?: string | null;
 }
 
 interface StepSelectBankProps {

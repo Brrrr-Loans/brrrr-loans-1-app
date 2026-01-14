@@ -21,7 +21,12 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
+    const result = (Array.isArray(data) && data.length > 0 ? data[0] : data) as {
+      inserted_count: number;
+      updated_count: number;
+      error_count: number;
+      errors: unknown[];
+    } | null;
 
     console.log("✅ Sync completed:", result);
 
