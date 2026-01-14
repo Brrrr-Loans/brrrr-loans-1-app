@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { useState } from "react";
-import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/forms/button";
 import { Input } from "@/components/ui/forms/input";
@@ -121,25 +120,13 @@ export function NotionViewTabs({
               aria-selected={isActive}
               onClick={() => onViewChange(view.id)}
               className={cn(
-                "relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-all rounded-md",
+                "relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md",
+                "transition-colors duration-150",
                 isActive
                   ? "bg-muted text-foreground"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               )}
             >
-              {/* Animated background indicator */}
-              {isActive && (
-                <motion.div
-                  layoutId="notion-view-tab-indicator"
-                  className="absolute inset-0 bg-muted rounded-md -z-10"
-                  initial={false}
-                  transition={{
-                    type: "spring",
-                    stiffness: 500,
-                    damping: 35,
-                  }}
-                />
-              )}
               <Icon className="h-4 w-4" />
               <span>{view.label}</span>
             </button>
