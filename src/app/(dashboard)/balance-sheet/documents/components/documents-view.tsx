@@ -86,11 +86,10 @@ import {
   Folder,
   ChevronRight,
 } from "lucide-react";
-import { NotionViewTabs, type ViewDefinition, type CardSize } from "@/components/ui/notion-view-tabs";
+import { NotionViewTabs, type ViewDefinition, type CardSize, type ViewSettings, type BoardGroupBy } from "@/components/ui/notion-view-tabs";
 import { DocumentsBoardView } from "./documents-board-view";
 
-// Board grouping options
-type BoardGroupBy = "dateCreated" | "period" | "tags" | "investors" | "source";
+// Board grouping options (BoardGroupBy imported from notion-view-tabs)
 
 const BOARD_GROUP_OPTIONS: { id: BoardGroupBy; label: string; description: string }[] = [
   { id: "dateCreated", label: "Date Created", description: "Group by when documents were uploaded" },

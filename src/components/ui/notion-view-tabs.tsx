@@ -39,11 +39,14 @@ export interface ViewDefinition {
 
 export type CardSize = "small" | "medium" | "large";
 
-interface ViewSettings {
+export type BoardGroupBy = "dateCreated" | "period" | "tags" | "investors" | "source";
+
+export interface ViewSettings {
   cardSize: CardSize;
   fitImage: boolean;
   wrapProperties: boolean;
   showPageIcon: boolean;
+  groupBy?: BoardGroupBy;
 }
 
 interface NotionViewTabsProps {

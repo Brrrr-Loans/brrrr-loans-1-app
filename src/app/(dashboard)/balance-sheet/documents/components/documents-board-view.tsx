@@ -20,7 +20,7 @@ import {
   Inbox,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { CardSize } from "@/components/ui/notion-view-tabs";
+import type { CardSize, BoardGroupBy } from "@/components/ui/notion-view-tabs";
 
 interface InvestorAssignment {
   type: "org" | "user";
@@ -45,7 +45,7 @@ interface Document {
   periodEnd: string | null;
 }
 
-type BoardGroupBy = "dateCreated" | "period" | "tags" | "investors" | "source";
+// BoardGroupBy imported from @/components/ui/notion-view-tabs
 
 interface DocumentsBoardViewProps {
   documents: Document[];
