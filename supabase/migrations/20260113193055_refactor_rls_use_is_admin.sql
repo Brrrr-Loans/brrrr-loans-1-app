@@ -95,9 +95,9 @@ CREATE POLICY "Admin can manage contact types" ON "public"."contact_types"
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
 
--- contact_contact_types
-DROP POLICY IF EXISTS "Admin can manage contact type junctions" ON "public"."contact_contact_types";
-CREATE POLICY "Admin can manage contact type junctions" ON "public"."contact_contact_types"
+-- contacts_contact_types
+DROP POLICY IF EXISTS "Admin can manage contact type junctions" ON "public"."contacts_contact_types";
+CREATE POLICY "Admin can manage contact type junctions" ON "public"."contacts_contact_types"
   TO "authenticated"
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
