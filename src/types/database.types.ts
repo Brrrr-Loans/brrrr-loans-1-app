@@ -3621,6 +3621,59 @@ export type Database = {
           },
         ]
       }
+      document_files_tags: {
+        Row: {
+          created_at: string | null
+          created_by: number | null
+          document_file_id: number
+          document_tag_id: number
+          id: number
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: number | null
+          document_file_id: number
+          document_tag_id: number
+          id?: number
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: number | null
+          document_file_id?: number
+          document_tag_id?: number
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_files_tags_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "auth_clerk_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_tags_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_tags_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_documents_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_tags_document_tag_id_fkey"
+            columns: ["document_tag_id"]
+            isOneToOne: false
+            referencedRelation: "document_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_roles: {
         Row: {
           id: number
@@ -3672,6 +3725,47 @@ export type Database = {
             columns: ["document_roles_id"]
             isOneToOne: false
             referencedRelation: "document_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_tags: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          created_by: number | null
+          description: string | null
+          id: number
+          name: string
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          created_by?: number | null
+          description?: string | null
+          id?: number
+          name: string
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          created_by?: number | null
+          description?: string | null
+          id?: number
+          name?: string
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_tags_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "auth_clerk_users"
             referencedColumns: ["id"]
           },
         ]
@@ -5153,6 +5247,7 @@ export type Database = {
             Returns: string
           }
       format_deal_name: { Args: { property_id: number }; Returns: string }
+      generate_tag_slug: { Args: { tag_name: string }; Returns: string }
       get_accessible_transaction_ids: {
         Args: never
         Returns: {

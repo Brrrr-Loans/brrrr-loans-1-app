@@ -37,6 +37,7 @@ export type DocumentCategory =
  * - document_files_companies
  * - document_files_clerk_orgs
  * - document_files_clerk_users
+ * - document_files_tags (links to document_tags)
  */
 export interface DocumentFile {
   id: number;
@@ -70,7 +71,8 @@ export interface DocumentFile {
   uploaded_by: string | null;
   uploaded_at: string | null;
 
-  // Tags
+  // Tags (DEPRECATED - use document_files_tags junction table instead)
+  /** @deprecated Use document_files_tags junction table instead */
   tags: string[] | null;
 }
 
@@ -134,6 +136,31 @@ export interface DocumentFileClerkUser {
 }
 
 /**
+ * Document tag - master list of all tags with normalization
+ */
+export interface DocumentTag {
+  id: number;
+  name: string;                    // Display name (e.g., "Statement")
+  slug: string;                    // Normalized lowercase (e.g., "statement")
+  description: string | null;      // Optional tag description
+  color: string | null;            // Optional hex color for UI
+  created_at: string;
+  created_by: number | null;       // FK to auth_clerk_users.id
+  updated_at: string;
+}
+
+/**
+ * Junction table linking documents to tags
+ */
+export interface DocumentFileTag {
+  id: number;
+  document_file_id: number;
+  document_tag_id: number;
+  created_at: string;
+  created_by: number | null;       // FK to auth_clerk_users.id
+}
+
+/**
  * Document with all related entities (for queries with joins)
  */
 export interface DocumentFileWithRelations extends DocumentFile {
@@ -144,6 +171,7 @@ export interface DocumentFileWithRelations extends DocumentFile {
   companies?: DocumentFileCompany[];
   clerk_orgs?: DocumentFileClerkOrg[];
   clerk_users?: DocumentFileClerkUser[];
+  document_tags?: DocumentTag[];    // Tags via junction table
 }
 
 /**

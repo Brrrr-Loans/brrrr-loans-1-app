@@ -333,6 +333,11 @@ export function DocumentsView({
   const [newTagInput, setNewTagInput] = useState("");
   const [isSavingTags, setIsSavingTags] = useState(false);
   const tagInputRef = useRef<HTMLInputElement>(null);
+  
+  // Available tags for auto-complete (from document_tags table)
+  const [availableTags, setAvailableTags] = useState<
+    { id: number; name: string; slug: string }[]
+  >([]);
 
   // Track if initial fetch has been done to prevent re-fetching on every render
   const initialFetchDoneRef = useRef(false);
@@ -444,6 +449,33 @@ export function DocumentsView({
 
     fetchAdminData();
   }, [supabase, canUpload, isAdminDataLoaded]);
+
+  // Fetch available tags for auto-complete from document_tags table
+  useEffect(() => {
+    if (!supabase) return;
+
+    const fetchTags = async () => {
+      try {
+        const { data: tagsData, error } = await supabase
+          .from("document_tags")
+          .select("id, name, slug")
+          .order("name");
+
+        if (error) {
+          console.error("Error fetching available tags:", error);
+          return;
+        }
+
+        if (tagsData) {
+          setAvailableTags(tagsData);
+        }
+      } catch (error) {
+        console.error("Error fetching available tags:", error);
+      }
+    };
+
+    fetchTags();
+  }, [supabase]);
 
   // Compute upload path based on target selection
   const uploadPath = useMemo(() => {
@@ -874,25 +906,43 @@ export function DocumentsView({
           const persistedTagsByPath = new Map<string, string[]>();
           
           if (storagePaths.length > 0) {
-            // Query document_files to get IDs and persisted tags for our storage paths
+            // Query document_files to get IDs for our storage paths
             const { data: docFilesData } = await currentSupabase
               .from("document_files")
-              .select("id, storage_path, tags")
+              .select("id, storage_path")
               .eq("storage_bucket", bucketName)
               .in("storage_path", storagePaths);
             
-            // Build map of persisted tags by path
-            if (docFilesData) {
-              for (const df of docFilesData) {
-                if (df.storage_path && df.tags && Array.isArray(df.tags)) {
-                  persistedTagsByPath.set(df.storage_path, df.tags);
-                }
-              }
-            }
-            
+            // Build map of document_file IDs to storage paths for tag lookup
             if (docFilesData && docFilesData.length > 0) {
               const docFileIds = docFilesData.map((df) => df.id);
-              const pathToIdMap = new Map(docFilesData.map((df) => [df.id, df.storage_path]));
+              const idToPathMap = new Map(docFilesData.map((df) => [df.id, df.storage_path]));
+              
+              // Query tags via junction table with join to document_tags
+              const { data: tagAssignments } = await currentSupabase
+                .from("document_files_tags")
+                .select("document_file_id, document_tags(id, name, slug)")
+                .in("document_file_id", docFileIds);
+              
+              // Build map of tags by storage path
+              if (tagAssignments) {
+                for (const assignment of tagAssignments) {
+                  const storagePath = idToPathMap.get(assignment.document_file_id);
+                  if (!storagePath) continue;
+                  
+                  const tagInfo = assignment.document_tags as { id: number; name: string; slug: string } | null;
+                  if (!tagInfo) continue;
+                  
+                  const existing = persistedTagsByPath.get(storagePath) || [];
+                  if (!existing.includes(tagInfo.name)) {
+                    existing.push(tagInfo.name);
+                    persistedTagsByPath.set(storagePath, existing);
+                  }
+                }
+              }
+              
+              // Reuse the same docFileIds and idToPathMap for investor queries
+              const pathToIdMap = idToPathMap;
               
               // Query org assignments
               const { data: orgAssignments } = await currentSupabase
@@ -1418,20 +1468,33 @@ export function DocumentsView({
     );
   }, [availableInvestors, investorSearchQuery]);
 
-  // Handle adding a new tag to a document
+  // Generate slug from tag name (matches database function)
+  const generateTagSlug = (tagName: string): string => {
+    return tagName
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "");
+  };
+
+  // Handle adding a new tag to a document (using junction table)
   const handleAddTag = async (doc: Document, newTag: string) => {
     if (!supabase || !newTag.trim()) return;
 
     const trimmedTag = newTag.trim();
-    // Don't add duplicate tags
-    if (doc.tags.includes(trimmedTag)) {
+    const tagSlug = generateTagSlug(trimmedTag);
+    
+    // Don't add duplicate tags (check by slug for normalization)
+    const existingTagSlugs = doc.tags.map(generateTagSlug);
+    if (existingTagSlugs.includes(tagSlug)) {
       setNewTagInput("");
+      toast.info(`Tag "${trimmedTag}" already exists on this document`);
       return;
     }
 
     setIsSavingTags(true);
     try {
-      // First, ensure we have a document_files record
+      // Step 1: Ensure we have a document_files record
       const { data: docFileData, error: upsertError } = await supabase
         .from("document_files")
         .upsert(
@@ -1439,29 +1502,74 @@ export function DocumentsView({
             storage_bucket: bucketName,
             storage_path: doc.path,
             document_name: doc.name,
-            tags: [...doc.tags, trimmedTag],
           },
           { onConflict: "storage_bucket,storage_path" }
         )
-        .select("id, tags")
+        .select("id")
         .single();
 
-      if (upsertError) {
-        console.error("Error saving tags:", upsertError);
-        throw new Error(upsertError.message || "Failed to save tags");
+      if (upsertError || !docFileData) {
+        console.error("Error ensuring document_files record:", upsertError);
+        throw new Error(upsertError?.message || "Failed to create document record");
       }
 
-      // Update local state
+      // Step 2: Find or create the tag in document_tags
+      // First try to find existing tag by slug
+      let tagId: number | null = null;
+      const existingTag = availableTags.find((t) => t.slug === tagSlug);
+      
+      if (existingTag) {
+        tagId = existingTag.id;
+      } else {
+        // Create new tag
+        const { data: newTagData, error: tagError } = await supabase
+          .from("document_tags")
+          .insert({
+            name: trimmedTag,
+            slug: tagSlug,
+          })
+          .select("id, name, slug")
+          .single();
+
+        if (tagError || !newTagData) {
+          console.error("Error creating tag:", tagError);
+          throw new Error(tagError?.message || "Failed to create tag");
+        }
+
+        tagId = newTagData.id;
+        
+        // Add to available tags for auto-complete
+        setAvailableTags((prev) => [...prev, newTagData].sort((a, b) => a.name.localeCompare(b.name)));
+      }
+
+      // Step 3: Create junction table entry
+      const { error: junctionError } = await supabase
+        .from("document_files_tags")
+        .insert({
+          document_file_id: docFileData.id,
+          document_tag_id: tagId,
+        });
+
+      if (junctionError) {
+        // Ignore duplicate key errors (tag already assigned)
+        if (!junctionError.message?.includes("duplicate")) {
+          console.error("Error creating tag assignment:", junctionError);
+          throw new Error(junctionError.message || "Failed to assign tag");
+        }
+      }
+
+      // Update local state - use the display name from existing tag if found
+      const displayName = existingTag?.name || trimmedTag;
       setDocuments((prev) =>
         prev.map((d) =>
           d.id === doc.id
-            ? { ...d, tags: docFileData?.tags || [...d.tags, trimmedTag] }
+            ? { ...d, tags: [...d.tags, displayName] }
             : d
         )
       );
 
       setNewTagInput("");
-      toast.success(`Added tag "${trimmedTag}"`);
+      toast.success(`Added tag "${displayName}"`);
     } catch (error) {
       const errorMessage =
         error instanceof Error
@@ -1476,39 +1584,69 @@ export function DocumentsView({
     }
   };
 
-  // Handle removing a tag from a document
+  // Handle removing a tag from a document (using junction table)
   const handleRemoveTag = async (doc: Document, tagToRemove: string) => {
     if (!supabase) return;
 
     setIsSavingTags(true);
     try {
-      const updatedTags = doc.tags.filter((t) => t !== tagToRemove);
-
-      // Update in database
-      const { data: docFileData, error: updateError } = await supabase
+      // Step 1: Find the document_files record
+      const { data: docFileData, error: docError } = await supabase
         .from("document_files")
-        .upsert(
-          {
-            storage_bucket: bucketName,
-            storage_path: doc.path,
-            document_name: doc.name,
-            tags: updatedTags,
-          },
-          { onConflict: "storage_bucket,storage_path" }
-        )
-        .select("id, tags")
+        .select("id")
+        .eq("storage_bucket", bucketName)
+        .eq("storage_path", doc.path)
         .single();
 
-      if (updateError) {
-        console.error("Error removing tag:", updateError);
-        throw new Error(updateError.message || "Failed to remove tag");
+      if (docError || !docFileData) {
+        // If no record exists, the tag was auto-generated and not persisted
+        // Just update local state
+        setDocuments((prev) =>
+          prev.map((d) =>
+            d.id === doc.id
+              ? { ...d, tags: d.tags.filter((t) => t !== tagToRemove) }
+              : d
+          )
+        );
+        toast.success(`Removed tag "${tagToRemove}"`);
+        return;
+      }
+
+      // Step 2: Find the tag by slug
+      const tagSlug = generateTagSlug(tagToRemove);
+      const tagRecord = availableTags.find((t) => t.slug === tagSlug);
+      
+      if (!tagRecord) {
+        // Tag not in available tags - might be from old TEXT[] column
+        // Just update local state
+        setDocuments((prev) =>
+          prev.map((d) =>
+            d.id === doc.id
+              ? { ...d, tags: d.tags.filter((t) => t !== tagToRemove) }
+              : d
+          )
+        );
+        toast.success(`Removed tag "${tagToRemove}"`);
+        return;
+      }
+
+      // Step 3: Delete from junction table
+      const { error: deleteError } = await supabase
+        .from("document_files_tags")
+        .delete()
+        .eq("document_file_id", docFileData.id)
+        .eq("document_tag_id", tagRecord.id);
+
+      if (deleteError) {
+        console.error("Error removing tag assignment:", deleteError);
+        throw new Error(deleteError.message || "Failed to remove tag");
       }
 
       // Update local state
       setDocuments((prev) =>
         prev.map((d) =>
           d.id === doc.id
-            ? { ...d, tags: docFileData?.tags || updatedTags }
+            ? { ...d, tags: d.tags.filter((t) => t !== tagToRemove) }
             : d
         )
       );
@@ -2573,7 +2711,7 @@ export function DocumentsView({
                                   </div>
                                 </PopoverTrigger>
                                 <PopoverContent
-                                  className="w-64 p-2"
+                                  className="w-72 p-2"
                                   align="start"
                                   onClick={(e) => e.stopPropagation()}
                                 >
@@ -2581,7 +2719,7 @@ export function DocumentsView({
                                     <div className="flex gap-1">
                                       <Input
                                         ref={tagInputRef}
-                                        placeholder="Add a tag..."
+                                        placeholder="Type to search or create..."
                                         value={newTagInput}
                                         onChange={(e) => setNewTagInput(e.target.value)}
                                         onKeyDown={(e) => {
@@ -2611,6 +2749,47 @@ export function DocumentsView({
                                         )}
                                       </Button>
                                     </div>
+                                    
+                                    {/* Auto-complete suggestions */}
+                                    {newTagInput.trim() && (
+                                      <div className="max-h-32 overflow-y-auto border rounded">
+                                        {(() => {
+                                          const inputSlug = generateTagSlug(newTagInput);
+                                          const docTagSlugs = doc.tags.map(generateTagSlug);
+                                          const filteredSuggestions = availableTags
+                                            .filter(
+                                              (t) =>
+                                                t.name.toLowerCase().includes(newTagInput.toLowerCase()) &&
+                                                !docTagSlugs.includes(t.slug)
+                                            )
+                                            .slice(0, 5);
+                                          
+                                          if (filteredSuggestions.length === 0) {
+                                            return (
+                                              <div className="p-2 text-xs text-muted-foreground italic">
+                                                Press Enter to create &quot;{newTagInput.trim()}&quot;
+                                              </div>
+                                            );
+                                          }
+                                          
+                                          return filteredSuggestions.map((tag) => (
+                                            <button
+                                              key={tag.id}
+                                              type="button"
+                                              className="w-full text-left px-2 py-1.5 text-sm hover:bg-muted transition-colors flex items-center justify-between"
+                                              onClick={() => {
+                                                handleAddTag(doc, tag.name);
+                                              }}
+                                              disabled={isSavingTags}
+                                            >
+                                              <span>{tag.name}</span>
+                                              <span className="text-xs text-muted-foreground">Select</span>
+                                            </button>
+                                          ));
+                                        })()}
+                                      </div>
+                                    )}
+                                    
                                     {doc.tags.length > 0 && (
                                       <div className="flex flex-wrap gap-1 pt-1 border-t">
                                         {doc.tags.map((tag) => (
