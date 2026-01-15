@@ -24,14 +24,17 @@ import { TeamSwitcherV2 } from "./team-switcher-v2";
 
 // Dynamic imports with ssr: false to prevent hydration mismatches
 // These components use Radix UI primitives that generate IDs differently on server vs client
+const WorkspaceSwitcher = dynamic(
+  () => import("./workspace-switcher").then((mod) => mod.WorkspaceSwitcher),
+  { ssr: false }
+);
 const NavBalanceSheet = dynamic(
   () => import("./nav-balancesheet").then((mod) => mod.NavBalanceSheet),
   { ssr: false }
 );
-const NavUser = dynamic(
-  () => import("./nav-user").then((mod) => mod.NavUser),
-  { ssr: false }
-);
+const NavUser = dynamic(() => import("./nav-user").then((mod) => mod.NavUser), {
+  ssr: false,
+});
 
 import {
   Sidebar,
@@ -144,9 +147,12 @@ export function AppSidebar(
         <TeamSwitcherV2 />
       </SidebarHeader>
       <SidebarContent>
+        <div className="px-2 pt-1 pb-2">
+          <WorkspaceSwitcher />
+        </div>
         <NavSearch />
         <NavMain items={mainNavItems} />
-          <NavBalanceSheet items={balanceSheetItems} />
+        <NavBalanceSheet items={balanceSheetItems} />
       </SidebarContent>
       <SidebarFooter className="mt-auto border-t border-sidebar-border pt-2">
         <NavUser user={userData} />

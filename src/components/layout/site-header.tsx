@@ -34,7 +34,7 @@ const PlatformSettingsPopover = dynamic(
 const ImpersonationSwitcher = dynamic(
   () =>
     import(
-      "@/app/(dashboard)/platform-settings/components/impersonation-switcher"
+      "@/app/(portal)/platform-settings/components/impersonation-switcher"
     ).then((mod) => mod.ImpersonationSwitcher),
   { ssr: false }
 );
@@ -80,7 +80,10 @@ function generateBreadcrumbs(
   const path = pathname.replace(/\/$/, "");
 
   // Handle deal details pages
-  if (path.startsWith("/balance-sheet/investor-portfolio/deals/") && path !== "/balance-sheet/investor-portfolio/deals") {
+  if (
+    path.startsWith("/balance-sheet/investor-portfolio/deals/") &&
+    path !== "/balance-sheet/investor-portfolio/deals"
+  ) {
     const dealId = path.split("/").pop();
     const displayName = dealName || `Deal #${dealId}`;
 
@@ -122,7 +125,7 @@ function generateBreadcrumbs(
             <BreadcrumbLink asChild>
               <Link href="/balance-sheet/transactions?tab=all">
                 Transactions
-                  </Link>
+              </Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
@@ -143,7 +146,9 @@ function generateBreadcrumbs(
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/balance-sheet/investor-portfolio/analytics">Balance Sheet</Link>
+              <Link href="/balance-sheet/investor-portfolio/analytics">
+                Balance Sheet
+              </Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
@@ -151,7 +156,9 @@ function generateBreadcrumbs(
           </BreadcrumbSeparator>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/balance-sheet/investor-portfolio/analytics">Investor Portfolio</Link>
+              <Link href="/balance-sheet/investor-portfolio/analytics">
+                Investor Portfolio
+              </Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
@@ -171,7 +178,10 @@ function generateBreadcrumbs(
   }
 
   // Handle Balance Sheet / Transactions / [id] route (transaction details)
-  if (path.startsWith("/balance-sheet/transactions/") && path !== "/balance-sheet/transactions/new") {
+  if (
+    path.startsWith("/balance-sheet/transactions/") &&
+    path !== "/balance-sheet/transactions/new"
+  ) {
     const transactionId = path.split("/").pop();
     return renderTransactionsBreadcrumb(`Transaction #${transactionId}`);
   }
@@ -183,8 +193,8 @@ function generateBreadcrumbs(
       tab === "investments"
         ? "Investments"
         : tab === "distributions"
-          ? "Distributions"
-          : "All Transactions";
+        ? "Distributions"
+        : "All Transactions";
 
     return renderTransactionsBreadcrumb(tabLabel);
   }
@@ -197,16 +207,20 @@ function generateBreadcrumbs(
   // Handle Balance Sheet / Documents routes with tab parameter
   if (path === "/balance-sheet/documents") {
     const tab = searchParams?.get("tab") || "statements";
-    const tabLabel = 
-      tab === "payments" ? "Payments" : 
-      tab === "agreements" ? "Agreements" : 
-      "Statements";
+    const tabLabel =
+      tab === "payments"
+        ? "Payments"
+        : tab === "agreements"
+        ? "Agreements"
+        : "Statements";
 
     return (
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbPage className="text-muted-foreground">Balance Sheet</BreadcrumbPage>
+            <BreadcrumbPage className="text-muted-foreground">
+              Balance Sheet
+            </BreadcrumbPage>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
             <SlashIcon />
@@ -219,17 +233,26 @@ function generateBreadcrumbs(
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 <DropdownMenuItem asChild>
-                  <Link href="/balance-sheet/documents?tab=statements" className="cursor-pointer">
+                  <Link
+                    href="/balance-sheet/documents?tab=statements"
+                    className="cursor-pointer"
+                  >
                     Statements
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/balance-sheet/documents?tab=payments" className="cursor-pointer">
+                  <Link
+                    href="/balance-sheet/documents?tab=payments"
+                    className="cursor-pointer"
+                  >
                     Payments
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/balance-sheet/documents?tab=agreements" className="cursor-pointer">
+                  <Link
+                    href="/balance-sheet/documents?tab=agreements"
+                    className="cursor-pointer"
+                  >
                     Agreements
                   </Link>
                 </DropdownMenuItem>
@@ -250,13 +273,22 @@ function generateBreadcrumbs(
   // Handle Platform Settings / Integrations routes
   if (path.startsWith("/platform-settings/integrations/")) {
     const integrationSlug = path.split("/").pop();
-    const integrationName = integrationSlug === "ofb" ? "Ocean First" : integrationSlug === "brex" ? "Brex" : integrationSlug === "template-editor" ? "Template Editor" : integrationSlug;
+    const integrationName =
+      integrationSlug === "ofb"
+        ? "Ocean First"
+        : integrationSlug === "brex"
+        ? "Brex"
+        : integrationSlug === "template-editor"
+        ? "Template Editor"
+        : integrationSlug;
 
     return (
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbPage className="text-muted-foreground">Platform Settings</BreadcrumbPage>
+            <BreadcrumbPage className="text-muted-foreground">
+              Platform Settings
+            </BreadcrumbPage>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
             <SlashIcon />
@@ -269,17 +301,26 @@ function generateBreadcrumbs(
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 <DropdownMenuItem asChild>
-                  <Link href="/platform-settings/integrations/brex" className="cursor-pointer">
+                  <Link
+                    href="/platform-settings/integrations/brex"
+                    className="cursor-pointer"
+                  >
                     Brex
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/platform-settings/integrations/ofb" className="cursor-pointer">
+                  <Link
+                    href="/platform-settings/integrations/ofb"
+                    className="cursor-pointer"
+                  >
                     Ocean First
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/platform-settings/integrations/template-editor" className="cursor-pointer">
+                  <Link
+                    href="/platform-settings/integrations/template-editor"
+                    className="cursor-pointer"
+                  >
                     Template Editor
                   </Link>
                 </DropdownMenuItem>
@@ -321,7 +362,8 @@ function getPageTitle(pathname: string): string {
 
   if (path === "/dashboard") return "Dashboard";
   if (path === "/balance-sheet/investor-portfolio/deals") return "Deals";
-  if (path.startsWith("/balance-sheet/investor-portfolio/deals/")) return "Deal Details";
+  if (path.startsWith("/balance-sheet/investor-portfolio/deals/"))
+    return "Deal Details";
   if (path === "/balance-sheet/transactions") {
     // This will be handled by breadcrumbs with searchParams
     return "Transactions";
@@ -354,7 +396,7 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
   React.useEffect(() => {
     setMounted(true);
   }, []);
-  
+
   // Check if user is admin
   const isAdmin =
     user?.publicMetadata?.role === "admin" ||
@@ -372,10 +414,11 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
           orientation="vertical"
           className="bg-border shrink-0 w-[1px] mr-2 h-4"
         />
-        {mounted 
-          ? (breadcrumb || generateBreadcrumbs(pathname, searchParams, dealName))
-          : <div className="h-4 w-32 bg-muted/50 animate-pulse rounded" />
-        }
+        {mounted ? (
+          breadcrumb || generateBreadcrumbs(pathname, searchParams, dealName)
+        ) : (
+          <div className="h-4 w-32 bg-muted/50 animate-pulse rounded" />
+        )}
         <div className="flex items-center gap-4 ml-auto flex-shrink-0">
           <SearchForm
             className="w-full max-w-56 xl:max-w-64"

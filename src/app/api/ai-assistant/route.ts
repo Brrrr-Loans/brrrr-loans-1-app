@@ -1,4 +1,4 @@
-import { openai } from '@ai-sdk/openai';
+import { getAIProvider } from '@/lib/ai/gateway';
 import { streamText, tool } from 'ai';
 import { z } from 'zod';
 
@@ -6,9 +6,10 @@ export const maxDuration = 30;
 
 export async function POST(req: Request) {
   const { messages } = await req.json();
+  const provider = getAIProvider();
 
   const result = streamText({
-    model: openai('gpt-4o'),
+    model: provider('gpt-4o'),
     system: `You are an expert software engineer and UI designer with "v0 powers". 
     You help users build dynamic document and email templates. 
     You can generate React components, HTML, and execute code concepts.

@@ -7,8 +7,8 @@ import { useCurrentOrganization } from "@/contexts/organization-context";
 import { InvestorDashboardSkeleton } from "@/components/skeletons/investor-dashboard-skeleton";
 import { PermissionErrorBoundary } from "@/components/error-boundary/permission-error-boundary";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
-import { TransactionsDataTable } from "@/app/(dashboard)/balance-sheet/transactions/components/tanstack-datatable";
-import { ActiveDealsListWrapper } from "@/app/(dashboard)/balance-sheet/investor-portfolio/deals/components/list-active-deals";
+import { TransactionsDataTable } from "@/app/(portal)/balance-sheet/transactions/components/tanstack-datatable";
+import { ActiveDealsListWrapper } from "@/app/(portal)/balance-sheet/investor-portfolio/deals/components/list-active-deals";
 import { ChartAreaInvestorROI, type InvestorROIDataPoint } from "./components";
 import { StatCard } from "@/components/once-ui";
 

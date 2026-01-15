@@ -1,6 +1,6 @@
 "use client";
 
-import { DealsDataTable } from "@/app/(dashboard)/balance-sheet/investor-portfolio/deals/components";
+import { DealsDataTable } from "@/app/(portal)/balance-sheet/investor-portfolio/deals/components";
 import { SectionCards } from "./components/section-cards";
 
 export default function Page() {

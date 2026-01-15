@@ -11,12 +11,12 @@
         "gsxggtsgqskhchcbrmhe"
       ]
     },
-    "web-to-mcp": {
-      "url": "https://web-to-mcp.com/mcp/ca35c92b-c332-495f-9c03-c37afab87f86/"
-    },
     "shadcn": {
       "command": "npx",
-      "args": ["shadcn@latest", "mcp"]
+      "args": [
+        "shadcn@latest",
+        "mcp"
+      ]
     },
     "v0": {
       "command": "npx",

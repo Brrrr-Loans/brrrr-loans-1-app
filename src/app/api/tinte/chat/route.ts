@@ -1,4 +1,4 @@
-import { openai } from "@ai-sdk/openai";
+import { getAIProvider } from "@/lib/ai/gateway";
 import { streamText } from "ai";
 
 export const maxDuration = 30;
@@ -91,11 +91,11 @@ When generating themes, consider:
 - Creating visual harmony between all color tokens`;
 
 export async function POST(req: Request) {
-  // Check for API key
-  if (!process.env.OPENAI_API_KEY) {
+  // Check for API key (either gateway or direct OpenAI)
+  if (!process.env.AI_GATEWAY_API_KEY && !process.env.OPENAI_API_KEY) {
     return new Response(
       JSON.stringify({
-        error: "OpenAI API key not configured. Please add OPENAI_API_KEY to your .env.local file.",
+        error: "AI API key not configured. Please add AI_GATEWAY_API_KEY or OPENAI_API_KEY to your .env.local file.",
       }),
       {
         status: 500,
@@ -106,9 +106,10 @@ export async function POST(req: Request) {
 
   try {
     const { messages } = await req.json();
+    const provider = getAIProvider();
 
     const result = streamText({
-      model: openai("gpt-4o-mini"),
+      model: provider("gpt-4o-mini"),
       system: SYSTEM_PROMPT,
       messages,
     });
