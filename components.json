@@ -26,6 +26,7 @@
       }
     },
     "@lytenyte": "https://www.1771technologies.com/r/{name}.json",
-    "@elements": "https://tryelements.dev/r/{name}.json"
+    "@elements": "https://tryelements.dev/r/{name}.json",
+    "@diceui": "https://diceui.com/r/{name}.json"
   }
 }
