@@ -34,11 +34,11 @@ export function useInvestorPermissions(): InvestorPermissions {
       // First check if user is admin - admins can view all deals
       const { data: userProfile, error: profileError } = await supabase
         .from("auth_clerk_users")
-        .select("role")
+        .select("personal_role")
         .eq("clerk_user_id", user.id)
         .single();
 
-      if (!profileError && userProfile?.role === "admin") {
+      if (!profileError && userProfile?.personal_role === "admin") {
         permissionCache.set(cacheKey, true);
         return true;
       }
@@ -81,11 +81,11 @@ export function useInvestorPermissions(): InvestorPermissions {
       // First check if user is admin - admins can view all documents
       const { data: userProfile, error: profileError } = await supabase
         .from("auth_clerk_users")
-        .select("role")
+        .select("personal_role")
         .eq("clerk_user_id", user.id)
         .single();
 
-      if (!profileError && userProfile?.role === "admin") {
+      if (!profileError && userProfile?.personal_role === "admin") {
         permissionCache.set(cacheKey, true);
         return true;
       }
@@ -161,15 +161,15 @@ export function useInvestorPermissions(): InvestorPermissions {
       try {
         const { data: userProfile, error: profileError } = await supabase
           .from("auth_clerk_users")
-          .select("role")
+          .select("personal_role")
           .eq("clerk_user_id", user.id)
           .single();
 
         // Allow admins and balance sheet investors to view all their distributions
         const hasAccess =
           !profileError &&
-          (userProfile?.role === "admin" ||
-            userProfile?.role === "balance_sheet_investor");
+          (userProfile?.personal_role === "admin" ||
+            userProfile?.personal_role === "balance_sheet_investor");
         permissionCache.set(cacheKey, hasAccess);
         return hasAccess;
       } catch (error) {

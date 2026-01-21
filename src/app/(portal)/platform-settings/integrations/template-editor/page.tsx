@@ -1,7 +1,7 @@
 import { RouteProtection } from "@/components/auth/route-protection";
 import { GrapesJSEditor } from "../grapesjs/grapesjs-editor";
 import { TiptapEditor } from "../grapesjs/tiptap-editor";
-import { Tabs } from "@/components/ui/tabs";
+import { Tabs } from "@/components/ui/shadcn/tabs";
 import { FileText, Send } from "lucide-react";
 
 interface TemplateEditorPageProps {

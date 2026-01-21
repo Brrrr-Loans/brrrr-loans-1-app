@@ -26,11 +26,11 @@ export async function GET(request: Request) {
       // Admin is impersonating - verify they're admin first
       const { data: adminUser } = await supabase
         .from("auth_clerk_users")
-        .select("id, role")
+        .select("id, personal_role")
         .eq("clerk_user_id", clerkUserId)
         .single();
 
-      if (!adminUser || adminUser.role !== "admin") {
+      if (!adminUser || adminUser.personal_role !== "admin") {
         return NextResponse.json({ error: "Forbidden - admin only" }, { status: 403 });
       }
 

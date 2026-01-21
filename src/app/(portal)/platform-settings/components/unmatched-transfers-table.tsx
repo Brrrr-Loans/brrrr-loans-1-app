@@ -26,10 +26,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui";
-import { Checkbox } from "@/components/ui/forms/checkbox";
-import { Input } from "@/components/ui/forms/input";
-import { Label } from "@/components/ui/forms/label";
-import { Textarea } from "@/components/ui/forms/textarea";
+import { Checkbox } from "@/components/ui/shadcn/checkbox";
+import { Input } from "@/components/ui/shadcn/input";
+import { Label } from "@/components/ui/shadcn/label";
+import { Textarea } from "@/components/ui/shadcn/textarea";
 import {
   Command,
   CommandEmpty,
@@ -37,19 +37,19 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/navigation/command";
+} from "@/components/ui/shadcn/command";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/overlays/popover";
+} from "@/components/ui/shadcn/popover";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/forms/select";
+} from "@/components/ui/shadcn/select";
 import { Loader2, Link as LinkIcon, Check, ChevronsUpDown, ArrowUpDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";

@@ -4,7 +4,7 @@ import {
   Dropzone,
   DropzoneContent,
   DropzoneEmptyState,
-} from "@/components/ui/forms/supabase-dropzone";
+} from "@/components/ui/custom/supabase-dropzone";
 import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
 import {
   Card,
@@ -322,7 +322,7 @@ export default function TestUploadsPage() {
               dropzone areas.
             </p>
             <pre className="text-sm bg-muted p-3 rounded mt-2 overflow-x-auto">
-              {`import { Dropzone, DropzoneContent, DropzoneEmptyState } from "@/components/ui/forms/supabase-dropzone";
+              {`import { Dropzone, DropzoneContent, DropzoneEmptyState } from "@/components/ui/custom/supabase-dropzone";
 import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
 
 const FileUploadDemo = () => {

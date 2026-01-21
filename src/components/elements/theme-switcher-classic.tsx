@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { MoonIcon, SunIcon } from "lucide-react";
 import { useTheme } from "next-themes";
 
-import { Switch } from "@/components/ui/switch";
+import { Switch } from "@/components/ui/shadcn/switch";
 
 export function ThemeSwitcherClassic() {
   const { theme, setTheme } = useTheme();

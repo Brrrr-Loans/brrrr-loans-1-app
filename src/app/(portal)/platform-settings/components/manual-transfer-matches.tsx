@@ -31,7 +31,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/forms/select";
+} from "@/components/ui/shadcn/select";
 import {
   Loader2,
   ArrowUpDown,
@@ -49,7 +49,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/overlays/dialog";
+} from "@/components/ui/shadcn/dialog";
 
 // The Brex account name (used as FROM/TO for internal account)
 const BREX_ACCOUNT_NAME = "Brrrr Loans 1 LLC";

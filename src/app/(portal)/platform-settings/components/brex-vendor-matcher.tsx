@@ -24,12 +24,12 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/navigation/command";
+} from "@/components/ui/shadcn/command";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/overlays/popover";
+} from "@/components/ui/shadcn/popover";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/overlays/dialog";
+} from "@/components/ui/shadcn/dialog";
 import { Loader2, X, Plus, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";

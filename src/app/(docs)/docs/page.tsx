@@ -86,7 +86,7 @@ export default async function DocsPage() {
             </div>
 
             {/* Pages Grid */}
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-4">
               {pages.map((page) => (
                 <Link
                   key={page._id}

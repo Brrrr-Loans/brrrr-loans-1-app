@@ -2,10 +2,10 @@
 
 import { useRef, useEffect, useState } from "react";
 import { useChat } from "@ai-sdk/react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/shadcn/button";
+import { Input } from "@/components/ui/shadcn/input";
 import { Send, RotateCcw } from "lucide-react";
-import { ScrollArea } from "@/components/ui/layout/scroll-area";
+import { ScrollArea } from "@/components/ui/shadcn/scroll-area";
 import {
   Message,
   MessageContent,

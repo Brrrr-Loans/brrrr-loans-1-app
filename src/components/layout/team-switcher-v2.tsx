@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronsUpDown, Plus, Building2, Settings } from "lucide-react";
 import {
   useOrganization,
   useOrganizationList,
-  OrganizationProfile,
   CreateOrganization,
 } from "@clerk/nextjs";
 import type { OrganizationResource } from "@clerk/types";
@@ -20,14 +20,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui";
+import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui";
-import { Skeleton } from "@/components/ui/feedback/skeleton";
+import { Skeleton } from "@/components/ui/shadcn/skeleton";
 
 export function TeamSwitcherV2() {
+  const router = useRouter();
   const { isMobile } = useSidebar();
   const { organization } = useOrganization();
   const { userMemberships, setActive } = useOrganizationList({
@@ -44,10 +51,6 @@ export function TeamSwitcherV2() {
 
   // State for managing modals and dropdown
   const [showCreateOrg, setShowCreateOrg] = useState(false);
-  const [showOrgProfile, setShowOrgProfile] = useState(false);
-  const [selectedOrgForProfile, setSelectedOrgForProfile] = useState<
-    string | null
-  >(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   // Get current organization and user's role
@@ -69,32 +72,11 @@ export function TeamSwitcherV2() {
     }
   };
 
-  // Handle opening organization profile
-  const handleOpenOrgProfile = (orgId: string, event: React.MouseEvent) => {
+  // Handle opening organization profile - navigate to dedicated page with org ID
+  const handleOpenOrgProfile = (event: React.MouseEvent, orgId: string) => {
     event.stopPropagation(); // Prevent dropdown item click
-    setSelectedOrgForProfile(orgId);
-    setShowOrgProfile(true);
     setDropdownOpen(false); // Close dropdown
-  };
-
-  // Handle closing modals
-  const handleCloseCreateOrg = () => {
-    setShowCreateOrg(false);
-  };
-
-  const handleCloseOrgProfile = () => {
-    setShowOrgProfile(false);
-    setSelectedOrgForProfile(null);
-  };
-
-  // Handle backdrop clicks
-  const handleBackdropClick = (
-    e: React.MouseEvent,
-    closeHandler: () => void
-  ) => {
-    if (e.target === e.currentTarget) {
-      closeHandler();
-    }
+    router.push(`/org/${orgId}/settings`);
   };
 
   // Show skeleton during SSR/initial mount to prevent hydration mismatch
@@ -212,9 +194,7 @@ export function TeamSwitcherV2() {
                     {membership.organization.name}
                   </span>
                   <button
-                    onClick={(e) =>
-                      handleOpenOrgProfile(membership.organization.id, e)
-                    }
+                    onClick={(e) => handleOpenOrgProfile(e, membership.organization.id)}
                     className="ml-auto p-1 hover:bg-accent rounded-sm"
                     title="Organization settings"
                   >
@@ -239,57 +219,24 @@ export function TeamSwitcherV2() {
         </SidebarMenuItem>
       </SidebarMenu>
 
-      {/* Create Organization Modal */}
-      {showCreateOrg && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          onClick={(e) => handleBackdropClick(e, handleCloseCreateOrg)}
-        >
-          <div className="relative bg-background rounded-lg p-0 max-w-md w-full max-h-[90vh] overflow-auto m-4">
-            <button
-              onClick={handleCloseCreateOrg}
-              className="absolute top-4 right-4 z-10 p-2 hover:bg-accent rounded-md text-lg font-bold leading-none"
-            >
-              ×
-            </button>
-            <CreateOrganization
-              afterCreateOrganizationUrl="/dashboard"
-              appearance={{
-                elements: {
-                  modalBackdrop: "hidden",
-                  card: "shadow-none border-0",
-                },
-              }}
-            />
-          </div>
-        </div>
-      )}
+      {/* Create Organization Modal - using shadcn Dialog for proper portal cleanup */}
+      <Dialog open={showCreateOrg} onOpenChange={setShowCreateOrg}>
+        <DialogContent className="max-w-md p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Create Organization</DialogTitle>
+          </DialogHeader>
+          <CreateOrganization
+            afterCreateOrganizationUrl="/dashboard"
+            appearance={{
+              elements: {
+                modalBackdrop: "hidden",
+                card: "shadow-none border-0",
+              },
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
-      {/* Organization Profile Modal */}
-      {showOrgProfile && selectedOrgForProfile && (
-        <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
-          onClick={(e) => handleBackdropClick(e, handleCloseOrgProfile)}
-        >
-          <div className="relative bg-background rounded-lg p-0 max-w-4xl w-full max-h-[90vh] overflow-auto m-4">
-            <button
-              onClick={handleCloseOrgProfile}
-              className="absolute top-4 right-4 z-10 p-2 hover:bg-accent rounded-md text-lg font-bold leading-none"
-            >
-              ×
-            </button>
-            <OrganizationProfile
-              routing="hash"
-              appearance={{
-                elements: {
-                  modalBackdrop: "hidden",
-                  card: "shadow-none border-0 w-full h-full",
-                },
-              }}
-            />
-          </div>
-        </div>
-      )}
     </>
   );
 }

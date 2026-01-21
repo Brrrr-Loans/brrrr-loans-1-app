@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/layout/card";
-import { Button } from "@/components/ui/forms/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/shadcn/card";
+import { Button } from "@/components/ui/shadcn/button";
 import {
   Stepper,
   StepperList,
@@ -15,7 +15,7 @@ import {
   StepperContent,
   StepperPrev,
   StepperNext,
-} from "@/components/ui/stepper";
+} from "@/components/ui/shadcn/stepper";
 import { Check, Upload, FileSpreadsheet, Users, Building2, Banknote } from "lucide-react";
 
 // Step components (will be created separately)

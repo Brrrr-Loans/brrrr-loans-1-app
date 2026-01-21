@@ -28,10 +28,10 @@ interface Workspace {
 
 const workspaces: Workspace[] = [
   {
-    id: "portal",
-    label: "Lender Platform",
-    shortLabel: "Lender Platform",
-    description: "Balance Sheet Investor",
+    id: "platform",
+    label: "Platform",
+    shortLabel: "Platform",
+    description: "Lender Platform",
     icon: Building2,
     href: "/dashboard",
     prefixes: ["/dashboard", "/balance-sheet", "/platform-settings"],

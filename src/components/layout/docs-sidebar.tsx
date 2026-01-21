@@ -26,7 +26,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+} from "@/components/ui/shadcn/collapsible";
 import { cn } from "@/lib/utils";
 
 // Dynamic imports with ssr: false to prevent hydration mismatches

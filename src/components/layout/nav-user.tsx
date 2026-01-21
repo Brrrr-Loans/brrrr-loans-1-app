@@ -13,7 +13,7 @@ import {
   Avatar,
   AvatarFallback,
   AvatarImage,
-} from "@/components/ui/media/avatar";
+} from "@/components/ui/shadcn/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,

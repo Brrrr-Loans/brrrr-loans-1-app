@@ -1,18 +1,18 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/layout/card";
-import { Button } from "@/components/ui/forms/button";
-import { Badge } from "@/components/ui/feedback/badge";
-import { Skeleton } from "@/components/ui/feedback/skeleton";
-import { Input } from "@/components/ui/forms/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/shadcn/card";
+import { Button } from "@/components/ui/shadcn/button";
+import { Badge } from "@/components/ui/shadcn/badge";
+import { Skeleton } from "@/components/ui/shadcn/skeleton";
+import { Input } from "@/components/ui/shadcn/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/forms/select";
+} from "@/components/ui/shadcn/select";
 import {
   Table,
   TableBody,
@@ -20,7 +20,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/data/table";
+} from "@/components/ui/shadcn/table";
 import { Check, Search, Users, AlertCircle, Sparkles, Link2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 type SortField = "process_date" | "counterparty_name" | "amount";

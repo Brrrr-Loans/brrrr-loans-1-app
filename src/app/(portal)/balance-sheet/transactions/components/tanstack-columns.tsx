@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
-} from "@/components/ui/overlays/dropdown-menu";
+} from "@/components/ui/shadcn/dropdown-menu";
 import {
   ChevronRight,
   MoreHorizontal,

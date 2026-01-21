@@ -15,17 +15,17 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
+} from "@/components/ui/shadcn/accordion";
+import { Button } from "@/components/ui/shadcn/button";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui/overlays/sheet";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
+} from "@/components/ui/shadcn/sheet";
+import { Input } from "@/components/ui/shadcn/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/shadcn/tabs";
+import { Textarea } from "@/components/ui/shadcn/textarea";
 
 import { TinteLogo } from "@/components/logos/tinte";
 import { convertTinteToShadcn, type TinteTheme } from "@/lib/tinte-to-shadcn";

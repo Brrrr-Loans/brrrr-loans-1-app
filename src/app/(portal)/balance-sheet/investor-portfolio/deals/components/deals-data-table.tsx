@@ -464,8 +464,33 @@ export function DealsDataTable() {
         setLoading(true);
         setError(null);
 
-        // First, let's try a simple query to see what we get
-        console.log("Fetching deals...");
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:468',message:'H1: Starting deals fetch - testing simple query first',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+        // #endregion
+
+        // H1: First try a simple query WITHOUT any joins to test base deal access
+        console.log("Fetching deals - Step 1: Simple query without joins...");
+        const { data: simpleDeals, error: simpleError } = await supabase
+          .from("deal")
+          .select("id, deal_name")
+          .limit(5);
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:478',message:'H1: Simple deal query result',data:{success:!simpleError,error:simpleError?.message,count:simpleDeals?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
+        // #endregion
+
+        if (simpleError) {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:483',message:'H2: Simple query FAILED - deal_roles policy issue',data:{error:simpleError.message,code:simpleError.code},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
+          // #endregion
+          throw simpleError;
+        }
+
+        // H3: Now try with deal_guarantors join
+        console.log("Fetching deals - Step 2: With deal_guarantors join...");
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:492',message:'H3: Testing deal_guarantors join',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
+        // #endregion
 
         const { data: deals, error, status, statusText } = await supabase
           .from("deal")
@@ -487,17 +512,23 @@ export function DealsDataTable() {
           `
           )
           .order("created_at", { ascending: false });
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:516',message:'H3: Full query result',data:{success:!error,error:error?.message,count:deals?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
 
         console.log("Supabase response:", { status, statusText, dataLength: deals?.length, error });
+        // #endregion
 
         if (error) {
-          console.error("Error fetching deals:", error);
-          console.error("Error details:", {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code,
-          });
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:522',message:'H3/H4: Full query FAILED - recursion in join',data:{error:error.message,code:error.code},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
+          // #endregion
+          // More aggressive error logging to capture the actual message
+          console.error("Error fetching deals - raw:", JSON.stringify(error));
+          console.error("Error message:", String(error.message || 'No message'));
+          console.error("Error code:", String(error.code || 'No code'));
+          console.error("Error hint:", String(error.hint || 'No hint'));
+          console.error("Error details:", String(error.details || 'No details'));
           setError(
             error.message ||
               "Unable to load deals. Please check your permissions or try again later."
@@ -505,6 +536,10 @@ export function DealsDataTable() {
           setData([]);
           return;
         }
+        
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:538',message:'SUCCESS: All queries passed',data:{dealCount:deals?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'SUCCESS'})}).catch(()=>{});
+        // #endregion
 
         console.log("Basic deals data:", deals, "count:", deals?.length, "type:", typeof deals);
 

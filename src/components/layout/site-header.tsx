@@ -5,11 +5,18 @@ import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { SlashIcon, Settings } from "lucide-react";
+import { SlashIcon, Settings, ChevronDown } from "lucide-react";
 import { Separator } from "@/components/ui";
 import { SidebarTrigger } from "@/components/ui";
 import { TeamSwitcherV2 } from "@/components/layout/team-switcher-v2";
 import { useUser } from "@clerk/nextjs";
+import {
+  getBreadcrumbSegments,
+  ROUTES,
+  DOCUMENT_TAB_ITEMS,
+  INTEGRATION_ITEMS,
+  ROUTE_SEGMENTS,
+} from "@/config/navigation";
 
 // Dynamic imports with ssr: false to prevent hydration mismatches
 // These components use Radix UI primitives that generate IDs differently on server vs client
@@ -52,7 +59,7 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/navigation/breadcrumb";
+} from "@/components/ui/shadcn/breadcrumb";
 import {
   Tooltip,
   TooltipContent,
@@ -64,25 +71,29 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/overlays/dropdown-menu";
-import { ChevronDown } from "lucide-react";
+} from "@/components/ui/shadcn/dropdown-menu";
 
 interface SiteHeaderProps {
   breadcrumb?: React.ReactNode;
   dealName?: string;
 }
 
+/**
+ * Generates breadcrumb navigation using the centralized navigation config.
+ * All route labels and paths are defined in @/config/navigation.ts
+ */
 function generateBreadcrumbs(
   pathname: string,
   searchParams?: URLSearchParams,
   dealName?: string
 ): React.ReactNode {
   const path = pathname.replace(/\/$/, "");
+  const segments = getBreadcrumbSegments(pathname, searchParams);
 
-  // Handle deal details pages
+  // Handle deal details pages - add the dynamic deal name
   if (
-    path.startsWith("/balance-sheet/investor-portfolio/deals/") &&
-    path !== "/balance-sheet/investor-portfolio/deals"
+    path.startsWith(ROUTES.investorPortfolio.deals + "/") &&
+    path !== ROUTES.investorPortfolio.deals
   ) {
     const dealId = path.split("/").pop();
     const displayName = dealName || `Deal #${dealId}`;
@@ -92,7 +103,9 @@ function generateBreadcrumbs(
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbLink asChild>
-              <Link href="/balance-sheet/investor-portfolio/deals">Deals</Link>
+              <Link href={ROUTES.investorPortfolio.deals}>
+                {ROUTE_SEGMENTS.deals.label}
+              </Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
@@ -108,118 +121,22 @@ function generateBreadcrumbs(
     );
   }
 
-  // Handle Balance Sheet / Transactions routes
-  const renderTransactionsBreadcrumb = (currentPage: string) => {
-    return (
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link href="/balance-sheet/transactions">Balance Sheet</Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator>
-            <SlashIcon />
-          </BreadcrumbSeparator>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link href="/balance-sheet/transactions?tab=all">
-                Transactions
-              </Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator>
-            <SlashIcon />
-          </BreadcrumbSeparator>
-          <BreadcrumbItem>
-            <BreadcrumbPage>{currentPage}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-    );
-  };
-
-  // Handle Balance Sheet / Investor Portfolio routes
-  const renderInvestorPortfolioBreadcrumb = (currentPage: string) => {
-    return (
-      <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link href="/balance-sheet/investor-portfolio/analytics">
-                Balance Sheet
-              </Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator>
-            <SlashIcon />
-          </BreadcrumbSeparator>
-          <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <Link href="/balance-sheet/investor-portfolio/analytics">
-                Investor Portfolio
-              </Link>
-            </BreadcrumbLink>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator>
-            <SlashIcon />
-          </BreadcrumbSeparator>
-          <BreadcrumbItem>
-            <BreadcrumbPage>{currentPage}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
-    );
-  };
-
-  // Handle Balance Sheet / Transactions / New route
-  if (path === "/balance-sheet/transactions/new") {
-    return renderTransactionsBreadcrumb("New Transaction");
-  }
-
-  // Handle Balance Sheet / Transactions / [id] route (transaction details)
-  if (
-    path.startsWith("/balance-sheet/transactions/") &&
-    path !== "/balance-sheet/transactions/new"
-  ) {
-    const transactionId = path.split("/").pop();
-    return renderTransactionsBreadcrumb(`Transaction #${transactionId}`);
-  }
-
-  // Handle Balance Sheet / Transactions routes with tab parameter
-  if (path === "/balance-sheet/transactions") {
-    const tab = searchParams?.get("tab") || "all";
-    const tabLabel =
-      tab === "investments"
-        ? "Investments"
-        : tab === "distributions"
-        ? "Distributions"
-        : "All Transactions";
-
-    return renderTransactionsBreadcrumb(tabLabel);
-  }
-
-  // Handle Balance Sheet / Investor Portfolio / Insights route
-  if (path === "/balance-sheet/investor-portfolio/analytics") {
-    return renderInvestorPortfolioBreadcrumb("Insights");
-  }
-
-  // Handle Balance Sheet / Documents routes with tab parameter
-  if (path === "/balance-sheet/documents") {
+  // Handle Documents with dropdown menu
+  if (path === ROUTES.documents.base) {
     const tab = searchParams?.get("tab") || "statements";
     const tabLabel =
       tab === "payments"
-        ? "Payments"
+        ? ROUTE_SEGMENTS.payments.label
         : tab === "agreements"
-        ? "Agreements"
-        : "Statements";
+          ? ROUTE_SEGMENTS.agreements.label
+          : ROUTE_SEGMENTS.statements.label;
 
     return (
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbPage className="text-muted-foreground">
-              Balance Sheet
+              {ROUTE_SEGMENTS.balanceSheet.label}
             </BreadcrumbPage>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
@@ -228,34 +145,17 @@ function generateBreadcrumbs(
           <BreadcrumbItem>
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center gap-1 text-sm font-medium hover:text-foreground transition-colors">
-                Documents
+                {ROUTE_SEGMENTS.documents.label}
                 <ChevronDown className="h-3 w-3" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/balance-sheet/documents?tab=statements"
-                    className="cursor-pointer"
-                  >
-                    Statements
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/balance-sheet/documents?tab=payments"
-                    className="cursor-pointer"
-                  >
-                    Payments
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/balance-sheet/documents?tab=agreements"
-                    className="cursor-pointer"
-                  >
-                    Agreements
-                  </Link>
-                </DropdownMenuItem>
+                {DOCUMENT_TAB_ITEMS.map((item) => (
+                  <DropdownMenuItem key={item.href} asChild>
+                    <Link href={item.href} className="cursor-pointer">
+                      {item.label}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </BreadcrumbItem>
@@ -270,24 +170,24 @@ function generateBreadcrumbs(
     );
   }
 
-  // Handle Platform Settings / Integrations routes
-  if (path.startsWith("/platform-settings/integrations/")) {
+  // Handle Platform Settings / Integrations with dropdown menu
+  if (path.startsWith(ROUTES.integrations.base + "/")) {
     const integrationSlug = path.split("/").pop();
-    const integrationName =
-      integrationSlug === "ofb"
-        ? "Ocean First"
-        : integrationSlug === "brex"
-        ? "Brex"
-        : integrationSlug === "template-editor"
-        ? "Template Editor"
-        : integrationSlug;
+    const integrationLabel =
+      integrationSlug === ROUTE_SEGMENTS.brex.path
+        ? ROUTE_SEGMENTS.brex.label
+        : integrationSlug === ROUTE_SEGMENTS.ofb.path
+          ? ROUTE_SEGMENTS.ofb.label
+          : integrationSlug === ROUTE_SEGMENTS.templateEditor.path
+            ? ROUTE_SEGMENTS.templateEditor.label
+            : integrationSlug;
 
     return (
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
             <BreadcrumbPage className="text-muted-foreground">
-              Platform Settings
+              {ROUTE_SEGMENTS.platformSettings.label}
             </BreadcrumbPage>
           </BreadcrumbItem>
           <BreadcrumbSeparator>
@@ -296,34 +196,17 @@ function generateBreadcrumbs(
           <BreadcrumbItem>
             <DropdownMenu>
               <DropdownMenuTrigger className="flex items-center gap-1 text-sm font-medium hover:text-foreground transition-colors">
-                Integrations
+                {ROUTE_SEGMENTS.integrations.label}
                 <ChevronDown className="h-3 w-3" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/platform-settings/integrations/brex"
-                    className="cursor-pointer"
-                  >
-                    Brex
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/platform-settings/integrations/ofb"
-                    className="cursor-pointer"
-                  >
-                    Ocean First
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/platform-settings/integrations/template-editor"
-                    className="cursor-pointer"
-                  >
-                    Template Editor
-                  </Link>
-                </DropdownMenuItem>
+                {INTEGRATION_ITEMS.map((item) => (
+                  <DropdownMenuItem key={item.href} asChild>
+                    <Link href={item.href} className="cursor-pointer">
+                      {item.label}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </BreadcrumbItem>
@@ -331,57 +214,73 @@ function generateBreadcrumbs(
             <SlashIcon />
           </BreadcrumbSeparator>
           <BreadcrumbItem>
-            <BreadcrumbPage>{integrationName}</BreadcrumbPage>
+            <BreadcrumbPage>{integrationLabel}</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
     );
   }
 
-  // Handle other pages with simple title
-  const title = getPageTitle(pathname);
+  // Handle simple single-segment breadcrumbs (like Dashboard)
+  if (segments.length === 1) {
+    const title = segments[0].label;
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <h1 className="text-base font-medium truncate flex-shrink min-w-0 max-w-md cursor-default">
+              {title}
+            </h1>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" align="start">
+            <p className="max-w-xs">{title}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  // Handle multi-segment breadcrumbs from centralized config
+  // Use flatMap to avoid conditional rendering within fragments which can cause
+  // React reconciliation issues (e.g., "Cannot read properties of null (reading 'removeChild')")
+  const breadcrumbElements = segments.flatMap((segment, index) => {
+    const isLast = index === segments.length - 1;
+    const itemKey = `item-${index}`;
+    const separatorKey = `sep-${index}`;
+
+    const item = (
+      <BreadcrumbItem key={itemKey}>
+        {isLast || !segment.href ? (
+          <BreadcrumbPage
+            className={!isLast ? "text-muted-foreground" : undefined}
+          >
+            {segment.label}
+          </BreadcrumbPage>
+        ) : (
+          <BreadcrumbLink asChild>
+            <Link href={segment.href}>{segment.label}</Link>
+          </BreadcrumbLink>
+        )}
+      </BreadcrumbItem>
+    );
+
+    if (isLast) {
+      return [item];
+    }
+
+    return [
+      item,
+      <BreadcrumbSeparator key={separatorKey}>
+        <SlashIcon />
+      </BreadcrumbSeparator>,
+    ];
+  });
+
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <h1 className="text-base font-medium truncate flex-shrink min-w-0 max-w-md cursor-default">
-            {title}
-          </h1>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" align="start">
-          <p className="max-w-xs">{title}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Breadcrumb>
+      <BreadcrumbList>{breadcrumbElements}</BreadcrumbList>
+    </Breadcrumb>
   );
-}
-
-function getPageTitle(pathname: string): string {
-  // Remove trailing slash and split path
-  const path = pathname.replace(/\/$/, "");
-
-  if (path === "/dashboard") return "Dashboard";
-  if (path === "/balance-sheet/investor-portfolio/deals") return "Deals";
-  if (path.startsWith("/balance-sheet/investor-portfolio/deals/"))
-    return "Deal Details";
-  if (path === "/balance-sheet/transactions") {
-    // This will be handled by breadcrumbs with searchParams
-    return "Transactions";
-  }
-  if (path === "/balance-sheet/documents") {
-    // This will be handled by breadcrumbs with searchParams
-    return "Documents";
-  }
-  if (path === "/dashboard/investor") return "Investor Portal";
-  if (path === "/dashboard/settings/integrations") return "Integrations";
-  if (path === "/builder") return "Builder";
-
-  // Default fallback - capitalize the last segment
-  const segments = path.split("/");
-  const lastSegment = segments[segments.length - 1];
-  return lastSegment
-    ? lastSegment.charAt(0).toUpperCase() + lastSegment.slice(1)
-    : "Dashboard";
 }
 
 function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {

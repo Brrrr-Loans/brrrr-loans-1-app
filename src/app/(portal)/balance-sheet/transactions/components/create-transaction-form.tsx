@@ -45,9 +45,9 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/navigation/command";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Label } from "@/components/ui/forms/label";
+} from "@/components/ui/shadcn/command";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/shadcn/radio-group";
+import { Label } from "@/components/ui/shadcn/label";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { CalendarIcon, Plus, Trash2, AlertCircle, Check, ChevronsUpDown, Building2, User } from "lucide-react";

@@ -1,8 +1,8 @@
 import { SendIcon } from "lucide-react";
 import { type ComponentProps, type FormEvent, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/shadcn/button";
+import { Textarea } from "@/components/ui/shadcn/textarea";
 import { cn } from "@/lib/utils";
 
 export type ChatInputProps = Omit<ComponentProps<"form">, "onSubmit"> & {

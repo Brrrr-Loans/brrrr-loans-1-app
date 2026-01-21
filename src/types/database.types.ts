@@ -867,13 +867,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "appraisal_document_id_fkey"
-            columns: ["document_id"]
-            isOneToOne: false
-            referencedRelation: "transaction_documents_view"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "appraisal_property_id_fkey"
             columns: ["property_id"]
             isOneToOne: false
@@ -923,6 +916,7 @@ export type Database = {
       auth_clerk_orgs_members: {
         Row: {
           auth_clerk_users_id: number | null
+          clerk_member_role: string | null
           clerk_org_id: number
           clerk_org_role: Database["public"]["Enums"]["clerk_org_role"]
           created_at: string
@@ -930,6 +924,7 @@ export type Database = {
         }
         Insert: {
           auth_clerk_users_id?: number | null
+          clerk_member_role?: string | null
           clerk_org_id: number
           clerk_org_role?: Database["public"]["Enums"]["clerk_org_role"]
           created_at?: string
@@ -937,6 +932,7 @@ export type Database = {
         }
         Update: {
           auth_clerk_users_id?: number | null
+          clerk_member_role?: string | null
           clerk_org_id?: number
           clerk_org_role?: Database["public"]["Enums"]["clerk_org_role"]
           created_at?: string
@@ -1043,8 +1039,8 @@ export type Database = {
           legal_accepted_at: string | null
           office_phone: string | null
           office_phone_extension: string | null
+          personal_role: string | null
           phone_number: string | null
-          role: Database["public"]["Enums"]["user_role_internal"] | null
           updated_at: string | null
           website: string | null
         }
@@ -1077,8 +1073,8 @@ export type Database = {
           legal_accepted_at?: string | null
           office_phone?: string | null
           office_phone_extension?: string | null
+          personal_role?: string | null
           phone_number?: string | null
-          role?: Database["public"]["Enums"]["user_role_internal"] | null
           updated_at?: string | null
           website?: string | null
         }
@@ -1111,8 +1107,8 @@ export type Database = {
           legal_accepted_at?: string | null
           office_phone?: string | null
           office_phone_extension?: string | null
+          personal_role?: string | null
           phone_number?: string | null
-          role?: Database["public"]["Enums"]["user_role_internal"] | null
           updated_at?: string | null
           website?: string | null
         }
@@ -2031,13 +2027,6 @@ export type Database = {
             columns: ["document_file_id"]
             isOneToOne: false
             referencedRelation: "document_files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_document_file"
-            columns: ["document_file_id"]
-            isOneToOne: false
-            referencedRelation: "transaction_documents_view"
             referencedColumns: ["id"]
           },
           {
@@ -3059,6 +3048,45 @@ export type Database = {
           },
         ]
       }
+      deal_document_participants: {
+        Row: {
+          created_at: string
+          deal_id: number
+          document_file_id: number
+          source_pk: number
+          source_table: string
+        }
+        Insert: {
+          created_at?: string
+          deal_id: number
+          document_file_id: number
+          source_pk: number
+          source_table: string
+        }
+        Update: {
+          created_at?: string
+          deal_id?: number
+          document_file_id?: number
+          source_pk?: number
+          source_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_document_participants_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_document_participants_document_file_id_fkey"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deal_guarantors: {
         Row: {
           created_at: string | null
@@ -3229,12 +3257,227 @@ export type Database = {
           },
         ]
       }
+      document_access_permissions: {
+        Row: {
+          can_delete: boolean
+          can_insert: boolean
+          can_upload: boolean
+          can_view: boolean
+          clerk_org_id: number
+          created_at: string
+          deal_role_types_id: number
+          document_categories_id: number
+          id: number
+          updated_at: string
+          updated_by_clerk_sub: string | null
+          updated_by_user_id: number | null
+        }
+        Insert: {
+          can_delete?: boolean
+          can_insert?: boolean
+          can_upload?: boolean
+          can_view?: boolean
+          clerk_org_id: number
+          created_at?: string
+          deal_role_types_id: number
+          document_categories_id: number
+          id?: number
+          updated_at?: string
+          updated_by_clerk_sub?: string | null
+          updated_by_user_id?: number | null
+        }
+        Update: {
+          can_delete?: boolean
+          can_insert?: boolean
+          can_upload?: boolean
+          can_view?: boolean
+          clerk_org_id?: number
+          created_at?: string
+          deal_role_types_id?: number
+          document_categories_id?: number
+          id?: number
+          updated_at?: string
+          updated_by_clerk_sub?: string | null
+          updated_by_user_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_access_permissions_clerk_org_id_fkey"
+            columns: ["clerk_org_id"]
+            isOneToOne: false
+            referencedRelation: "auth_clerk_orgs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_access_permissions_deal_role_types_id_fkey1"
+            columns: ["deal_role_types_id"]
+            isOneToOne: false
+            referencedRelation: "deal_role_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_access_permissions_document_categories_id_fkey1"
+            columns: ["document_categories_id"]
+            isOneToOne: false
+            referencedRelation: "document_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_access_permissions_document_categories_id_fkey1"
+            columns: ["document_categories_id"]
+            isOneToOne: false
+            referencedRelation: "view_document_categories_user_order"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_access_permissions_updated_by_user_id_fkey"
+            columns: ["updated_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_clerk_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_access_permissions_global: {
+        Row: {
+          can_delete: boolean | null
+          can_insert: boolean | null
+          can_upload: boolean | null
+          can_view: boolean | null
+          created_at: string | null
+          deal_role_types_id: number
+          document_categories_id: number
+          id: number
+        }
+        Insert: {
+          can_delete?: boolean | null
+          can_insert?: boolean | null
+          can_upload?: boolean | null
+          can_view?: boolean | null
+          created_at?: string | null
+          deal_role_types_id: number
+          document_categories_id: number
+          id?: number
+        }
+        Update: {
+          can_delete?: boolean | null
+          can_insert?: boolean | null
+          can_upload?: boolean | null
+          can_view?: boolean | null
+          created_at?: string | null
+          deal_role_types_id?: number
+          document_categories_id?: number
+          id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_access_permissions_deal_role_types_id_fkey"
+            columns: ["deal_role_types_id"]
+            isOneToOne: false
+            referencedRelation: "deal_role_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_access_permissions_document_categories_id_fkey"
+            columns: ["document_categories_id"]
+            isOneToOne: false
+            referencedRelation: "document_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_access_permissions_document_categories_id_fkey"
+            columns: ["document_categories_id"]
+            isOneToOne: false
+            referencedRelation: "view_document_categories_user_order"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_categories: {
+        Row: {
+          code: string
+          created_at: string | null
+          default_display_order: number | null
+          description: string | null
+          icon: string | null
+          id: number
+          is_active: boolean | null
+          is_internal_only: boolean | null
+          name: string
+          storage_folder: string
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          default_display_order?: number | null
+          description?: string | null
+          icon?: string | null
+          id?: number
+          is_active?: boolean | null
+          is_internal_only?: boolean | null
+          name: string
+          storage_folder: string
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          default_display_order?: number | null
+          description?: string | null
+          icon?: string | null
+          id?: number
+          is_active?: boolean | null
+          is_internal_only?: boolean | null
+          name?: string
+          storage_folder?: string
+        }
+        Relationships: []
+      }
+      document_categories_user_order: {
+        Row: {
+          clerk_user_id: string
+          created_at: string | null
+          display_order: number
+          document_categories_id: number
+          id: number
+          updated_at: string | null
+        }
+        Insert: {
+          clerk_user_id: string
+          created_at?: string | null
+          display_order: number
+          document_categories_id: number
+          id?: number
+          updated_at?: string | null
+        }
+        Update: {
+          clerk_user_id?: string
+          created_at?: string | null
+          display_order?: number
+          document_categories_id?: number
+          id?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_pref_document_categories_order_document_categories_id_fkey"
+            columns: ["document_categories_id"]
+            isOneToOne: false
+            referencedRelation: "document_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_pref_document_categories_order_document_categories_id_fkey"
+            columns: ["document_categories_id"]
+            isOneToOne: false
+            referencedRelation: "view_document_categories_user_order"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_files: {
         Row: {
           created_at: string
-          document_category:
-            | Database["public"]["Enums"]["document_category"]
-            | null
+          document_category_id: number | null
           document_name: string | null
           document_status: Database["public"]["Enums"]["document_status"] | null
           effective_date: string | null
@@ -3255,9 +3498,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          document_category?:
-            | Database["public"]["Enums"]["document_category"]
-            | null
+          document_category_id?: number | null
           document_name?: string | null
           document_status?:
             | Database["public"]["Enums"]["document_status"]
@@ -3280,9 +3521,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          document_category?:
-            | Database["public"]["Enums"]["document_category"]
-            | null
+          document_category_id?: number | null
           document_name?: string | null
           document_status?:
             | Database["public"]["Enums"]["document_status"]
@@ -3303,7 +3542,22 @@ export type Database = {
           uploaded_at?: string | null
           uploaded_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "document_files_document_category_id_fkey"
+            columns: ["document_category_id"]
+            isOneToOne: false
+            referencedRelation: "document_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_document_category_id_fkey"
+            columns: ["document_category_id"]
+            isOneToOne: false
+            referencedRelation: "view_document_categories_user_order"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       document_files_borrowers: {
         Row: {
@@ -3340,13 +3594,6 @@ export type Database = {
             columns: ["document_file_id"]
             isOneToOne: false
             referencedRelation: "document_files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "document_files_borrowers_document_file_id_fkey"
-            columns: ["document_file_id"]
-            isOneToOne: false
-            referencedRelation: "transaction_documents_view"
             referencedColumns: ["id"]
           },
         ]
@@ -3388,13 +3635,6 @@ export type Database = {
             referencedRelation: "document_files"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "document_files_clerk_orgs_document_file_id_fkey"
-            columns: ["document_file_id"]
-            isOneToOne: false
-            referencedRelation: "transaction_documents_view"
-            referencedColumns: ["id"]
-          },
         ]
       }
       document_files_clerk_users: {
@@ -3432,13 +3672,6 @@ export type Database = {
             columns: ["document_file_id"]
             isOneToOne: false
             referencedRelation: "document_files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "document_files_clerk_users_document_file_id_fkey"
-            columns: ["document_file_id"]
-            isOneToOne: false
-            referencedRelation: "transaction_documents_view"
             referencedColumns: ["id"]
           },
         ]
@@ -3480,13 +3713,6 @@ export type Database = {
             referencedRelation: "document_files"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "document_files_companies_document_file_id_fkey"
-            columns: ["document_file_id"]
-            isOneToOne: false
-            referencedRelation: "transaction_documents_view"
-            referencedColumns: ["id"]
-          },
         ]
       }
       document_files_deals: {
@@ -3526,13 +3752,6 @@ export type Database = {
             referencedRelation: "document_files"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "document_files_deals_document_file_id_fkey"
-            columns: ["document_file_id"]
-            isOneToOne: false
-            referencedRelation: "transaction_documents_view"
-            referencedColumns: ["id"]
-          },
         ]
       }
       document_files_guarantors: {
@@ -3563,13 +3782,6 @@ export type Database = {
             columns: ["document_file_id"]
             isOneToOne: false
             referencedRelation: "document_files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "document_files_guarantors_document_file_id_fkey"
-            columns: ["document_file_id"]
-            isOneToOne: false
-            referencedRelation: "transaction_documents_view"
             referencedColumns: ["id"]
           },
           {
@@ -3609,13 +3821,6 @@ export type Database = {
             columns: ["document_file_id"]
             isOneToOne: false
             referencedRelation: "document_files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "document_files_properties_document_file_id_fkey"
-            columns: ["document_file_id"]
-            isOneToOne: false
-            referencedRelation: "transaction_documents_view"
             referencedColumns: ["id"]
           },
           {
@@ -3665,13 +3870,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "document_files_tags_document_file_id_fkey"
-            columns: ["document_file_id"]
-            isOneToOne: false
-            referencedRelation: "transaction_documents_view"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "document_files_tags_document_tag_id_fkey"
             columns: ["document_tag_id"]
             isOneToOne: false
@@ -3717,13 +3915,6 @@ export type Database = {
             columns: ["document_files_id"]
             isOneToOne: false
             referencedRelation: "document_files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "document_roles_files_document_files_id_fkey"
-            columns: ["document_files_id"]
-            isOneToOne: false
-            referencedRelation: "transaction_documents_view"
             referencedColumns: ["id"]
           },
           {
@@ -3802,7 +3993,6 @@ export type Database = {
       }
       form_submissions: {
         Row: {
-          application_id: string | null
           created_at: string
           error_code: string | null
           error_detail: string | null
@@ -3815,10 +4005,10 @@ export type Database = {
           processed_at: string | null
           status: string
           user_agent: string | null
+          uuid: string | null
           validated_at: string | null
         }
         Insert: {
-          application_id?: string | null
           created_at?: string
           error_code?: string | null
           error_detail?: string | null
@@ -3831,10 +4021,10 @@ export type Database = {
           processed_at?: string | null
           status?: string
           user_agent?: string | null
+          uuid?: string | null
           validated_at?: string | null
         }
         Update: {
-          application_id?: string | null
           created_at?: string
           error_code?: string | null
           error_detail?: string | null
@@ -3847,6 +4037,7 @@ export type Database = {
           processed_at?: string | null
           status?: string
           user_agent?: string | null
+          uuid?: string | null
           validated_at?: string | null
         }
         Relationships: []
@@ -4974,6 +5165,60 @@ export type Database = {
           },
         ]
       }
+      rbac_permissions: {
+        Row: {
+          can_delete: boolean | null
+          can_insert: boolean | null
+          can_select: boolean | null
+          can_update: boolean | null
+          created_at: string | null
+          description: string | null
+          id: number
+          is_active: boolean | null
+          priority: number | null
+          resource_name: string
+          resource_type: string
+          role: string
+          scope_filter: string | null
+          scope_type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          can_delete?: boolean | null
+          can_insert?: boolean | null
+          can_select?: boolean | null
+          can_update?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          is_active?: boolean | null
+          priority?: number | null
+          resource_name: string
+          resource_type: string
+          role: string
+          scope_filter?: string | null
+          scope_type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          can_delete?: boolean | null
+          can_insert?: boolean | null
+          can_select?: boolean | null
+          can_update?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          id?: number
+          is_active?: boolean | null
+          priority?: number | null
+          resource_name?: string
+          resource_type?: string
+          role?: string
+          scope_filter?: string | null
+          scope_type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       select_uw_outcomes: {
         Row: {
           created_at: string
@@ -5192,23 +5437,75 @@ export type Database = {
       }
     }
     Views: {
-      transaction_documents_view: {
+      view_document_categories_user_order: {
+        Row: {
+          code: string | null
+          description: string | null
+          display_order: number | null
+          icon: string | null
+          id: number | null
+          is_custom_order: boolean | null
+          is_internal_only: boolean | null
+          name: string | null
+          storage_folder: string | null
+        }
+        Relationships: []
+      }
+      view_rbac_permissions_summary: {
+        Row: {
+          delete_count: number | null
+          insert_count: number | null
+          resource_count: number | null
+          resource_type: string | null
+          role: string | null
+          scopes: string[] | null
+          select_count: number | null
+          update_count: number | null
+        }
+        Relationships: []
+      }
+      view_storage_objects: {
+        Row: {
+          bucket_id: string | null
+          created_at: string | null
+          id: string | null
+          metadata: Json | null
+          name: string | null
+          owner: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          bucket_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          metadata?: Json | null
+          name?: string | null
+          owner?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          bucket_id?: string | null
+          created_at?: string | null
+          id?: string | null
+          metadata?: Json | null
+          name?: string | null
+          owner?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      view_transaction_documents: {
         Row: {
           created_at: string | null
-          document_category:
-            | Database["public"]["Enums"]["document_category"]
-            | null
+          document_category_code: string | null
+          document_category_id: number | null
+          document_category_name: string | null
+          document_file_id: number | null
           document_name: string | null
           document_status: Database["public"]["Enums"]["document_status"] | null
-          effective_date: string | null
-          expiration_date: string | null
           file_size: number | null
           file_type: string | null
           id: number | null
-          is_required: boolean | null
-          junction_id: number | null
-          private_notes: string | null
-          public_notes: string | null
           storage_bucket: string | null
           storage_path: string | null
           transaction_id: number | null
@@ -5216,6 +5513,27 @@ export type Database = {
           uploaded_by: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "document_files_document_category_id_fkey"
+            columns: ["document_category_id"]
+            isOneToOne: false
+            referencedRelation: "document_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_files_document_category_id_fkey"
+            columns: ["document_category_id"]
+            isOneToOne: false
+            referencedRelation: "view_document_categories_user_order"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_document_file"
+            columns: ["document_file_id"]
+            isOneToOne: false
+            referencedRelation: "document_files"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fk_transaction"
             columns: ["transaction_id"]
@@ -5227,7 +5545,92 @@ export type Database = {
       }
     }
     Functions: {
+      can_access_deal_document:
+        | {
+            Args: {
+              p_action?: string
+              p_deal_id: number
+              p_document_category_code: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              p_action?: string
+              p_deal_id: number
+              p_document_category_id: number
+            }
+            Returns: boolean
+          }
+      can_access_document: {
+        Args: { p_action?: string; p_document_file_id: number }
+        Returns: boolean
+      }
+      check_table_access: {
+        Args: {
+          p_action: string
+          p_deal_id?: number
+          p_org_owner_id?: number
+          p_table_name: string
+          p_user_owner_id?: number
+        }
+        Returns: boolean
+      }
+      check_user_deal_role: { Args: { p_deal_id: number }; Returns: boolean }
       count_pending_brex_transfer_syncs: { Args: never; Returns: number }
+      create_document_with_deal_link: {
+        Args: {
+          p_deal_id: number
+          p_document_category_id: number
+          p_document_name: string
+          p_file_size?: number
+          p_file_type?: string
+          p_original_filename: string
+          p_storage_bucket: string
+        }
+        Returns: {
+          document_file_id: number
+          storage_bucket: string
+          storage_path: string
+        }[]
+      }
+      create_document_with_subject_link: {
+        Args: {
+          p_document_category_id: number
+          p_document_name: string
+          p_file_size?: number
+          p_file_type?: string
+          p_original_filename: string
+          p_storage_bucket: string
+          p_subject_id?: number
+          p_subject_type: string
+        }
+        Returns: {
+          document_file_id: number
+          storage_bucket: string
+          storage_path: string
+        }[]
+      }
+      debug_jwt: { Args: never; Returns: Json }
+      debug_list_policies: {
+        Args: { p_table: string }
+        Returns: {
+          cmd: string
+          policyname: string
+          qual: string
+          with_check: string
+        }[]
+      }
+      document_file_deal_ids: {
+        Args: { p_document_file_id: number }
+        Returns: {
+          deal_id: number
+        }[]
+      }
+      finalize_document_upload: {
+        Args: { p_document_file_id: number; p_file_size?: number }
+        Returns: boolean
+      }
       format_address:
         | {
             Args: {
@@ -5260,12 +5663,55 @@ export type Database = {
           transaction_id: number
         }[]
       }
+      get_active_org_id: { Args: never; Returns: number }
       get_clerk_user_id: { Args: never; Returns: string }
       get_co_investor_org_ids: { Args: never; Returns: number[] }
       get_co_investor_user_ids: { Args: never; Returns: number[] }
       get_complete_schema: { Args: never; Returns: Json }
       get_current_user_id: { Args: never; Returns: number }
       get_current_user_org_ids: { Args: never; Returns: number[] }
+      get_deal_documents: {
+        Args: { p_deal_id: number }
+        Returns: {
+          created_at: string
+          document_category_id: number | null
+          document_name: string | null
+          document_status: Database["public"]["Enums"]["document_status"] | null
+          effective_date: string | null
+          expiration_date: string | null
+          file_size: number | null
+          file_type: string | null
+          id: number
+          is_required: boolean | null
+          period_end: string | null
+          period_start: string | null
+          private_notes: string | null
+          public_notes: string | null
+          storage_bucket: string | null
+          storage_path: string | null
+          tags: string[] | null
+          uploaded_at: string | null
+          uploaded_by: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "document_files"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_deal_documents_with_sources: {
+        Args: { p_deal_id: number }
+        Returns: {
+          created_at: string
+          document_file_id: number
+          document_name: string
+          sources: string[]
+          storage_bucket: string
+          storage_path: string
+        }[]
+      }
+      get_effective_role: { Args: { p_org_id?: number }; Returns: string }
       get_jsonb_array_element: {
         Args: { array_value: Json; index: number }
         Returns: string
@@ -5275,14 +5721,32 @@ export type Database = {
         Args: { state_name: string }
         Returns: Database["public"]["Enums"]["us_states"]
       }
+      get_table_scope: {
+        Args: { p_action: string; p_org_id?: number; p_table_name: string }
+        Returns: string
+      }
       get_text_constant: { Args: { constant_name: string }; Returns: string }
       get_user_org_ids: { Args: never; Returns: string[] }
       get_yesno_constant: {
         Args: { constant_name: string }
         Returns: Database["public"]["Enums"]["yes_no"]
       }
+      has_permission: { Args: { p_required_role: string }; Returns: boolean }
+      has_role: {
+        Args: { p_org_id?: number; p_role: string }
+        Returns: boolean
+      }
+      has_storage_permission: {
+        Args: { p_action: string; p_bucket_name: string }
+        Returns: boolean
+      }
+      has_table_permission: {
+        Args: { p_action: string; p_org_id?: number; p_table_name: string }
+        Returns: boolean
+      }
       is_admin: { Args: never; Returns: boolean }
       is_internal_admin: { Args: never; Returns: boolean }
+      is_org_admin: { Args: { p_org_id?: number }; Returns: boolean }
       ltv: {
         Args: {
           as_is_value: number
@@ -5291,6 +5755,15 @@ export type Database = {
           transaction_type: Database["public"]["Enums"]["transaction_type"]
         }
         Returns: number
+      }
+      refresh_deal_document_participants: { Args: never; Returns: undefined }
+      reset_org_document_permissions: {
+        Args: { p_org_id: number }
+        Returns: undefined
+      }
+      seed_document_access_permissions_for_org: {
+        Args: { p_org_id: number }
+        Returns: undefined
       }
       sync_matched_api_brex_transfers_to_bsi_transactions: {
         Args: never

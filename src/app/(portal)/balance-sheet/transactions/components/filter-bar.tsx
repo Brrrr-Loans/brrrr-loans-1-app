@@ -7,7 +7,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/overlays/dropdown-menu";
+} from "@/components/ui/shadcn/dropdown-menu";
 import { Search, Plus, Settings, Download, X } from "lucide-react";
 
 interface TransactionFilterBarProps<TData> {

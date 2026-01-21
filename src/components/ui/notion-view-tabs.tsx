@@ -3,22 +3,22 @@
 import * as React from "react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/forms/button";
-import { Input } from "@/components/ui/forms/input";
-import { Label } from "@/components/ui/forms/label";
-import { Switch } from "@/components/ui/switch";
+import { Button } from "./shadcn/button";
+import { Input } from "./shadcn/input";
+import { Label } from "./shadcn/label";
+import { Switch } from "./shadcn/switch";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/overlays/popover";
+} from "./shadcn/popover";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/forms/select";
+} from "./shadcn/select";
 import {
   Plus,
   X,
@@ -120,7 +120,7 @@ export function NotionViewTabs({
             <button
               key={view.id}
               role="tab"
-              aria-selected={isActive}
+              {...(isActive ? { "aria-selected": "true" } : { "aria-selected": "false" })}
               onClick={() => onViewChange(view.id)}
               className={cn(
                 "relative flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md",
@@ -178,7 +178,7 @@ export function NotionViewTabs({
               </div>
 
               {/* View type grid */}
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-5 gap-2">
                 {VIEW_TYPE_OPTIONS.map((option) => {
                   const Icon = option.icon;
                   const isSelected = selectedViewType === option.id;

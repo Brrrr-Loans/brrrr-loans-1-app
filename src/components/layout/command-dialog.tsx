@@ -26,7 +26,7 @@ import {
   CommandList,
   CommandSeparator,
   CommandShortcut,
-} from "@/components/ui/navigation/command";
+} from "@/components/ui/shadcn/command";
 
 interface AppCommandDialogProps {
   open: boolean;

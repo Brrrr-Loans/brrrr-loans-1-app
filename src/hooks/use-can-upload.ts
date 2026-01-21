@@ -12,7 +12,7 @@ interface UseCanUploadReturn {
 
 /**
  * Hook to check if the current user has permission to upload files.
- * Requires: is_internal_yn = true AND role = 'admin'
+ * Requires: is_internal_yn = true AND personal_role = 'admin'
  *
  * Uses the shared useSupabase hook to avoid creating multiple clients.
  */
@@ -56,7 +56,7 @@ export function useCanUpload(): UseCanUploadReturn {
       try {
         const { data, error: queryError } = await supabase
           .from("auth_clerk_users")
-          .select("role, is_internal_yn")
+          .select("personal_role, is_internal_yn")
           .eq("clerk_user_id", user.id)
           .single();
 
@@ -78,7 +78,7 @@ export function useCanUpload(): UseCanUploadReturn {
         } else {
           // User can upload if they are an internal admin
           const hasPermission =
-            data?.role === "admin" && data?.is_internal_yn === true;
+            data?.personal_role === "admin" && data?.is_internal_yn === true;
           setCanUpload(hasPermission);
         }
 

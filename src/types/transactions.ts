@@ -92,7 +92,8 @@ export interface TransactionWithDetails {
     document_files: {
       id: number;
       document_name: string;
-      document_category: string;
+      document_category_id: number | null;
+      document_categories: { name: string } | null;
       uploaded_at: string;
     };
   }>;

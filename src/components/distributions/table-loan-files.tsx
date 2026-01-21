@@ -17,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui";
-import { StackedAvatars } from "@/components/ui/stacked-avatars";
+import { StackedAvatars } from "@/components/ui/custom/stacked-avatars";
 import { MoreHorizontal, Search, Filter, Download } from "lucide-react";
 
 interface TeamMember {

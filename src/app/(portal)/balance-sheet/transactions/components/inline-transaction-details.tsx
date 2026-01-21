@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { Badge, Button } from "@/components/ui";
-import { ScrollArea } from "@/components/ui/layout/scroll-area";
+import { ScrollArea } from "@/components/ui/shadcn/scroll-area";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/layout/collapsible";
+} from "@/components/ui/shadcn/collapsible";
 import { FileText, Eye, Building, User, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
@@ -299,7 +299,7 @@ export function InlineTransactionDetails({
                     {doc.document_files.document_name}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {doc.document_files.document_category || "Document"} •{" "}
+                    {doc.document_files.document_categories?.name || "Document"} •{" "}
                     {format(
                       new Date(doc.document_files.uploaded_at),
                       "MMM d, yyyy"

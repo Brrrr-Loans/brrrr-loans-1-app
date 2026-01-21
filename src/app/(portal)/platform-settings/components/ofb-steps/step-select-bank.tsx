@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/layout/card";
-import { Button } from "@/components/ui/forms/button";
-import { Input } from "@/components/ui/forms/input";
-import { Label } from "@/components/ui/forms/label";
-import { Badge } from "@/components/ui/feedback/badge";
-import { Skeleton } from "@/components/ui/feedback/skeleton";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/shadcn/card";
+import { Button } from "@/components/ui/shadcn/button";
+import { Input } from "@/components/ui/shadcn/input";
+import { Label } from "@/components/ui/shadcn/label";
+import { Badge } from "@/components/ui/shadcn/badge";
+import { Skeleton } from "@/components/ui/shadcn/skeleton";
 import { Building2, Plus, Check } from "lucide-react";
 import { useSupabase } from "@/hooks/use-supabase";
 import {
@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/overlays/dialog";
+} from "@/components/ui/shadcn/dialog";
 
 interface BankAccount {
   id: number;

@@ -1,7 +1,7 @@
 "use client";
 
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/shadcn/alert";
+import { Button } from "@/components/ui/shadcn/button";
 import { cn } from "@/lib/utils";
 import type { ToolUIPart } from "ai";
 import {

@@ -1,17 +1,17 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/layout/card";
-import { Button } from "@/components/ui/forms/button";
-import { Badge } from "@/components/ui/feedback/badge";
-import { Label } from "@/components/ui/forms/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/shadcn/card";
+import { Button } from "@/components/ui/shadcn/button";
+import { Badge } from "@/components/ui/shadcn/badge";
+import { Label } from "@/components/ui/shadcn/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/forms/select";
+} from "@/components/ui/shadcn/select";
 import { ArrowRight, Check, AlertCircle, Loader2 } from "lucide-react";
 import { useSupabase } from "@/hooks/use-supabase";
 import { toast } from "sonner";

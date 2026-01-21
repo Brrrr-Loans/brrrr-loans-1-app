@@ -1,10 +1,27 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { Badge } from "@/components/ui/feedback/badge";
-import { Checkbox } from "@/components/ui/forms/checkbox";
-import { ScrollArea, ScrollBar } from "@/components/ui/layout/scroll-area";
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  useSortable,
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { Badge } from "@/components/ui/shadcn/badge";
+import { Checkbox } from "@/components/ui/shadcn/checkbox";
+import { ScrollArea, ScrollBar } from "@/components/ui/shadcn/scroll-area";
 import {
   FileText,
   FileSpreadsheet,
@@ -18,9 +35,10 @@ import {
   Tag,
   Users,
   Inbox,
+  GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { CardSize, BoardGroupBy } from "@/components/ui/notion-view-tabs";
+import type { CardSize, BoardGroupBy } from "@/components/ui/custom/notion-view-tabs";
 
 interface InvestorAssignment {
   type: "org" | "user";
@@ -55,6 +73,20 @@ interface DocumentsBoardViewProps {
   fitImage?: boolean;
   showPageIcon?: boolean;
   groupBy?: BoardGroupBy;
+  onDocumentMove?: (docId: string, targetColumnId: string, groupBy: BoardGroupBy) => void;
+}
+
+// Column metadata for determining new field values when dropping
+interface ColumnMeta {
+  id: string;
+  periodStart?: string | null;
+  periodEnd?: string | null;
+  tag?: string;
+  investorId?: string;
+  investorType?: "org" | "user";
+  investorName?: string;
+  source?: "personal" | "organization";
+  sourceName?: string;
 }
 
 interface BoardColumn {
@@ -62,6 +94,7 @@ interface BoardColumn {
   title: string;
   icon: typeof Calendar;
   documents: Document[];
+  meta?: ColumnMeta;
 }
 
 // Card size configurations - fixed column widths so cards fill completely
@@ -183,34 +216,65 @@ function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
 
-function DocumentCard({
+function DraggableDocumentCard({
   doc,
   isSelected,
   onSelect,
   cardSize = "medium",
   showPageIcon = true,
+  isDragging = false,
 }: {
   doc: Document;
   isSelected: boolean;
   onSelect: () => void;
   cardSize?: CardSize;
   showPageIcon?: boolean;
+  isDragging?: boolean;
 }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging: isSortableDragging,
+  } = useSortable({ id: doc.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
   const fileStyle = getFileIcon(doc.name, doc.type);
   const IconComponent = fileStyle.icon;
   const config = CARD_SIZE_CONFIG[cardSize];
 
+  const isCurrentlyDragging = isDragging || isSortableDragging;
+
   return (
     <motion.div
+      ref={setNodeRef}
+      style={style}
       initial={{ opacity: 0, y: 5 }}
-      animate={{ opacity: 1, y: 0 }}
+      animate={{ opacity: isCurrentlyDragging ? 0.5 : 1, y: 0 }}
       className={cn(
         "group relative w-full border rounded-lg bg-card hover:shadow-md transition-shadow cursor-pointer overflow-hidden",
         config.padding,
-        isSelected && "ring-2 ring-primary"
+        isSelected && "ring-2 ring-primary",
+        isCurrentlyDragging && "shadow-lg ring-2 ring-primary/50"
       )}
       onClick={onSelect}
     >
+      {/* Drag handle */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute top-2 left-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing p-1 -m-1 rounded hover:bg-muted"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+
       {/* File icon and info */}
       <div className={cn("flex items-start", config.gap)}>
         {showPageIcon && (
@@ -286,21 +350,69 @@ function DocumentCard({
   );
 }
 
-function BoardColumnComponent({
+// Static card for drag overlay
+function DocumentCardOverlay({
+  doc,
+  cardSize = "medium",
+  showPageIcon = true,
+}: {
+  doc: Document;
+  cardSize?: CardSize;
+  showPageIcon?: boolean;
+}) {
+  const fileStyle = getFileIcon(doc.name, doc.type);
+  const IconComponent = fileStyle.icon;
+  const config = CARD_SIZE_CONFIG[cardSize];
+
+  return (
+    <div
+      className={cn(
+        "w-full border rounded-lg bg-card shadow-xl cursor-grabbing overflow-hidden ring-2 ring-primary",
+        config.padding,
+        config.width
+      )}
+    >
+      <div className={cn("flex items-start", config.gap)}>
+        {showPageIcon && (
+          <div
+            className={cn(
+              "rounded-lg border flex items-center justify-center shrink-0",
+              config.iconSize,
+              fileStyle.bg,
+              fileStyle.border
+            )}
+          >
+            <IconComponent className={cn(config.iconInner, fileStyle.color)} />
+          </div>
+        )}
+        <div className="flex-1 min-w-0 overflow-hidden">
+          <h4 className={cn("font-medium text-sm truncate", config.titleClamp)}>
+            {doc.description || doc.name}
+          </h4>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DroppableColumn({
   column,
   selectedDocs,
   onSelectDoc,
   cardSize = "medium",
   showPageIcon = true,
+  activeId,
 }: {
   column: BoardColumn;
   selectedDocs: Set<string>;
   onSelectDoc: (docId: string) => void;
   cardSize?: CardSize;
   showPageIcon?: boolean;
+  activeId: string | null;
 }) {
   const IconComponent = column.icon;
   const config = CARD_SIZE_CONFIG[cardSize];
+  const documentIds = column.documents.map((d) => d.id);
 
   return (
     <div className={cn("flex-shrink-0 flex flex-col overflow-hidden", config.width)}>
@@ -314,28 +426,37 @@ function BoardColumnComponent({
       </div>
 
       {/* Column content - vertical scroll only, Notion-style */}
-      <div className="flex-1 border border-t-0 rounded-b-lg bg-muted/10 overflow-y-auto overflow-x-hidden">
-        <div className="p-2 min-h-[400px]">
-          {column.documents.length === 0 ? (
-            <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-              No documents
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {column.documents.map((doc) => (
-                <DocumentCard
-                  key={doc.id}
-                  doc={doc}
-                  isSelected={selectedDocs.has(doc.id)}
-                  onSelect={() => onSelectDoc(doc.id)}
-                  cardSize={cardSize}
-                  showPageIcon={showPageIcon}
-                />
-              ))}
-            </div>
+      <SortableContext items={documentIds} strategy={verticalListSortingStrategy}>
+        <div 
+          className={cn(
+            "flex-1 border border-t-0 rounded-b-lg bg-muted/10 overflow-y-auto overflow-x-hidden transition-colors",
+            activeId && "ring-1 ring-primary/20"
           )}
+          data-column-id={column.id}
+        >
+          <div className="p-2 min-h-[400px]">
+            {column.documents.length === 0 ? (
+              <div className="flex items-center justify-center h-32 text-sm text-muted-foreground border-2 border-dashed border-muted-foreground/20 rounded-lg">
+                Drop here
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {column.documents.map((doc) => (
+                  <DraggableDocumentCard
+                    key={doc.id}
+                    doc={doc}
+                    isSelected={selectedDocs.has(doc.id)}
+                    onSelect={() => onSelectDoc(doc.id)}
+                    cardSize={cardSize}
+                    showPageIcon={showPageIcon}
+                    isDragging={activeId === doc.id}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </SortableContext>
     </div>
   );
 }
@@ -377,7 +498,19 @@ export function DocumentsBoardView({
   fitImage = false,
   showPageIcon = true,
   groupBy = "dateCreated",
+  onDocumentMove,
 }: DocumentsBoardViewProps) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+  
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor)
+  );
+
   // Group documents based on groupBy setting
   const columns = useMemo<BoardColumn[]>(() => {
     switch (groupBy) {
@@ -410,7 +543,13 @@ export function DocumentsBoardView({
 
       case "period": {
         // Group by document period (date range)
-        const periodGroups = new Map<string, { title: string; docs: Document[]; sortKey: string }>();
+        const periodGroups = new Map<string, { 
+          title: string; 
+          docs: Document[]; 
+          sortKey: string;
+          periodStart: string | null;
+          periodEnd: string | null;
+        }>();
         
         for (const doc of documents) {
           const key = getPeriodKey(doc);
@@ -418,7 +557,13 @@ export function DocumentsBoardView({
           const sortKey = doc.periodStart || doc.periodEnd || "0000-00-00";
           
           if (!periodGroups.has(key)) {
-            periodGroups.set(key, { title, docs: [], sortKey });
+            periodGroups.set(key, { 
+              title, 
+              docs: [], 
+              sortKey,
+              periodStart: doc.periodStart,
+              periodEnd: doc.periodEnd,
+            });
           }
           periodGroups.get(key)!.docs.push(doc);
         }
@@ -436,6 +581,11 @@ export function DocumentsBoardView({
           title: group.title,
           icon: Calendar,
           documents: group.docs,
+          meta: {
+            id: key,
+            periodStart: group.periodStart,
+            periodEnd: group.periodEnd,
+          },
         }));
       }
 
@@ -466,6 +616,10 @@ export function DocumentsBoardView({
           title: tag,
           icon: Tag,
           documents: docs,
+          meta: {
+            id: `tag-${tag}`,
+            tag: tag,
+          },
         }));
 
         // Add untagged column at the end if there are any
@@ -475,6 +629,10 @@ export function DocumentsBoardView({
             title: "Untagged",
             icon: Inbox,
             documents: untagged,
+            meta: {
+              id: "untagged",
+              tag: undefined,
+            },
           });
         }
 
@@ -483,7 +641,12 @@ export function DocumentsBoardView({
 
       case "investors": {
         // Group by assigned investors
-        const investorGroups = new Map<string, { name: string; docs: Document[] }>();
+        const investorGroups = new Map<string, { 
+          name: string; 
+          docs: Document[];
+          type: "org" | "user";
+          id: string;
+        }>();
         const unassigned: Document[] = [];
 
         for (const doc of documents) {
@@ -493,7 +656,12 @@ export function DocumentsBoardView({
             for (const investor of doc.investors) {
               const key = `${investor.type}-${investor.id}`;
               if (!investorGroups.has(key)) {
-                investorGroups.set(key, { name: investor.name, docs: [] });
+                investorGroups.set(key, { 
+                  name: investor.name, 
+                  docs: [],
+                  type: investor.type,
+                  id: investor.id,
+                });
               }
               investorGroups.get(key)!.docs.push(doc);
             }
@@ -509,6 +677,12 @@ export function DocumentsBoardView({
           title: group.name,
           icon: Users,
           documents: group.docs,
+          meta: {
+            id: key,
+            investorId: group.id,
+            investorType: group.type,
+            investorName: group.name,
+          },
         }));
 
         // Add unassigned column at the end if there are any
@@ -518,6 +692,9 @@ export function DocumentsBoardView({
             title: "Unassigned",
             icon: Inbox,
             documents: unassigned,
+            meta: {
+              id: "unassigned",
+            },
           });
         }
 
@@ -549,6 +726,11 @@ export function DocumentsBoardView({
             title: "Personal",
             icon: User,
             documents: personal,
+            meta: {
+              id: "personal",
+              source: "personal",
+              sourceName: "Personal",
+            },
           });
         }
 
@@ -562,6 +744,11 @@ export function DocumentsBoardView({
             title: orgName,
             icon: Building2,
             documents: docs,
+            meta: {
+              id: `org-${orgName}`,
+              source: "organization",
+              sourceName: orgName,
+            },
           });
         }
 
@@ -573,28 +760,95 @@ export function DocumentsBoardView({
     }
   }, [documents, groupBy]);
 
+  // Find the active document for drag overlay
+  const activeDocument = activeId
+    ? documents.find((d) => d.id === activeId)
+    : null;
+
+  // Find which column a document belongs to
+  const findColumnForDocument = (docId: string): BoardColumn | undefined => {
+    for (const column of columns) {
+      if (column.documents.some((d) => d.id === docId)) {
+        return column;
+      }
+    }
+    return undefined;
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over || !onDocumentMove) return;
+
+    const activeDocId = active.id as string;
+    const overId = over.id as string;
+
+    // Find source and target columns
+    const sourceColumn = findColumnForDocument(activeDocId);
+    
+    // Determine target column - could be dropping on another card or on a column
+    let targetColumn: BoardColumn | undefined;
+    
+    // Check if dropping on another document
+    const overColumn = findColumnForDocument(overId);
+    if (overColumn) {
+      targetColumn = overColumn;
+    } else {
+      // Dropping directly on a column (if we implement column droppable areas)
+      targetColumn = columns.find((c) => c.id === overId);
+    }
+
+    // If moving to a different column, trigger the callback
+    if (sourceColumn && targetColumn && sourceColumn.id !== targetColumn.id) {
+      onDocumentMove(activeDocId, targetColumn.id, groupBy);
+    }
+  };
+
   return (
-    <motion.div
-      key="board"
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
     >
-      <ScrollArea className="w-full">
-        <div className="flex gap-4 pb-4">
-          {columns.map((column) => (
-            <BoardColumnComponent
-              key={column.id}
-              column={column}
-              selectedDocs={selectedDocs}
-              onSelectDoc={onSelectDoc}
-              cardSize={cardSize}
-              showPageIcon={showPageIcon}
-            />
-          ))}
-        </div>
-        <ScrollBar orientation="horizontal" />
-      </ScrollArea>
-    </motion.div>
+      <motion.div
+        key="board"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+      >
+        <ScrollArea className="w-full">
+          <div className="flex gap-4 pb-4">
+            {columns.map((column) => (
+              <DroppableColumn
+                key={column.id}
+                column={column}
+                selectedDocs={selectedDocs}
+                onSelectDoc={onSelectDoc}
+                cardSize={cardSize}
+                showPageIcon={showPageIcon}
+                activeId={activeId}
+              />
+            ))}
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
+      </motion.div>
+
+      <DragOverlay>
+        {activeDocument ? (
+          <DocumentCardOverlay
+            doc={activeDocument}
+            cardSize={cardSize}
+            showPageIcon={showPageIcon}
+          />
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }

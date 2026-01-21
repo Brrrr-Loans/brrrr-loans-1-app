@@ -6,10 +6,10 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-} from "@/components/ui/layout/card";
-import { Badge } from "@/components/ui/feedback/badge";
-import { Button } from "@/components/ui/forms/button";
-import { Input } from "@/components/ui/forms/input";
+} from "@/components/ui/shadcn/card";
+import { Badge } from "@/components/ui/shadcn/badge";
+import { Button } from "@/components/ui/shadcn/button";
+import { Input } from "@/components/ui/shadcn/input";
 import {
   FileSpreadsheet,
   Upload,

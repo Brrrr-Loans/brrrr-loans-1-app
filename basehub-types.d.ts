@@ -65,6 +65,8 @@ export interface Scalars {
     Int: number,
     JSON: any,
     String: string,
+    bshb_event_450196389: `bshb_event_450196389:${string}`,
+    schema_bshb_event_450196389: never,
     bshb_event__1162532650: `bshb_event__1162532650:${string}`,
     schema_bshb_event__1162532650: {email?: string;message?: string;intent?: "Positive" | "Negative";path?: string;},
     bshb_workflow__711707210: `bshb_workflow__711707210:${string}`,
@@ -335,10 +337,19 @@ export interface Body {
 }
 
 export interface BodyRichText {
-    blocks: UnionCodeGroupComponentCalloutComponentInlineIconComponentArticleLinkComponentHeadingWithIconComponentAccordionGroupComponentStepperComponentIFrameComponentCodeSnippetComponentCardsGridComponentTabsComponent[]
+    blocks: UnionIFrameComponentCodeSnippetComponentCodeGroupComponentArticleLinkComponentAccordionGroupComponentInlineIconComponentStepperComponentHeadingWithIconComponentTabsComponentCardsGridComponentCalloutComponent[]
     content: Scalars['BSHBRichTextContentSchema']
     toc: Scalars['BSHBRichTextTOCSchema']
     __typename: 'BodyRichText'
+}
+
+export interface BrokerRegistrationForm {
+    /** The `adminKey` gives clients the ability to query, delete and update this block's data. **It's not meant to be exposed to the public.** */
+    adminKey: Scalars['bshb_event_450196389']
+    /** The `ingestKey` gives clients the ability to send new events to this block. Generally, it's safe to expose it to the public. */
+    ingestKey: Scalars['bshb_event_450196389']
+    schema: Scalars['BSHBEventSchema']
+    __typename: 'BrokerRegistrationForm'
 }
 
 export interface CalloutComponent {
@@ -543,7 +554,7 @@ export interface Content_2 {
 }
 
 export interface Content_2RichText {
-    blocks: UnionCalloutComponentAccordionGroupComponentStepperComponentCardsGridComponent[]
+    blocks: UnionAccordionGroupComponentStepperComponentCardsGridComponentCalloutComponent[]
     content: Scalars['BSHBRichTextContentSchema']
     toc: Scalars['BSHBRichTextTOCSchema']
     __typename: 'Content_2RichText'
@@ -847,6 +858,7 @@ export interface Query {
     /** The structure of the repository. Used by START. */
     _structure: Scalars['JSON']
     _sys: RepoSys
+    brokerRegistrationForm: BrokerRegistrationForm
     components: Components
     feedback: Feedback
     footer: Footer
@@ -893,8 +905,8 @@ export interface Settings {
     _slugPath: Scalars['String']
     _sys: BlockDocumentSys
     _title: Scalars['String']
-    logo: BlockImage
     logoDark: BlockImage
+    logoLight: BlockImage
     metadata: Metadata
     showUseTemplate: Scalars['Boolean']
     theme: Theme
@@ -949,7 +961,7 @@ export interface StepperContent {
 }
 
 export interface StepperContentRichText {
-    blocks: UnionCodeGroupComponentCalloutComponentArticleLinkComponentHeadingWithIconComponentAccordionGroupComponentCodeSnippetComponentCardsGridComponent[]
+    blocks: UnionCodeSnippetComponentCodeGroupComponentArticleLinkComponentAccordionGroupComponentHeadingWithIconComponentCardsGridComponentCalloutComponent[]
     content: Scalars['BSHBRichTextContentSchema']
     toc: Scalars['BSHBRichTextTOCSchema']
     __typename: 'StepperContentRichText'
@@ -1124,13 +1136,13 @@ export interface TransactionStatus {
 
 export type TransactionStatusEnum = 'Cancelled' | 'Completed' | 'Failed' | 'Running' | 'Scheduled'
 
+export type UnionAccordionGroupComponentStepperComponentCardsGridComponentCalloutComponent = (AccordionGroupComponent | CalloutComponent | CardsGridComponent | StepperComponent) & { __isUnion?: true }
+
 export type UnionArticleLinkComponent = (ArticleLinkComponent) & { __isUnion?: true }
 
-export type UnionCalloutComponentAccordionGroupComponentStepperComponentCardsGridComponent = (AccordionGroupComponent | CalloutComponent | CardsGridComponent | StepperComponent) & { __isUnion?: true }
+export type UnionCodeSnippetComponentCodeGroupComponentArticleLinkComponentAccordionGroupComponentHeadingWithIconComponentCardsGridComponentCalloutComponent = (AccordionGroupComponent | ArticleLinkComponent | CalloutComponent | CardsGridComponent | CodeGroupComponent | CodeSnippetComponent | HeadingWithIconComponent) & { __isUnion?: true }
 
-export type UnionCodeGroupComponentCalloutComponentArticleLinkComponentHeadingWithIconComponentAccordionGroupComponentCodeSnippetComponentCardsGridComponent = (AccordionGroupComponent | ArticleLinkComponent | CalloutComponent | CardsGridComponent | CodeGroupComponent | CodeSnippetComponent | HeadingWithIconComponent) & { __isUnion?: true }
-
-export type UnionCodeGroupComponentCalloutComponentInlineIconComponentArticleLinkComponentHeadingWithIconComponentAccordionGroupComponentStepperComponentIFrameComponentCodeSnippetComponentCardsGridComponentTabsComponent = (AccordionGroupComponent | ArticleLinkComponent | CalloutComponent | CardsGridComponent | CodeGroupComponent | CodeSnippetComponent | HeadingWithIconComponent | IFrameComponent | InlineIconComponent | StepperComponent | TabsComponent) & { __isUnion?: true }
+export type UnionIFrameComponentCodeSnippetComponentCodeGroupComponentArticleLinkComponentAccordionGroupComponentInlineIconComponentStepperComponentHeadingWithIconComponentTabsComponentCardsGridComponentCalloutComponent = (AccordionGroupComponent | ArticleLinkComponent | CalloutComponent | CardsGridComponent | CodeGroupComponent | CodeSnippetComponent | HeadingWithIconComponent | IFrameComponent | InlineIconComponent | StepperComponent | TabsComponent) & { __isUnion?: true }
 
 export interface Variant {
     apiName: Scalars['String']
@@ -2263,11 +2275,21 @@ export interface BodyGenqlSelection{
 }
 
 export interface BodyRichTextGenqlSelection{
-    blocks?: UnionCodeGroupComponentCalloutComponentInlineIconComponentArticleLinkComponentHeadingWithIconComponentAccordionGroupComponentStepperComponentIFrameComponentCodeSnippetComponentCardsGridComponentTabsComponentGenqlSelection
+    blocks?: UnionIFrameComponentCodeSnippetComponentCodeGroupComponentArticleLinkComponentAccordionGroupComponentInlineIconComponentStepperComponentHeadingWithIconComponentTabsComponentCardsGridComponentCalloutComponentGenqlSelection
     content?: boolean | number
     toc?: boolean | number
     __typename?: boolean | number
     __fragmentOn?: "BodyRichText"
+}
+
+export interface BrokerRegistrationFormGenqlSelection{
+    /** The `adminKey` gives clients the ability to query, delete and update this block's data. **It's not meant to be exposed to the public.** */
+    adminKey?: boolean | number
+    /** The `ingestKey` gives clients the ability to send new events to this block. Generally, it's safe to expose it to the public. */
+    ingestKey?: boolean | number
+    schema?: boolean | number
+    __typename?: boolean | number
+    __fragmentOn?: "BrokerRegistrationForm"
 }
 
 export interface CalloutComponentGenqlSelection{
@@ -2614,7 +2636,7 @@ export interface Content_2GenqlSelection{
 }
 
 export interface Content_2RichTextGenqlSelection{
-    blocks?: UnionCalloutComponentAccordionGroupComponentStepperComponentCardsGridComponentGenqlSelection
+    blocks?: UnionAccordionGroupComponentStepperComponentCardsGridComponentCalloutComponentGenqlSelection
     content?: boolean | number
     toc?: boolean | number
     __typename?: boolean | number
@@ -3176,6 +3198,7 @@ export interface QueryGenqlSelection{
     /** Whether to include type options in the structure. */
     withTypeOptions?: (Scalars['Boolean'] | null)} } | boolean | number
     _sys?: RepoSysGenqlSelection
+    brokerRegistrationForm?: BrokerRegistrationFormGenqlSelection
     components?: ComponentsGenqlSelection
     feedback?: FeedbackGenqlSelection
     footer?: FooterGenqlSelection
@@ -3255,8 +3278,8 @@ export interface SettingsGenqlSelection{
     _slugPath?: boolean | number
     _sys?: BlockDocumentSysGenqlSelection
     _title?: boolean | number
-    logo?: BlockImageGenqlSelection
     logoDark?: BlockImageGenqlSelection
+    logoLight?: BlockImageGenqlSelection
     metadata?: MetadataGenqlSelection
     showUseTemplate?: boolean | number
     theme?: ThemeGenqlSelection
@@ -3345,7 +3368,7 @@ export interface StepperContentGenqlSelection{
 }
 
 export interface StepperContentRichTextGenqlSelection{
-    blocks?: UnionCodeGroupComponentCalloutComponentArticleLinkComponentHeadingWithIconComponentAccordionGroupComponentCodeSnippetComponentCardsGridComponentGenqlSelection
+    blocks?: UnionCodeSnippetComponentCodeGroupComponentArticleLinkComponentAccordionGroupComponentHeadingWithIconComponentCardsGridComponentCalloutComponentGenqlSelection
     content?: boolean | number
     toc?: boolean | number
     __typename?: boolean | number
@@ -3621,6 +3644,16 @@ export interface TransactionStatusGenqlSelection{
     __fragmentOn?: "TransactionStatus"
 }
 
+export interface UnionAccordionGroupComponentStepperComponentCardsGridComponentCalloutComponentGenqlSelection{
+    on_AccordionGroupComponent?:AccordionGroupComponentGenqlSelection,
+    on_CalloutComponent?:CalloutComponentGenqlSelection,
+    on_CardsGridComponent?:CardsGridComponentGenqlSelection,
+    on_StepperComponent?:StepperComponentGenqlSelection,
+    on_BlockDocument?: BlockDocumentGenqlSelection,
+    __typename?: boolean | number,
+    __fragmentOn?: "UnionAccordionGroupComponentStepperComponentCardsGridComponentCalloutComponent"
+}
+
 export interface UnionArticleLinkComponentGenqlSelection{
     on_ArticleLinkComponent?:ArticleLinkComponentGenqlSelection,
     on_BlockDocument?: BlockDocumentGenqlSelection,
@@ -3628,17 +3661,7 @@ export interface UnionArticleLinkComponentGenqlSelection{
     __fragmentOn?: "UnionArticleLinkComponent"
 }
 
-export interface UnionCalloutComponentAccordionGroupComponentStepperComponentCardsGridComponentGenqlSelection{
-    on_AccordionGroupComponent?:AccordionGroupComponentGenqlSelection,
-    on_CalloutComponent?:CalloutComponentGenqlSelection,
-    on_CardsGridComponent?:CardsGridComponentGenqlSelection,
-    on_StepperComponent?:StepperComponentGenqlSelection,
-    on_BlockDocument?: BlockDocumentGenqlSelection,
-    __typename?: boolean | number,
-    __fragmentOn?: "UnionCalloutComponentAccordionGroupComponentStepperComponentCardsGridComponent"
-}
-
-export interface UnionCodeGroupComponentCalloutComponentArticleLinkComponentHeadingWithIconComponentAccordionGroupComponentCodeSnippetComponentCardsGridComponentGenqlSelection{
+export interface UnionCodeSnippetComponentCodeGroupComponentArticleLinkComponentAccordionGroupComponentHeadingWithIconComponentCardsGridComponentCalloutComponentGenqlSelection{
     on_AccordionGroupComponent?:AccordionGroupComponentGenqlSelection,
     on_ArticleLinkComponent?:ArticleLinkComponentGenqlSelection,
     on_CalloutComponent?:CalloutComponentGenqlSelection,
@@ -3648,10 +3671,10 @@ export interface UnionCodeGroupComponentCalloutComponentArticleLinkComponentHead
     on_HeadingWithIconComponent?:HeadingWithIconComponentGenqlSelection,
     on_BlockDocument?: BlockDocumentGenqlSelection,
     __typename?: boolean | number,
-    __fragmentOn?: "UnionCodeGroupComponentCalloutComponentArticleLinkComponentHeadingWithIconComponentAccordionGroupComponentCodeSnippetComponentCardsGridComponent"
+    __fragmentOn?: "UnionCodeSnippetComponentCodeGroupComponentArticleLinkComponentAccordionGroupComponentHeadingWithIconComponentCardsGridComponentCalloutComponent"
 }
 
-export interface UnionCodeGroupComponentCalloutComponentInlineIconComponentArticleLinkComponentHeadingWithIconComponentAccordionGroupComponentStepperComponentIFrameComponentCodeSnippetComponentCardsGridComponentTabsComponentGenqlSelection{
+export interface UnionIFrameComponentCodeSnippetComponentCodeGroupComponentArticleLinkComponentAccordionGroupComponentInlineIconComponentStepperComponentHeadingWithIconComponentTabsComponentCardsGridComponentCalloutComponentGenqlSelection{
     on_AccordionGroupComponent?:AccordionGroupComponentGenqlSelection,
     on_ArticleLinkComponent?:ArticleLinkComponentGenqlSelection,
     on_CalloutComponent?:CalloutComponentGenqlSelection,
@@ -3665,7 +3688,7 @@ export interface UnionCodeGroupComponentCalloutComponentInlineIconComponentArtic
     on_TabsComponent?:TabsComponentGenqlSelection,
     on_BlockDocument?: BlockDocumentGenqlSelection,
     __typename?: boolean | number,
-    __fragmentOn?: "UnionCodeGroupComponentCalloutComponentInlineIconComponentArticleLinkComponentHeadingWithIconComponentAccordionGroupComponentStepperComponentIFrameComponentCodeSnippetComponentCardsGridComponentTabsComponent"
+    __fragmentOn?: "UnionIFrameComponentCodeSnippetComponentCodeGroupComponentArticleLinkComponentAccordionGroupComponentInlineIconComponentStepperComponentHeadingWithIconComponentTabsComponentCardsGridComponentCalloutComponent"
 }
 
 export interface VariantGenqlSelection{
@@ -4763,6 +4786,10 @@ export interface FragmentsMap {
   BodyRichText: {
     root: BodyRichText,
     selection: BodyRichTextGenqlSelection,
+}
+  BrokerRegistrationForm: {
+    root: BrokerRegistrationForm,
+    selection: BrokerRegistrationFormGenqlSelection,
 }
   CalloutComponent: {
     root: CalloutComponent,

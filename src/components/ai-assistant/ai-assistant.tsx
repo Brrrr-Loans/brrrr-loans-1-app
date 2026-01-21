@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/overlays/sheet';
+import { Button } from '@/components/ui/shadcn/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/shadcn/sheet';
 import { Bot, Sparkles } from 'lucide-react';
 import { AssistantChat } from './assistant-chat';
 

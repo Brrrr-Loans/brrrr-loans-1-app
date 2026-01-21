@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     // Check if user is an admin
     const { data: user, error: userError } = await supabase
       .from("auth_clerk_users")
-      .select("role, is_internal_yn")
+      .select("personal_role, is_internal_yn")
       .eq("clerk_user_id", userId)
       .single();
 
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 403 });
     }
 
-    if (user.role !== "admin" || !user.is_internal_yn) {
+    if (user.personal_role !== "admin" || !user.is_internal_yn) {
       return NextResponse.json(
         { error: "Only admins can upload files" },
         { status: 403 }

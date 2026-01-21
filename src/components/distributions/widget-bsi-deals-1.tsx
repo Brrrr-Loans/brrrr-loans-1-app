@@ -59,7 +59,7 @@ export function DealNoticesWidget() {
 
       const { data: userData, error: userError } = await supabase
         .from("auth_clerk_users")
-        .select("id, role, clerk_user_id, full_name")
+        .select("id, personal_role, clerk_user_id, full_name")
         .eq("clerk_user_id", user.id)
         .maybeSingle();
 
@@ -126,12 +126,12 @@ export function DealNoticesWidget() {
 
       // Check if user has permission to view deals (admin or balance sheet investor)
       if (
-        userData.role !== "balance_sheet_investor" &&
-        userData.role !== "admin"
+        userData.personal_role !== "balance_sheet_investor" &&
+        userData.personal_role !== "admin"
       ) {
         console.log(
           "User does not have permission to view deal notices, role:",
-          userData.role
+          userData.personal_role
         );
         setDeals([]);
         return;
@@ -141,12 +141,12 @@ export function DealNoticesWidget() {
         "Fetching deal notices for user_id:",
         userData.id,
         "role:",
-        userData.role
+        userData.personal_role
       );
 
       let dealsData, dealsError;
 
-      if (userData.role === "admin") {
+      if (userData.personal_role === "admin") {
         // Admin users can see all deals
         console.log("Admin user - fetching all deals");
         const { data: allDeals, error: allDealsError } = await supabase

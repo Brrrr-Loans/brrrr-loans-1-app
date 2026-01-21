@@ -3,10 +3,10 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/shadcn/button';
 import { Bold, Italic, List, ListOrdered, Heading1, Heading2, Quote, Undo, Redo, Code } from 'lucide-react';
-import { Toggle } from '@/components/ui/toggle';
-import { Separator } from '@/components/ui/separator';
+import { Toggle } from '@/components/ui/shadcn/toggle';
+import { Separator } from '@/components/ui/shadcn/separator';
 
 export function TiptapEditor() {
   const editor = useEditor({

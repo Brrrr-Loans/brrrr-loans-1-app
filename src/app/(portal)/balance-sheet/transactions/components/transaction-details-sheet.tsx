@@ -8,18 +8,18 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@/components/ui/overlays/sheet";
+} from "@/components/ui/shadcn/sheet";
 import type { ComponentProps } from "react";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-} from "@/components/ui/layout/card";
-import { Badge } from "@/components/ui/feedback/badge";
-import { Button } from "@/components/ui/forms/button";
-import { Separator } from "@/components/ui/layout/separator";
-import { ScrollArea } from "@/components/ui/layout/scroll-area";
+} from "@/components/ui/shadcn/card";
+import { Badge } from "@/components/ui/shadcn/badge";
+import { Button } from "@/components/ui/shadcn/button";
+import { Separator } from "@/components/ui/shadcn/separator";
+import { ScrollArea } from "@/components/ui/shadcn/scroll-area";
 import {
   FileText,
   Building,
@@ -38,7 +38,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/overlays/dialog";
+} from "@/components/ui/shadcn/dialog";
 import { TransactionWithDetails } from "@/types/transactions";
 
 interface TransactionDetailsSheetProps {
@@ -109,7 +109,8 @@ export function TransactionDetailsSheet({
             document_files:document_files!document_file_id(
               id,
               document_name,
-              document_category,
+              document_category_id,
+              document_categories:document_category_id(name),
               uploaded_at
             )
           )
@@ -532,7 +533,7 @@ export function TransactionDetailsSheet({
                                   {doc.document_files.document_name}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  {doc.document_files.document_category ||
+                                  {doc.document_files.document_categories?.name ||
                                     "Document"}{" "}
                                   •{" "}
                                   {format(

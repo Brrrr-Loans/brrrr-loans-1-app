@@ -1,17 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/layout/card";
-import { Button } from "@/components/ui/forms/button";
-import { Badge } from "@/components/ui/feedback/badge";
-import { Skeleton } from "@/components/ui/feedback/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/shadcn/card";
+import { Button } from "@/components/ui/shadcn/button";
+import { Badge } from "@/components/ui/shadcn/badge";
+import { Skeleton } from "@/components/ui/shadcn/skeleton";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/forms/select";
+} from "@/components/ui/shadcn/select";
 import {
   Table,
   TableBody,
@@ -19,7 +19,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/data/table";
+} from "@/components/ui/shadcn/table";
 import { Check, Building2, User, Link, Unlink } from "lucide-react";
 import { useSupabase } from "@/hooks/use-supabase";
 import { toast } from "sonner";

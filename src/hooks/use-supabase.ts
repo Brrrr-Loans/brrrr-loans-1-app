@@ -30,6 +30,10 @@ export function useSupabaseWithRefresh(): UseSupabaseReturn {
   const client = useMemo(() => {
     if (!isLoaded) return null;
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'supabase-url-1',hypothesisId:'H6',location:'use-supabase.ts:33',message:'H6: Supabase client init URL',data:{supabaseUrl},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+
     return createClient<Database>(supabaseUrl, supabaseAnonKey, {
       auth: {
         autoRefreshToken: false,

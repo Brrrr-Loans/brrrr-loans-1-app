@@ -2,18 +2,18 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Card } from "@/components/ui/layout/card";
-import { Button } from "@/components/ui/forms/button";
-import { Input } from "@/components/ui/forms/input";
-import { Badge } from "@/components/ui/feedback/badge";
-import { Checkbox } from "@/components/ui/forms/checkbox";
+import { Card } from "@/components/ui/shadcn/card";
+import { Button } from "@/components/ui/shadcn/button";
+import { Input } from "@/components/ui/shadcn/input";
+import { Badge } from "@/components/ui/shadcn/badge";
+import { Checkbox } from "@/components/ui/shadcn/checkbox";
 import {
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/data/table";
+} from "@/components/ui/shadcn/table";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,12 +22,23 @@ import {
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
-} from "@/components/ui/overlays/dropdown-menu";
+} from "@/components/ui/shadcn/dropdown-menu";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/overlays/popover";
+} from "@/components/ui/shadcn/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/shadcn/tooltip";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/shadcn/hover-card";
 import {
   Command,
   CommandEmpty,
@@ -35,28 +46,28 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/navigation/command";
+} from "@/components/ui/shadcn/command";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/overlays/dialog";
+} from "@/components/ui/shadcn/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/forms/select";
-import { Label } from "@/components/ui/forms/label";
-import { Switch } from "@/components/ui/switch";
+} from "@/components/ui/shadcn/select";
+import { Label } from "@/components/ui/shadcn/label";
+import { Switch } from "@/components/ui/shadcn/switch";
 import {
   Dropzone,
   DropzoneContent,
   DropzoneEmptyState,
-} from "@/components/ui/forms/supabase-dropzone";
+} from "@/components/ui/custom/supabase-dropzone";
 import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
 import {
   Download,
@@ -85,8 +96,11 @@ import {
   FolderInput,
   Folder,
   ChevronRight,
+  CalendarIcon,
 } from "lucide-react";
-import { NotionViewTabs, type ViewDefinition, type CardSize, type ViewSettings, type BoardGroupBy } from "@/components/ui/notion-view-tabs";
+import { Calendar } from "@/components/ui/shadcn/calendar";
+import { format, parse } from "date-fns";
+import { NotionViewTabs, type ViewDefinition, type CardSize, type ViewSettings, type BoardGroupBy } from "@/components/ui/custom/notion-view-tabs";
 import { DocumentsBoardView } from "./documents-board-view";
 
 // Board grouping options (BoardGroupBy imported from notion-view-tabs)
@@ -335,8 +349,10 @@ export function DocumentsView({
   title,
   description,
   allowedTypes = ["application/pdf"],
-  onUpload,
+  onUpload: _onUpload,
 }: DocumentsViewProps) {
+  // Note: _onUpload is available for future use (e.g., callback after successful upload)
+  void _onUpload;
   const [documents, setDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -578,6 +594,15 @@ export function DocumentsView({
     prevSuccessCountRef.current = 0;
     setDialogOpen(true);
   }, [organization?.id, setDialogOpen]);
+
+  // Handler for view settings changes that ensures groupBy is always set
+  const handleViewSettingsChange = useCallback((settings: ViewSettings) => {
+    setViewSettings(prev => ({
+      ...prev,
+      ...settings,
+      groupBy: settings.groupBy ?? prev.groupBy,
+    }));
+  }, []);
 
   // Fetch documents from storage - both personal and organization folders
   // Admins see ALL files across all users and orgs
@@ -901,11 +926,6 @@ export function DocumentsView({
             ])
           );
 
-          // Also build a map by org ID (numeric) for transaction investor lookups
-          const orgIdToNameMap = new Map(
-            currentAllOrgs.map((o) => [o.id, { clerk_org_id: o.clerk_org_id, clerk_org_name: o.clerk_org_name }])
-          );
-
           // Group assignments by document path from transaction relationship
           const assignmentsByPath = new Map<string, InvestorAssignment[]>();
           
@@ -1048,7 +1068,6 @@ export function DocumentsView({
                   const orgInfo = assignment.auth_clerk_orgs as { clerk_org_id: string; clerk_org_name: string } | null;
                   if (!orgInfo) continue;
                   
-                  const key = `org-${orgInfo.clerk_org_id}`;
                   const existing = assignmentsByPath.get(storagePath) || [];
                   
                   // Check if already added
@@ -1124,7 +1143,7 @@ export function DocumentsView({
         setIsLoading(false);
         initialFetchDoneRef.current = true;
       }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
+       
     },
     [
       // Only include dependencies that should trigger a refetch
@@ -1817,6 +1836,154 @@ export function DocumentsView({
     }
   };
 
+  // Handle document move in board view (drag-and-drop between columns)
+  const handleDocumentMove = async (docId: string, targetColumnId: string, groupBy: BoardGroupBy) => {
+    if (!supabase) return;
+
+    const doc = documents.find((d) => d.id === docId);
+    if (!doc) return;
+
+    try {
+      // Handle different groupBy types
+      switch (groupBy) {
+        case "period": {
+          // Parse the target column ID to get period dates
+          // Column ID format: "periodStart_periodEnd" or "no-period"
+          if (targetColumnId === "no-period") {
+            // Clear the period
+            const { error } = await supabase
+              .from("document_files")
+              .upsert(
+                {
+                  storage_bucket: bucketName,
+                  storage_path: doc.path,
+                  document_name: doc.name,
+                  period_start: null,
+                  period_end: null,
+                },
+                { onConflict: "storage_bucket,storage_path" }
+              );
+
+            if (error) throw error;
+
+            setDocuments((prev) =>
+              prev.map((d) =>
+                d.id === docId
+                  ? { ...d, periodStart: null, periodEnd: null }
+                  : d
+              )
+            );
+            toast.success("Period cleared");
+          } else {
+            // Parse period from column ID (format: "startDate_endDate")
+            const [periodStart, periodEnd] = targetColumnId.split("_");
+            
+            const { error } = await supabase
+              .from("document_files")
+              .upsert(
+                {
+                  storage_bucket: bucketName,
+                  storage_path: doc.path,
+                  document_name: doc.name,
+                  period_start: periodStart || null,
+                  period_end: periodEnd || null,
+                },
+                { onConflict: "storage_bucket,storage_path" }
+              );
+
+            if (error) throw error;
+
+            setDocuments((prev) =>
+              prev.map((d) =>
+                d.id === docId
+                  ? { 
+                      ...d, 
+                      periodStart: periodStart || null, 
+                      periodEnd: periodEnd || null 
+                    }
+                  : d
+              )
+            );
+            toast.success("Period updated");
+          }
+          break;
+        }
+
+        case "tags": {
+          // For tags, we need to replace/add the target tag
+          // Column ID format: "tag-{tagName}" or "untagged"
+          if (targetColumnId === "untagged") {
+            // Clear all tags
+            const { error } = await supabase
+              .from("document_files")
+              .upsert(
+                {
+                  storage_bucket: bucketName,
+                  storage_path: doc.path,
+                  document_name: doc.name,
+                  tags: [],
+                },
+                { onConflict: "storage_bucket,storage_path" }
+              );
+
+            if (error) throw error;
+
+            setDocuments((prev) =>
+              prev.map((d) =>
+                d.id === docId ? { ...d, tags: [] } : d
+              )
+            );
+            toast.success("Tags cleared");
+          } else {
+            // Add the new tag (remove tag- prefix)
+            const newTag = targetColumnId.replace("tag-", "");
+            const newTags = [...new Set([...doc.tags, newTag])];
+
+            const { error } = await supabase
+              .from("document_files")
+              .upsert(
+                {
+                  storage_bucket: bucketName,
+                  storage_path: doc.path,
+                  document_name: doc.name,
+                  tags: newTags,
+                },
+                { onConflict: "storage_bucket,storage_path" }
+              );
+
+            if (error) throw error;
+
+            setDocuments((prev) =>
+              prev.map((d) =>
+                d.id === docId ? { ...d, tags: newTags } : d
+              )
+            );
+            toast.success(`Added tag: ${newTag}`);
+          }
+          break;
+        }
+
+        case "dateCreated":
+        case "source":
+        case "investors":
+          // These groupings can't be changed by drag-drop
+          // dateCreated is immutable, source requires file move, investors needs special handling
+          toast.info("This grouping cannot be changed by drag and drop");
+          break;
+
+        default:
+          break;
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : String(error);
+      console.error("Error moving document:", errorMessage);
+      toast.error(`Failed to move document: ${errorMessage}`);
+    }
+  };
+
   // Delete handler
   const handleDelete = async (doc: Document) => {
     if (!supabase || !canUpload) return;
@@ -1987,8 +2154,10 @@ export function DocumentsView({
 
   function getDocumentTags(
     filename: string,
-    metadata?: Record<string, unknown>
+    _metadata?: Record<string, unknown>
   ): string[] {
+    // Note: _metadata is available for future use (e.g., extracting tags from file metadata)
+    void _metadata;
     const tags: string[] = [];
     const ext = filename.split(".").pop()?.toUpperCase();
     if (ext) tags.push(ext);
@@ -2437,7 +2606,7 @@ export function DocumentsView({
               toast.success(`Created "${viewName}" view`);
             }}
             viewSettings={viewSettings}
-            onViewSettingsChange={setViewSettings}
+            onViewSettingsChange={handleViewSettingsChange}
           />
         </div>
 
@@ -2601,6 +2770,7 @@ export function DocumentsView({
                 fitImage={viewSettings.fitImage}
                 showPageIcon={viewSettings.showPageIcon}
                 groupBy={viewSettings.groupBy}
+                onDocumentMove={handleDocumentMove}
               />
             ) : (
               /* Table View */
@@ -2619,19 +2789,21 @@ export function DocumentsView({
                     <TableHeader>
                       <TableRow className="bg-muted/30">
                         <TableHead
-                          className="relative group px-2"
+                          className="relative group px-2 text-center"
                           style={{
                             width: columnWidths.checkbox,
                             minWidth: columnWidths.checkbox,
                           }}
                         >
-                          <Checkbox
-                            checked={
-                              selectedDocs.size === filteredDocuments.length &&
-                              filteredDocuments.length > 0
-                            }
-                            onCheckedChange={handleSelectAll}
-                          />
+                          <div className="flex items-center justify-center">
+                            <Checkbox
+                              checked={
+                                selectedDocs.size === filteredDocuments.length &&
+                                filteredDocuments.length > 0
+                              }
+                              onCheckedChange={handleSelectAll}
+                            />
+                          </div>
                           <div
                             className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/50 bg-transparent group-hover:bg-border/50"
                             onMouseDown={(e) =>
@@ -2722,14 +2894,16 @@ export function DocumentsView({
                           onClick={() => handleSelectDoc(doc.id)}
                         >
                           <TableCell
-                            className="px-2"
+                            className="px-2 text-center"
                             onClick={(e) => e.stopPropagation()}
                             style={{ width: columnWidths.checkbox }}
                           >
-                            <Checkbox
-                              checked={selectedDocs.has(doc.id)}
-                              onCheckedChange={() => handleSelectDoc(doc.id)}
-                            />
+                            <div className="flex items-center justify-center">
+                              <Checkbox
+                                checked={selectedDocs.has(doc.id)}
+                                onCheckedChange={() => handleSelectDoc(doc.id)}
+                              />
+                            </div>
                           </TableCell>
                           <TableCell
                             className="px-2 pr-2"
@@ -2744,17 +2918,65 @@ export function DocumentsView({
                                 );
                                 const IconComponent = fileStyle.icon;
                                 return (
-                                  <div
-                                    className={cn(
-                                      "h-9 w-9 rounded-lg border flex items-center justify-center shrink-0 transition-colors",
-                                      fileStyle.bg,
-                                      fileStyle.border
-                                    )}
-                                  >
-                                    <IconComponent
-                                      className={cn("h-4 w-4", fileStyle.color)}
-                                    />
-                                  </div>
+                                  <HoverCard openDelay={300} closeDelay={100}>
+                                    <HoverCardTrigger asChild>
+                                      <div
+                                        className={cn(
+                                          "h-9 w-9 rounded-lg border flex items-center justify-center shrink-0 transition-colors cursor-pointer hover:ring-2 hover:ring-primary/50",
+                                          fileStyle.bg,
+                                          fileStyle.border
+                                        )}
+                                      >
+                                        <IconComponent
+                                          className={cn("h-4 w-4", fileStyle.color)}
+                                        />
+                                      </div>
+                                    </HoverCardTrigger>
+                                    <HoverCardContent 
+                                      side="right" 
+                                      align="start" 
+                                      className="w-80 p-3"
+                                    >
+                                      <div className="space-y-2">
+                                        <div className="flex items-start gap-3">
+                                          <div
+                                            className={cn(
+                                              "h-12 w-12 rounded-lg border flex items-center justify-center shrink-0",
+                                              fileStyle.bg,
+                                              fileStyle.border
+                                            )}
+                                          >
+                                            <IconComponent
+                                              className={cn("h-6 w-6", fileStyle.color)}
+                                            />
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-sm break-words">
+                                              {doc.name}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                              {doc.type} • {formatFileSize(doc.size)}
+                                            </p>
+                                          </div>
+                                        </div>
+                                        {doc.description && (
+                                          <p className="text-xs text-muted-foreground border-t pt-2">
+                                            {doc.description}
+                                          </p>
+                                        )}
+                                        <div className="text-xs text-muted-foreground border-t pt-2">
+                                          <span className="flex items-center gap-1">
+                                            {doc.source === "organization" ? (
+                                              <Building2 className="h-3 w-3" />
+                                            ) : (
+                                              <User className="h-3 w-3" />
+                                            )}
+                                            {doc.sourceName}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </HoverCardContent>
+                                  </HoverCard>
                                 );
                               })()}
                               {editingDocId === doc.id ? (
@@ -2794,20 +3016,32 @@ export function DocumentsView({
                                   )}
                                 </div>
                               ) : (
-                                <div
-                                  className={cn(
-                                    "flex items-center gap-2 group min-w-0",
-                                    canUpload && "cursor-text"
-                                  )}
-                                  onClick={() => canUpload && startEditing(doc)}
-                                >
-                                  <span className="font-medium truncate flex-1">
-                                    {doc.name}
-                                  </span>
-                                  {canUpload && (
-                                    <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                                  )}
-                                </div>
+                                <TooltipProvider>
+                                  <Tooltip delayDuration={300}>
+                                    <TooltipTrigger asChild>
+                                      <div
+                                        className={cn(
+                                          "flex items-center gap-2 group min-w-0",
+                                          canUpload && "cursor-text"
+                                        )}
+                                        onClick={() => canUpload && startEditing(doc)}
+                                      >
+                                        <span className="font-medium truncate flex-1">
+                                          {doc.name}
+                                        </span>
+                                        {canUpload && (
+                                          <Pencil className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                        )}
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent 
+                                      side="top" 
+                                      className="max-w-md break-words"
+                                    >
+                                      {doc.name}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
                               )}
                             </div>
                           </TableCell>
@@ -2829,40 +3063,62 @@ export function DocumentsView({
                                   }
                                 }}
                               >
-                                <PopoverTrigger asChild>
-                                  <button
-                                    className={cn(
-                                      "flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors group cursor-pointer w-full max-w-full",
-                                      doc.investors.length === 0 && "italic"
+                                <TooltipProvider>
+                                  <Tooltip delayDuration={300}>
+                                    <TooltipTrigger asChild>
+                                      <PopoverTrigger asChild>
+                                        <button
+                                          className={cn(
+                                            "flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors group cursor-pointer w-full max-w-full",
+                                            doc.investors.length === 0 && "italic"
+                                          )}
+                                        >
+                                          {doc.investors.length > 0 ? (
+                                            <>
+                                              {doc.investors[0].type === "org" ? (
+                                                <Building2 className="h-3.5 w-3.5 shrink-0" />
+                                              ) : (
+                                                <User className="h-3.5 w-3.5 shrink-0" />
+                                              )}
+                                              <span className="truncate">
+                                                {doc.investors[0].name}
+                                              </span>
+                                              {doc.investors.length > 1 && (
+                                                <Badge
+                                                  variant="secondary"
+                                                  className="text-xs px-1.5 py-0 ml-1"
+                                                >
+                                                  +{doc.investors.length - 1}
+                                                </Badge>
+                                              )}
+                                            </>
+                                          ) : (
+                                            <span className="text-muted-foreground/60">
+                                              Add investor...
+                                            </span>
+                                          )}
+                                          <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-auto shrink-0" />
+                                        </button>
+                                      </PopoverTrigger>
+                                    </TooltipTrigger>
+                                    {doc.investors.length > 1 && (
+                                      <TooltipContent side="top" className="max-w-xs">
+                                        <div className="space-y-1">
+                                          {doc.investors.map((investor, idx) => (
+                                            <div key={idx} className="flex items-center gap-1.5">
+                                              {investor.type === "org" ? (
+                                                <Building2 className="h-3 w-3 shrink-0" />
+                                              ) : (
+                                                <User className="h-3 w-3 shrink-0" />
+                                              )}
+                                              <span>{investor.name}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </TooltipContent>
                                     )}
-                                  >
-                                    {doc.investors.length > 0 ? (
-                                      <>
-                                        {doc.investors[0].type === "org" ? (
-                                          <Building2 className="h-3.5 w-3.5 shrink-0" />
-                                        ) : (
-                                          <User className="h-3.5 w-3.5 shrink-0" />
-                                        )}
-                                        <span className="truncate">
-                                          {doc.investors[0].name}
-                                        </span>
-                                        {doc.investors.length > 1 && (
-                                          <Badge
-                                            variant="secondary"
-                                            className="text-xs px-1.5 py-0 ml-1"
-                                          >
-                                            +{doc.investors.length - 1}
-                                          </Badge>
-                                        )}
-                                      </>
-                                    ) : (
-                                      <span className="text-muted-foreground/60">
-                                        Add investor...
-                                      </span>
-                                    )}
-                                    <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity ml-auto shrink-0" />
-                                  </button>
-                                </PopoverTrigger>
+                                  </Tooltip>
+                                </TooltipProvider>
                                 <PopoverContent
                                   className="w-[280px] p-0"
                                   align="start"
@@ -3046,23 +3302,57 @@ export function DocumentsView({
                                     <div className="space-y-2">
                                       <div>
                                         <Label className="text-xs text-muted-foreground">Start Date</Label>
-                                        <Input
-                                          type="date"
-                                          value={editingPeriodStart}
-                                          onChange={(e) => setEditingPeriodStart(e.target.value)}
-                                          className="h-8 text-sm"
-                                          disabled={isSavingPeriod}
-                                        />
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <Button
+                                              variant="outline"
+                                              className="w-full h-8 justify-start text-left font-normal text-sm"
+                                              disabled={isSavingPeriod}
+                                            >
+                                              <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                                              {editingPeriodStart
+                                                ? format(parse(editingPeriodStart, "yyyy-MM-dd", new Date()), "PPP")
+                                                : "Pick a date"}
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                              mode="single"
+                                              captionLayout="dropdown"
+                                              selected={editingPeriodStart ? parse(editingPeriodStart, "yyyy-MM-dd", new Date()) : undefined}
+                                              defaultMonth={editingPeriodStart ? parse(editingPeriodStart, "yyyy-MM-dd", new Date()) : undefined}
+                                              onSelect={(date) => setEditingPeriodStart(date ? format(date, "yyyy-MM-dd") : "")}
+                                              className="rounded-lg border shadow-sm"
+                                            />
+                                          </PopoverContent>
+                                        </Popover>
                                       </div>
                                       <div>
                                         <Label className="text-xs text-muted-foreground">End Date</Label>
-                                        <Input
-                                          type="date"
-                                          value={editingPeriodEnd}
-                                          onChange={(e) => setEditingPeriodEnd(e.target.value)}
-                                          className="h-8 text-sm"
-                                          disabled={isSavingPeriod}
-                                        />
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <Button
+                                              variant="outline"
+                                              className="w-full h-8 justify-start text-left font-normal text-sm"
+                                              disabled={isSavingPeriod}
+                                            >
+                                              <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                                              {editingPeriodEnd
+                                                ? format(parse(editingPeriodEnd, "yyyy-MM-dd", new Date()), "PPP")
+                                                : "Pick a date"}
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                              mode="single"
+                                              captionLayout="dropdown"
+                                              selected={editingPeriodEnd ? parse(editingPeriodEnd, "yyyy-MM-dd", new Date()) : undefined}
+                                              defaultMonth={editingPeriodEnd ? parse(editingPeriodEnd, "yyyy-MM-dd", new Date()) : undefined}
+                                              onSelect={(date) => setEditingPeriodEnd(date ? format(date, "yyyy-MM-dd") : "")}
+                                              className="rounded-lg border shadow-sm"
+                                            />
+                                          </PopoverContent>
+                                        </Popover>
                                       </div>
                                     </div>
                                     <div className="flex gap-2">
@@ -3135,6 +3425,8 @@ export function DocumentsView({
                                         {tag}
                                         <button
                                           type="button"
+                                          title={`Remove tag '${tag}'`}
+                                          aria-label={`Remove tag '${tag}'`}
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             handleRemoveTag(doc, tag);
@@ -3195,7 +3487,6 @@ export function DocumentsView({
                                     {newTagInput.trim() && (
                                       <div className="max-h-32 overflow-y-auto border rounded">
                                         {(() => {
-                                          const inputSlug = generateTagSlug(newTagInput);
                                           const docTagSlugs = doc.tags.map(generateTagSlug);
                                           const filteredSuggestions = availableTags
                                             .filter(
@@ -3242,6 +3533,8 @@ export function DocumentsView({
                                             {tag}
                                             <button
                                               type="button"
+                                              title={`Remove tag '${tag}'`}
+                                              aria-label={`Remove tag '${tag}'`}
                                               onClick={(e) => {
                                                 e.stopPropagation();
                                                 handleRemoveTag(doc, tag);

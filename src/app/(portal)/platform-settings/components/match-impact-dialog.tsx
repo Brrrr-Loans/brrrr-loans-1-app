@@ -9,7 +9,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/overlays/dialog";
+} from "@/components/ui/shadcn/dialog";
 import { Loader2, CheckCircle, AlertTriangle, ExternalLink } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";

@@ -19,7 +19,7 @@
 import { useId, useEffect, useState } from "react";
 import { LyteNyte } from "@/components/lytenyte-pro";
 import { useLyteNyte, useClientRowDataSource } from "@/hooks/use-lytenyte-pro";
-import { Badge } from "@/components/ui/feedback/badge";
+import { Badge } from "@/components/ui/shadcn/badge";
 import type { Column } from "@1771technologies/lytenyte-pro/types";
 
 interface Deal {

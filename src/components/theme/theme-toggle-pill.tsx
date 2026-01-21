@@ -46,7 +46,7 @@ export function ThemeTogglePill({ className }: ThemeTogglePillProps) {
             key={value}
             type="button"
             role="tab"
-            aria-selected={isActive}
+            {...(isActive && { "aria-selected": true })}
             onClick={() => setTheme(value)}
             className={cn(
               "relative inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-all",

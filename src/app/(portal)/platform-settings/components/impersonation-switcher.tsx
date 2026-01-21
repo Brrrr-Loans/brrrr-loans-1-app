@@ -11,12 +11,12 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/navigation/command";
+} from "@/components/ui/shadcn/command";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/overlays/popover";
+} from "@/components/ui/shadcn/popover";
 import { Badge } from "@/components/ui";
 import { UserCog, X, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
