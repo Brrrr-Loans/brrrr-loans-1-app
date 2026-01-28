@@ -160,6 +160,7 @@ const DOCUMENT_FOLDERS = [
 import { useSupabase } from "@/hooks/use-supabase";
 import { useUser, useOrganizationList, useOrganization } from "@clerk/nextjs";
 import { useCanUpload } from "@/hooks/use-can-upload";
+import { useImpersonation } from "@/contexts/impersonation-context";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -498,6 +499,7 @@ export function DocumentsView({
   const supabase = useSupabase();
   const { canUpload, isLoading: canUploadLoading } = useCanUpload();
   const { organization } = useOrganization();
+  const { impersonatedUserId, isImpersonating } = useImpersonation();
 
   // Admin-only: all orgs and users for upload target selection
   const [allOrgs, setAllOrgs] = useState<
@@ -513,6 +515,12 @@ export function DocumentsView({
     }[]
   >([]);
   const [isAdminDataLoaded, setIsAdminDataLoaded] = useState(false);
+
+  // Impersonated user data (when impersonating)
+  const [impersonatedUserData, setImpersonatedUserData] = useState<{
+    clerkUserId: string;
+    orgMemberships: { orgId: string; orgName: string }[];
+  } | null>(null);
 
   // Document categories and deals for RPC upload (Deals bucket)
   const [documentCategories, setDocumentCategories] = useState<
@@ -545,6 +553,8 @@ export function DocumentsView({
   const allOrgsRef = useRef(allOrgs);
   const userMembershipsRef = useRef(userMemberships?.data);
   const canUploadRef = useRef(canUpload);
+  const impersonatedUserDataRef = useRef(impersonatedUserData);
+  const isImpersonatingRef = useRef(isImpersonating);
 
   // Keep refs in sync with latest values
   useEffect(() => {
@@ -565,6 +575,67 @@ export function DocumentsView({
   useEffect(() => {
     canUploadRef.current = canUpload;
   }, [canUpload]);
+  useEffect(() => {
+    impersonatedUserDataRef.current = impersonatedUserData;
+  }, [impersonatedUserData]);
+  useEffect(() => {
+    isImpersonatingRef.current = isImpersonating;
+  }, [isImpersonating]);
+
+  // Fetch impersonated user's data when impersonation is active
+  useEffect(() => {
+    if (!supabase || !isImpersonating || !impersonatedUserId) {
+      setImpersonatedUserData(null);
+      return;
+    }
+
+    const fetchImpersonatedUserData = async () => {
+      try {
+        // Get impersonated user's clerk_user_id
+        const { data: userData } = await supabase
+          .from("auth_clerk_users")
+          .select("id, clerk_user_id")
+          .eq("id", impersonatedUserId)
+          .single();
+
+        if (!userData || !userData.clerk_user_id) {
+          setImpersonatedUserData(null);
+          return;
+        }
+
+        // Get their organization memberships
+        const { data: memberships } = await supabase
+          .from("auth_clerk_orgs_members")
+          .select(
+            "clerk_org_id, auth_clerk_orgs:clerk_org_id(clerk_org_id, clerk_org_name)",
+          )
+          .eq("auth_clerk_users_id", impersonatedUserId);
+
+        const orgMemberships = (memberships || [])
+          .filter((m) => m.auth_clerk_orgs)
+          .map((m) => {
+            const org = m.auth_clerk_orgs as unknown as {
+              clerk_org_id: string;
+              clerk_org_name: string;
+            };
+            return {
+              orgId: org.clerk_org_id,
+              orgName: org.clerk_org_name || org.clerk_org_id,
+            };
+          });
+
+        setImpersonatedUserData({
+          clerkUserId: userData.clerk_user_id,
+          orgMemberships,
+        });
+      } catch (error) {
+        console.error("Error fetching impersonated user data:", error);
+        setImpersonatedUserData(null);
+      }
+    };
+
+    fetchImpersonatedUserData();
+  }, [supabase, isImpersonating, impersonatedUserId]);
 
   // Fetch all orgs and users for admin upload target selection
   useEffect(() => {
@@ -735,7 +806,7 @@ export function DocumentsView({
   }, []);
 
   // Fetch documents from storage - both personal and organization folders
-  // Admins see ALL files across all users and orgs
+  // Admins see ALL files across all users and orgs (unless impersonating)
   const fetchDocuments = useCallback(
     async (forceRefresh = false) => {
       // Use refs to get latest values without dependencies
@@ -745,10 +816,18 @@ export function DocumentsView({
       const currentAllOrgs = allOrgsRef.current;
       const currentMemberships = userMembershipsRef.current;
       const currentCanUpload = canUploadRef.current;
+      const currentIsImpersonating = isImpersonatingRef.current;
+      const currentImpersonatedUserData = impersonatedUserDataRef.current;
 
       // Wait for all required data to be loaded
       if (!currentSupabase || !currentUser) {
         setIsLoading(false);
+        return;
+      }
+
+      // If impersonating but data not loaded yet, wait
+      if (currentIsImpersonating && !currentImpersonatedUserData) {
+        setIsLoading(true);
         return;
       }
 
@@ -758,11 +837,20 @@ export function DocumentsView({
         setIsLoading(true);
       }
       try {
-        const clerkUserId = currentUser.id;
+        // When impersonating, use the impersonated user's ID; otherwise use current user's ID
+        const clerkUserId =
+          currentIsImpersonating && currentImpersonatedUserData
+            ? currentImpersonatedUserData.clerkUserId
+            : currentUser.id;
         const allDocs: Document[] = [];
 
-        // For admins: query storage.objects directly (much more efficient than individual .list() calls)
-        if (currentCanUpload && currentAllUsers.length > 0) {
+        // For admins (not impersonating): query storage.objects directly (much more efficient than individual .list() calls)
+        // When impersonating, skip this and use the impersonated user's folders only
+        if (
+          currentCanUpload &&
+          currentAllUsers.length > 0 &&
+          !currentIsImpersonating
+        ) {
           // Query all files in the bucket that match our basePath pattern
           // This is a single query instead of N queries per user/org
           // Note: storage_objects_view is a custom view not in generated types
@@ -951,12 +1039,17 @@ export function DocumentsView({
             }
           }
         } else {
-          // Non-admins: only fetch from their own folders
+          // Non-admins (or admins impersonating): only fetch from target user's folders
 
           // 1. Fetch from user's personal folder: users/{clerk_user_id}/{basePath}
           const userPath = `users/${clerkUserId}/${basePath}`;
           const { data: userFiles, error: userError } =
             await currentSupabase.storage.from(bucketName).list(userPath);
+
+          // Determine the label for personal docs
+          const personalLabel = currentIsImpersonating
+            ? "Personal (Impersonated)"
+            : "Personal";
 
           if (!userError && userFiles) {
             const personalDocs = userFiles
@@ -979,7 +1072,7 @@ export function DocumentsView({
                 createdAt: file.created_at || new Date().toISOString(),
                 thumbnailUrl: undefined,
                 source: "personal" as const,
-                sourceName: "Personal",
+                sourceName: personalLabel,
                 investors: [],
                 periodStart: null,
                 periodEnd: null,
@@ -988,43 +1081,88 @@ export function DocumentsView({
           }
 
           // 2. Fetch from each organization's folder: orgs/{clerk_org_id}/{basePath}
-          const memberships = currentMemberships || [];
+          // When impersonating, use the impersonated user's org memberships
+          if (currentIsImpersonating && currentImpersonatedUserData) {
+            // Use impersonated user's org memberships
+            for (const orgMembership of currentImpersonatedUserData.orgMemberships) {
+              const orgId = orgMembership.orgId;
+              const orgName = orgMembership.orgName;
+              const orgPath = `orgs/${orgId}/${basePath}`;
 
-          for (const membership of memberships) {
-            const orgId = membership.organization.id;
-            const orgName = membership.organization.name;
-            const orgPath = `orgs/${orgId}/${basePath}`;
+              const { data: orgFiles, error: orgError } =
+                await currentSupabase.storage.from(bucketName).list(orgPath);
 
-            const { data: orgFiles, error: orgError } =
-              await currentSupabase.storage.from(bucketName).list(orgPath);
+              if (!orgError && orgFiles) {
+                const orgDocs = orgFiles
+                  // Filter out folders (id is null) and placeholder files
+                  .filter(
+                    (file) =>
+                      file.id !== null &&
+                      file.name !== ".emptyFolderPlaceholder",
+                  )
+                  .map((file) => ({
+                    id: `org-${orgId}-${file.id || file.name}`,
+                    name: file.name,
+                    description: getDocumentDescription(file.name),
+                    tags: getDocumentTags(file.name, file.metadata),
+                    size:
+                      file.metadata?.size ||
+                      (file as unknown as { size?: number }).size ||
+                      0,
+                    type: file.metadata?.mimetype || "application/pdf",
+                    path: `${orgPath}/${file.name}`,
+                    createdAt: file.created_at || new Date().toISOString(),
+                    thumbnailUrl: undefined,
+                    source: "organization" as const,
+                    sourceName: orgName,
+                    investors: [],
+                    periodStart: null,
+                    periodEnd: null,
+                  }));
+                allDocs.push(...orgDocs);
+              }
+            }
+          } else {
+            // Normal case: use current user's Clerk memberships
+            const memberships = currentMemberships || [];
 
-            if (!orgError && orgFiles) {
-              const orgDocs = orgFiles
-                // Filter out folders (id is null) and placeholder files
-                .filter(
-                  (file) =>
-                    file.id !== null && file.name !== ".emptyFolderPlaceholder",
-                )
-                .map((file) => ({
-                  id: `org-${orgId}-${file.id || file.name}`,
-                  name: file.name,
-                  description: getDocumentDescription(file.name),
-                  tags: getDocumentTags(file.name, file.metadata),
-                  size:
-                    file.metadata?.size ||
-                    (file as unknown as { size?: number }).size ||
-                    0,
-                  type: file.metadata?.mimetype || "application/pdf",
-                  path: `${orgPath}/${file.name}`,
-                  createdAt: file.created_at || new Date().toISOString(),
-                  thumbnailUrl: undefined,
-                  source: "organization" as const,
-                  sourceName: orgName,
-                  investors: [],
-                  periodStart: null,
-                  periodEnd: null,
-                }));
-              allDocs.push(...orgDocs);
+            for (const membership of memberships) {
+              const orgId = membership.organization.id;
+              const orgName = membership.organization.name;
+              const orgPath = `orgs/${orgId}/${basePath}`;
+
+              const { data: orgFiles, error: orgError } =
+                await currentSupabase.storage.from(bucketName).list(orgPath);
+
+              if (!orgError && orgFiles) {
+                const orgDocs = orgFiles
+                  // Filter out folders (id is null) and placeholder files
+                  .filter(
+                    (file) =>
+                      file.id !== null &&
+                      file.name !== ".emptyFolderPlaceholder",
+                  )
+                  .map((file) => ({
+                    id: `org-${orgId}-${file.id || file.name}`,
+                    name: file.name,
+                    description: getDocumentDescription(file.name),
+                    tags: getDocumentTags(file.name, file.metadata),
+                    size:
+                      file.metadata?.size ||
+                      (file as unknown as { size?: number }).size ||
+                      0,
+                    type: file.metadata?.mimetype || "application/pdf",
+                    path: `${orgPath}/${file.name}`,
+                    createdAt: file.created_at || new Date().toISOString(),
+                    thumbnailUrl: undefined,
+                    source: "organization" as const,
+                    sourceName: orgName,
+                    investors: [],
+                    periodStart: null,
+                    periodEnd: null,
+                  }));
+                allDocs.push(...orgDocs);
+              }
             }
           }
         }
@@ -1361,8 +1499,12 @@ export function DocumentsView({
 
     // Only fetch if we have all required data
     if (supabase && user && orgsLoaded && !canUploadLoading) {
-      // For admins, also wait for admin data
-      if (canUpload && !isAdminDataLoaded) {
+      // For admins (not impersonating), also wait for admin data
+      if (canUpload && !isAdminDataLoaded && !isImpersonating) {
+        return;
+      }
+      // When impersonating, wait for impersonated user data
+      if (isImpersonating && !impersonatedUserData) {
         return;
       }
       fetchDocuments();
@@ -1374,6 +1516,8 @@ export function DocumentsView({
     canUpload,
     canUploadLoading,
     isAdminDataLoaded,
+    isImpersonating,
+    impersonatedUserData,
     fetchDocuments,
     editingDocId,
     isRenaming,
