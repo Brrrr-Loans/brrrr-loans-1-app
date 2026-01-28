@@ -108,33 +108,40 @@ export function DealDocuments() {
     maxFileSize: 50 * 1024 * 1024,
   });
 
-  const fetchDocuments = useCallback(async () => {
-    setLoading(true);
-    try {
-      // Build API URL with impersonation parameter if active
-      const params = new URLSearchParams();
-      if (impersonatedUserId) {
-        params.set("impersonate_user_id", impersonatedUserId.toString());
+  const fetchDocuments = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true);
+      try {
+        // Build API URL with impersonation parameter if active
+        const params = new URLSearchParams();
+        if (impersonatedUserId) {
+          params.set("impersonate_user_id", impersonatedUserId.toString());
+        }
+
+        const queryString = params.toString();
+        const url = `/api/documents/deal${queryString ? `?${queryString}` : ""}`;
+
+        const response = await fetch(url, { signal });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to fetch documents");
+        }
+
+        const docs: DealDocument[] = await response.json();
+        setDocuments(docs);
+      } catch (error) {
+        // Ignore abort errors (expected when switching users rapidly)
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+        console.error("Error fetching deal documents:", error);
+        toast.error("Failed to load documents");
+      } finally {
+        setLoading(false);
       }
-
-      const queryString = params.toString();
-      const url = `/api/documents/deal${queryString ? `?${queryString}` : ""}`;
-
-      const response = await fetch(url);
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to fetch documents");
-      }
-
-      const docs: DealDocument[] = await response.json();
-      setDocuments(docs);
-    } catch (error) {
-      console.error("Error fetching deal documents:", error);
-      toast.error("Failed to load documents");
-    } finally {
-      setLoading(false);
-    }
-  }, [impersonatedUserId]);
+    },
+    [impersonatedUserId],
+  );
 
   // Fetch categories and deals for upload dialog
   const fetchCategoriesAndDeals = useCallback(async () => {
@@ -158,8 +165,16 @@ export function DealDocuments() {
   }, [supabase]);
 
   useEffect(() => {
-    fetchDocuments();
+    // AbortController to cancel in-flight requests when impersonatedUserId changes
+    const abortController = new AbortController();
+
+    fetchDocuments(abortController.signal);
     fetchCategoriesAndDeals();
+
+    // Cleanup: cancel in-flight request when dependencies change or unmount
+    return () => {
+      abortController.abort();
+    };
   }, [fetchDocuments, fetchCategoriesAndDeals]);
 
   // Destructure for dependency tracking

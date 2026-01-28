@@ -521,6 +521,9 @@ export function DocumentsView({
     clerkUserId: string;
     orgMemberships: { orgId: string; orgName: string }[];
   } | null>(null);
+  const [impersonationError, setImpersonationError] = useState<string | null>(
+    null,
+  );
 
   // Document categories and deals for RPC upload (Deals bucket)
   const [documentCategories, setDocumentCategories] = useState<
@@ -555,6 +558,7 @@ export function DocumentsView({
   const canUploadRef = useRef(canUpload);
   const impersonatedUserDataRef = useRef(impersonatedUserData);
   const isImpersonatingRef = useRef(isImpersonating);
+  const impersonationErrorRef = useRef(impersonationError);
 
   // Keep refs in sync with latest values
   useEffect(() => {
@@ -581,35 +585,64 @@ export function DocumentsView({
   useEffect(() => {
     isImpersonatingRef.current = isImpersonating;
   }, [isImpersonating]);
+  useEffect(() => {
+    impersonationErrorRef.current = impersonationError;
+  }, [impersonationError]);
 
   // Fetch impersonated user's data when impersonation is active
   useEffect(() => {
     if (!supabase || !isImpersonating || !impersonatedUserId) {
       setImpersonatedUserData(null);
+      setImpersonationError(null);
       return;
     }
 
+    // AbortController to cancel in-flight requests when user changes rapidly
+    const abortController = new AbortController();
+    let isCancelled = false;
+
     const fetchImpersonatedUserData = async () => {
       try {
+        setImpersonationError(null);
+
         // Get impersonated user's clerk_user_id
-        const { data: userData } = await supabase
+        const { data: userData, error: userError } = await supabase
           .from("auth_clerk_users")
           .select("id, clerk_user_id")
           .eq("id", impersonatedUserId)
-          .single();
+          .single()
+          .abortSignal(abortController.signal);
+
+        // Check if request was cancelled
+        if (isCancelled) return;
+
+        if (userError) {
+          throw new Error(`Failed to fetch user: ${userError.message}`);
+        }
 
         if (!userData || !userData.clerk_user_id) {
-          setImpersonatedUserData(null);
-          return;
+          throw new Error("Impersonated user not found or has no Clerk ID");
         }
 
         // Get their organization memberships
-        const { data: memberships } = await supabase
+        const { data: memberships, error: membershipsError } = await supabase
           .from("auth_clerk_orgs_members")
           .select(
             "clerk_org_id, auth_clerk_orgs:clerk_org_id(clerk_org_id, clerk_org_name)",
           )
-          .eq("auth_clerk_users_id", impersonatedUserId);
+          .eq("auth_clerk_users_id", impersonatedUserId)
+          .abortSignal(abortController.signal);
+
+        // Check if request was cancelled
+        if (isCancelled) return;
+
+        if (membershipsError) {
+          console.warn(
+            "Error fetching org memberships:",
+            membershipsError.message,
+          );
+          // Continue with empty memberships rather than failing completely
+        }
 
         const orgMemberships = (memberships || [])
           .filter((m) => m.auth_clerk_orgs)
@@ -629,12 +662,32 @@ export function DocumentsView({
           orgMemberships,
         });
       } catch (error) {
+        // Ignore abort errors (expected when switching users rapidly)
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+
         console.error("Error fetching impersonated user data:", error);
-        setImpersonatedUserData(null);
+
+        // Only set error if not cancelled
+        if (!isCancelled) {
+          setImpersonatedUserData(null);
+          setImpersonationError(
+            error instanceof Error
+              ? error.message
+              : "Failed to load impersonated user data",
+          );
+        }
       }
     };
 
     fetchImpersonatedUserData();
+
+    // Cleanup: cancel in-flight request when dependencies change or unmount
+    return () => {
+      isCancelled = true;
+      abortController.abort();
+    };
   }, [supabase, isImpersonating, impersonatedUserId]);
 
   // Fetch all orgs and users for admin upload target selection
@@ -1497,6 +1550,12 @@ export function DocumentsView({
       return;
     }
 
+    // If there's an impersonation error, stop loading and let UI show error
+    if (isImpersonating && impersonationError) {
+      setIsLoading(false);
+      return;
+    }
+
     // Only fetch if we have all required data
     if (supabase && user && orgsLoaded && !canUploadLoading) {
       // For admins (not impersonating), also wait for admin data
@@ -1518,6 +1577,7 @@ export function DocumentsView({
     isAdminDataLoaded,
     isImpersonating,
     impersonatedUserData,
+    impersonationError,
     fetchDocuments,
     editingDocId,
     isRenaming,
@@ -3072,8 +3132,24 @@ export function DocumentsView({
         </div>
       </div>
 
-      {/* Loading State */}
-      {isLoading ? (
+      {/* Impersonation Error State */}
+      {impersonationError ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="rounded-full bg-destructive/10 p-4 mb-4">
+            <X className="h-8 w-8 text-destructive" />
+          </div>
+          <h3 className="text-lg font-semibold mb-2">
+            Failed to load impersonated user
+          </h3>
+          <p className="text-sm text-muted-foreground max-w-md mb-4">
+            {impersonationError}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Clear the impersonation to view your own documents.
+          </p>
+        </div>
+      ) : isLoading ? (
+        /* Loading State */
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
