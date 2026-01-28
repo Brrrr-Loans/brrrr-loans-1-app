@@ -69,6 +69,7 @@ import {
   DropzoneEmptyState,
 } from "@/components/ui/custom/supabase-dropzone";
 import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
+import { useDocumentUploadRpc } from "@/hooks/use-document-upload-rpc";
 import {
   Download,
   FileText,
@@ -95,22 +96,49 @@ import {
   Trash2,
   FolderInput,
   Folder,
+  FolderOpen,
   ChevronRight,
   CalendarIcon,
 } from "lucide-react";
 import { Calendar } from "@/components/ui/shadcn/calendar";
 import { format, parse } from "date-fns";
-import { NotionViewTabs, type ViewDefinition, type CardSize, type ViewSettings, type BoardGroupBy } from "@/components/ui/custom/notion-view-tabs";
+import {
+  NotionViewTabs,
+  type ViewDefinition,
+  type CardSize,
+  type ViewSettings,
+  type BoardGroupBy,
+} from "@/components/ui/custom/notion-view-tabs";
 import { DocumentsBoardView } from "./documents-board-view";
 
 // Board grouping options (BoardGroupBy imported from notion-view-tabs)
 
-const BOARD_GROUP_OPTIONS: { id: BoardGroupBy; label: string; description: string }[] = [
-  { id: "dateCreated", label: "Date Created", description: "Group by when documents were uploaded" },
-  { id: "period", label: "Period", description: "Group by the document's date range" },
+const BOARD_GROUP_OPTIONS: {
+  id: BoardGroupBy;
+  label: string;
+  description: string;
+}[] = [
+  {
+    id: "dateCreated",
+    label: "Date Created",
+    description: "Group by when documents were uploaded",
+  },
+  {
+    id: "period",
+    label: "Period",
+    description: "Group by the document's date range",
+  },
   { id: "tags", label: "Tags", description: "Group by document tags" },
-  { id: "investors", label: "Investor(s)", description: "Group by assigned investors" },
-  { id: "source", label: "Source", description: "Group by personal vs organization" },
+  {
+    id: "investors",
+    label: "Investor(s)",
+    description: "Group by assigned investors",
+  },
+  {
+    id: "source",
+    label: "Source",
+    description: "Group by personal vs organization",
+  },
 ];
 
 // Default view settings
@@ -171,9 +199,24 @@ type ViewMode = "table" | "board" | "gallery";
 
 // View type options for the menu
 const VIEW_TYPE_OPTIONS = [
-  { id: "table", label: "Table", icon: Table2, description: "Traditional table layout with rows and columns" },
-  { id: "board", label: "Board", icon: Columns3, description: "Kanban-style board for organizing items in columns" },
-  { id: "gallery", label: "Gallery", icon: LayoutGrid, description: "Grid of cards, use for mood boards and visual content" },
+  {
+    id: "table",
+    label: "Table",
+    icon: Table2,
+    description: "Traditional table layout with rows and columns",
+  },
+  {
+    id: "board",
+    label: "Board",
+    icon: Columns3,
+    description: "Kanban-style board for organizing items in columns",
+  },
+  {
+    id: "gallery",
+    label: "Gallery",
+    icon: LayoutGrid,
+    description: "Grid of cards, use for mood boards and visual content",
+  },
 ];
 
 // View Options Menu Component (Notion-style "..." button)
@@ -192,7 +235,7 @@ function ViewOptionsMenu({
 }: ViewOptionsMenuProps) {
   // Only show card settings for board/gallery views
   const showCardSettings = activeView === "board" || activeView === "gallery";
-  const activeViewOption = VIEW_TYPE_OPTIONS.find(v => v.id === activeView);
+  const activeViewOption = VIEW_TYPE_OPTIONS.find((v) => v.id === activeView);
 
   return (
     <Popover>
@@ -236,11 +279,23 @@ function ViewOptionsMenu({
                     "flex flex-col items-center gap-1.5 p-3 rounded-lg border-2 transition-colors",
                     isSelected
                       ? "border-primary bg-primary/5"
-                      : "border-transparent bg-muted/30 hover:bg-muted/50"
+                      : "border-transparent bg-muted/30 hover:bg-muted/50",
                   )}
                 >
-                  <Icon className={cn("h-5 w-5", isSelected ? "text-primary" : "text-muted-foreground")} />
-                  <span className={cn("text-xs", isSelected ? "text-primary font-medium" : "text-muted-foreground")}>
+                  <Icon
+                    className={cn(
+                      "h-5 w-5",
+                      isSelected ? "text-primary" : "text-muted-foreground",
+                    )}
+                  />
+                  <span
+                    className={cn(
+                      "text-xs",
+                      isSelected
+                        ? "text-primary font-medium"
+                        : "text-muted-foreground",
+                    )}
+                  >
                     {option.label}
                   </span>
                 </button>
@@ -285,7 +340,10 @@ function ViewOptionsMenu({
                 <Select
                   value={viewSettings.cardSize}
                   onValueChange={(value: CardSize) =>
-                    onViewSettingsChange({ ...viewSettings, cardSize: value as CardSize })
+                    onViewSettingsChange({
+                      ...viewSettings,
+                      cardSize: value as CardSize,
+                    })
                   }
                 >
                   <SelectTrigger className="w-24 h-8">
@@ -314,7 +372,10 @@ function ViewOptionsMenu({
                 <Switch
                   checked={viewSettings.wrapProperties}
                   onCheckedChange={(checked) =>
-                    onViewSettingsChange({ ...viewSettings, wrapProperties: checked })
+                    onViewSettingsChange({
+                      ...viewSettings,
+                      wrapProperties: checked,
+                    })
                   }
                 />
               </div>
@@ -324,7 +385,10 @@ function ViewOptionsMenu({
                 <Switch
                   checked={viewSettings.showPageIcon}
                   onCheckedChange={(checked) =>
-                    onViewSettingsChange({ ...viewSettings, showPageIcon: checked })
+                    onViewSettingsChange({
+                      ...viewSettings,
+                      showPageIcon: checked,
+                    })
                   }
                 />
               </div>
@@ -363,8 +427,11 @@ export function DocumentsView({
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [uploadTarget, setUploadTarget] = useState<"personal" | string>(
-    "personal"
+    "personal",
   );
+  const [selectedBucket, setSelectedBucket] = useState<
+    "investors" | "documents"
+  >((bucketName as "investors" | "documents") || "investors");
 
   // Inline editing state
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
@@ -401,13 +468,15 @@ export function DocumentsView({
   const [newTagInput, setNewTagInput] = useState("");
   const [isSavingTags, setIsSavingTags] = useState(false);
   const tagInputRef = useRef<HTMLInputElement>(null);
-  
+
   // Period editing state
-  const [editingPeriodDocId, setEditingPeriodDocId] = useState<string | null>(null);
+  const [editingPeriodDocId, setEditingPeriodDocId] = useState<string | null>(
+    null,
+  );
   const [editingPeriodStart, setEditingPeriodStart] = useState("");
   const [editingPeriodEnd, setEditingPeriodEnd] = useState("");
   const [isSavingPeriod, setIsSavingPeriod] = useState(false);
-  
+
   // Available tags for auto-complete (from document_tags table)
   const [availableTags, setAvailableTags] = useState<
     { id: number; name: string; slug: string }[]
@@ -444,6 +513,14 @@ export function DocumentsView({
     }[]
   >([]);
   const [isAdminDataLoaded, setIsAdminDataLoaded] = useState(false);
+
+  // Document categories and deals for RPC upload (Deals bucket)
+  const [documentCategories, setDocumentCategories] = useState<
+    { id: number; name: string }[]
+  >([]);
+  const [deals, setDeals] = useState<{ id: number; deal_name: string }[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [selectedDealId, setSelectedDealId] = useState<string>("");
 
   // Restore dialog state if it was lost during auth refresh
   useEffect(() => {
@@ -524,6 +601,39 @@ export function DocumentsView({
     fetchAdminData();
   }, [supabase, canUpload, isAdminDataLoaded]);
 
+  // Fetch document categories and deals for RPC upload (Deals bucket)
+  useEffect(() => {
+    if (!supabase) return;
+
+    const fetchCategoriesAndDeals = async () => {
+      try {
+        // Fetch document categories
+        const { data: categoriesData } = await supabase
+          .from("document_categories")
+          .select("id, name")
+          .order("name");
+
+        if (categoriesData) {
+          setDocumentCategories(categoriesData);
+        }
+
+        // Fetch deals (user can only see deals they have access to via RLS)
+        const { data: dealsData } = await supabase
+          .from("deal")
+          .select("id, deal_name")
+          .order("deal_name");
+
+        if (dealsData) {
+          setDeals(dealsData);
+        }
+      } catch (error) {
+        console.error("Error fetching categories/deals:", error);
+      }
+    };
+
+    fetchCategoriesAndDeals();
+  }, [supabase]);
+
   // Fetch available tags for auto-complete from document_tags table
   useEffect(() => {
     if (!supabase) return;
@@ -566,14 +676,34 @@ export function DocumentsView({
     return `orgs/${uploadTarget}/${basePath}`;
   }, [user, uploadTarget, basePath]);
 
-  // Upload hook - will be used in the dialog
-  const uploadProps = useSupabaseUpload({
-    bucketName,
+  // Upload hook for investors bucket (folder-based)
+  const investorsUploadProps = useSupabaseUpload({
+    bucketName: "investors",
     path: uploadPath,
     allowedMimeTypes: allowedTypes,
     maxFiles: 10,
     maxFileSize: 50 * 1024 * 1024, // 50MB
   });
+
+  // Upload hook for documents bucket (RPC-based)
+  const documentsUploadProps = useDocumentUploadRpc({
+    documentCategoryId: selectedCategoryId
+      ? parseInt(selectedCategoryId, 10)
+      : null,
+    dealId:
+      selectedDealId && selectedDealId !== "none"
+        ? parseInt(selectedDealId, 10)
+        : null,
+    allowedMimeTypes: allowedTypes,
+    maxFiles: 10,
+    maxFileSize: 50 * 1024 * 1024, // 50MB
+  });
+
+  // Select the active upload props based on selected bucket
+  const uploadProps =
+    selectedBucket === "investors"
+      ? investorsUploadProps
+      : documentsUploadProps;
 
   // Refs to avoid dependency issues and track state
   const setFilesRef = useRef(uploadProps.setFiles);
@@ -597,7 +727,7 @@ export function DocumentsView({
 
   // Handler for view settings changes that ensures groupBy is always set
   const handleViewSettingsChange = useCallback((settings: ViewSettings) => {
-    setViewSettings(prev => ({
+    setViewSettings((prev) => ({
       ...prev,
       ...settings,
       groupBy: settings.groupBy ?? prev.groupBy,
@@ -637,24 +767,33 @@ export function DocumentsView({
           // This is a single query instead of N queries per user/org
           // Note: storage_objects_view is a custom view not in generated types
           // Using type assertion to bypass TypeScript check
-          const { data: allFiles, error: queryError } = await (currentSupabase as unknown as {
-            from: (table: string) => {
-              select: (columns: string) => {
-                eq: (column: string, value: string) => {
-                  like: (column: string, pattern: string) => Promise<{
-                    data: Array<{
-                      id: string;
-                      name: string;
-                      bucket_id: string;
-                      created_at: string | null;
-                      metadata: Record<string, unknown> | null;
-                    }> | null;
-                    error: Error | null;
-                  }>;
+          const { data: allFiles, error: queryError } = await (
+            currentSupabase as unknown as {
+              from: (table: string) => {
+                select: (columns: string) => {
+                  eq: (
+                    column: string,
+                    value: string,
+                  ) => {
+                    like: (
+                      column: string,
+                      pattern: string,
+                    ) => Promise<{
+                      data: Array<{
+                        id: string;
+                        name: string;
+                        bucket_id: string;
+                        created_at: string | null;
+                        metadata: Record<string, unknown> | null;
+                      }> | null;
+                      error: Error | null;
+                    }>;
+                  };
                 };
               };
-            };
-          }).from("storage_objects_view")
+            }
+          )
+            .from("storage_objects_view")
             .select("id, name, bucket_id, created_at, metadata")
             .eq("bucket_id", bucketName)
             .like("name", `%/${basePath}/%`);
@@ -665,10 +804,10 @@ export function DocumentsView({
               currentAllUsers.map((u) => [
                 u.clerk_user_id,
                 `${u.first_name} ${u.last_name}`.trim() || u.email,
-              ])
+              ]),
             );
             const orgNameMap = new Map(
-              currentAllOrgs.map((o) => [o.clerk_org_id, o.clerk_org_name])
+              currentAllOrgs.map((o) => [o.clerk_org_id, o.clerk_org_name]),
             );
 
             for (const file of allFiles) {
@@ -719,7 +858,7 @@ export function DocumentsView({
             // Fallback to individual .list() calls if view doesn't exist
             // This handles the case where the view hasn't been created yet
             console.warn(
-              "storage_objects_view not available, falling back to individual queries"
+              "storage_objects_view not available, falling back to individual queries",
             );
 
             // Fetch from all users' folders (with error suppression)
@@ -741,7 +880,7 @@ export function DocumentsView({
                 // Filter out folders (id is null) and placeholder files
                 .filter(
                   (file) =>
-                    file.id !== null && file.name !== ".emptyFolderPlaceholder"
+                    file.id !== null && file.name !== ".emptyFolderPlaceholder",
                 )
                 .map((file) => ({
                   id: `user-${u.clerk_user_id}-${file.id || file.name}`,
@@ -787,7 +926,7 @@ export function DocumentsView({
                 // Filter out folders (id is null) and placeholder files
                 .filter(
                   (file) =>
-                    file.id !== null && file.name !== ".emptyFolderPlaceholder"
+                    file.id !== null && file.name !== ".emptyFolderPlaceholder",
                 )
                 .map((file) => ({
                   id: `org-${org.clerk_org_id}-${file.id || file.name}`,
@@ -824,7 +963,7 @@ export function DocumentsView({
               // Filter out folders (id is null) and placeholder files
               .filter(
                 (file) =>
-                  file.id !== null && file.name !== ".emptyFolderPlaceholder"
+                  file.id !== null && file.name !== ".emptyFolderPlaceholder",
               )
               .map((file) => ({
                 id: `personal-${file.id || file.name}`,
@@ -864,7 +1003,7 @@ export function DocumentsView({
                 // Filter out folders (id is null) and placeholder files
                 .filter(
                   (file) =>
-                    file.id !== null && file.name !== ".emptyFolderPlaceholder"
+                    file.id !== null && file.name !== ".emptyFolderPlaceholder",
                 )
                 .map((file) => ({
                   id: `org-${orgId}-${file.id || file.name}`,
@@ -894,12 +1033,13 @@ export function DocumentsView({
         // Path: document_files -> bsi_transactions_document_files -> bsi_transactions_investors -> auth_clerk_orgs
         if (allDocs.length > 0) {
           const paths = allDocs.map((d) => d.path);
-          
+
           // First, try to get investors through the transaction relationship
           // This query joins document_files -> bsi_transactions_document_files -> bsi_transactions_investors
           const { data: transactionInvestors } = await currentSupabase
             .from("document_files")
-            .select(`
+            .select(
+              `
               storage_path,
               bsi_transactions_document_files!inner (
                 transaction_id,
@@ -912,31 +1052,32 @@ export function DocumentsView({
                   )
                 )
               )
-            `)
+            `,
+            )
             .in("storage_path", paths);
 
           // Build a map of investor names for quick lookup
           const orgNameMap = new Map(
-            currentAllOrgs.map((o) => [o.clerk_org_id, o.clerk_org_name])
+            currentAllOrgs.map((o) => [o.clerk_org_id, o.clerk_org_name]),
           );
           const userNameMap = new Map(
             currentAllUsers.map((u) => [
               u.clerk_user_id,
               `${u.first_name} ${u.last_name}`.trim() || u.email,
-            ])
+            ]),
           );
 
           // Group assignments by document path from transaction relationship
           const assignmentsByPath = new Map<string, InvestorAssignment[]>();
-          
+
           if (transactionInvestors && transactionInvestors.length > 0) {
             for (const docFile of transactionInvestors) {
               const filePath = docFile.storage_path;
               if (!filePath) continue;
-              
+
               const investors: InvestorAssignment[] = [];
               const seenInvestors = new Set<string>(); // Deduplicate by type+id
-              
+
               // Process each transaction's investors
               const txDocs = docFile.bsi_transactions_document_files;
               if (Array.isArray(txDocs)) {
@@ -947,10 +1088,14 @@ export function DocumentsView({
                       // Handle org investors
                       if (inv.clerk_org_id) {
                         const orgInfo = inv.auth_clerk_orgs;
-                        const orgId = orgInfo?.clerk_org_id || String(inv.clerk_org_id);
-                        const orgName = orgInfo?.clerk_org_name || orgNameMap.get(orgId) || `Org ${inv.clerk_org_id}`;
+                        const orgId =
+                          orgInfo?.clerk_org_id || String(inv.clerk_org_id);
+                        const orgName =
+                          orgInfo?.clerk_org_name ||
+                          orgNameMap.get(orgId) ||
+                          `Org ${inv.clerk_org_id}`;
                         const key = `org-${orgId}`;
-                        
+
                         if (!seenInvestors.has(key)) {
                           seenInvestors.add(key);
                           investors.push({
@@ -963,9 +1108,11 @@ export function DocumentsView({
                       // Handle user investors
                       if (inv.clerk_user_id) {
                         const userId = String(inv.clerk_user_id);
-                        const userName = userNameMap.get(userId) || `User ${inv.clerk_user_id}`;
+                        const userName =
+                          userNameMap.get(userId) ||
+                          `User ${inv.clerk_user_id}`;
                         const key = `user-${userId}`;
-                        
+
                         if (!seenInvestors.has(key)) {
                           seenInvestors.add(key);
                           investors.push({
@@ -979,7 +1126,7 @@ export function DocumentsView({
                   }
                 }
               }
-              
+
               if (investors.length > 0) {
                 assignmentsByPath.set(filePath, investors);
               }
@@ -989,12 +1136,15 @@ export function DocumentsView({
           // Query direct investor assignments from junction tables
           // Get all storage paths from allDocs
           const storagePaths = allDocs.map((d) => d.path).filter(Boolean);
-          
+
           // Map to store persisted tags by path
           const persistedTagsByPath = new Map<string, string[]>();
           // Map to store period dates by path
-          const periodByPath = new Map<string, { start: string | null; end: string | null }>();
-          
+          const periodByPath = new Map<
+            string,
+            { start: string | null; end: string | null }
+          >();
+
           if (storagePaths.length > 0) {
             // Query document_files to get IDs and period dates for our storage paths
             const { data: docFilesData } = await currentSupabase
@@ -1002,12 +1152,14 @@ export function DocumentsView({
               .select("id, storage_path, period_start, period_end")
               .eq("storage_bucket", bucketName)
               .in("storage_path", storagePaths);
-            
+
             // Build map of document_file IDs to storage paths for tag lookup
             if (docFilesData && docFilesData.length > 0) {
               const docFileIds = docFilesData.map((df) => df.id);
-              const idToPathMap = new Map(docFilesData.map((df) => [df.id, df.storage_path]));
-              
+              const idToPathMap = new Map(
+                docFilesData.map((df) => [df.id, df.storage_path]),
+              );
+
               // IMPORTANT: Initialize ALL documents with document_files records to empty arrays
               // This ensures that documents with no tags get an empty array (not undefined)
               // which will override auto-generated tags from filenames
@@ -1020,22 +1172,28 @@ export function DocumentsView({
                   });
                 }
               }
-              
+
               // Query tags via junction table with join to document_tags
               const { data: tagAssignments } = await currentSupabase
                 .from("document_files_tags")
                 .select("document_file_id, document_tags(id, name, slug)")
                 .in("document_file_id", docFileIds);
-              
+
               // Build map of tags by storage path (now populating the initialized arrays)
               if (tagAssignments) {
                 for (const assignment of tagAssignments) {
-                  const storagePath = idToPathMap.get(assignment.document_file_id);
+                  const storagePath = idToPathMap.get(
+                    assignment.document_file_id,
+                  );
                   if (!storagePath) continue;
-                  
-                  const tagInfo = assignment.document_tags as { id: number; name: string; slug: string } | null;
+
+                  const tagInfo = assignment.document_tags as {
+                    id: number;
+                    name: string;
+                    slug: string;
+                  } | null;
                   if (!tagInfo) continue;
-                  
+
                   const existing = persistedTagsByPath.get(storagePath) || [];
                   if (!existing.includes(tagInfo.name)) {
                     existing.push(tagInfo.name);
@@ -1043,35 +1201,48 @@ export function DocumentsView({
                   }
                 }
               }
-              
+
               // Reuse the same docFileIds and idToPathMap for investor queries
               const pathToIdMap = idToPathMap;
-              
+
               // Query org assignments
               const { data: orgAssignments } = await currentSupabase
                 .from("document_files_clerk_orgs")
-                .select("document_file_id, clerk_org_id, auth_clerk_orgs(clerk_org_id, clerk_org_name)")
+                .select(
+                  "document_file_id, clerk_org_id, auth_clerk_orgs(clerk_org_id, clerk_org_name)",
+                )
                 .in("document_file_id", docFileIds);
-              
+
               // Query user assignments
               const { data: userAssignments } = await currentSupabase
                 .from("document_files_clerk_users")
-                .select("document_file_id, clerk_user_id, auth_clerk_users(clerk_user_id, first_name, last_name, email)")
+                .select(
+                  "document_file_id, clerk_user_id, auth_clerk_users(clerk_user_id, first_name, last_name, email)",
+                )
                 .in("document_file_id", docFileIds);
-              
+
               // Merge org assignments into assignmentsByPath
               if (orgAssignments) {
                 for (const assignment of orgAssignments) {
-                  const storagePath = pathToIdMap.get(assignment.document_file_id);
+                  const storagePath = pathToIdMap.get(
+                    assignment.document_file_id,
+                  );
                   if (!storagePath) continue;
-                  
-                  const orgInfo = assignment.auth_clerk_orgs as { clerk_org_id: string; clerk_org_name: string } | null;
+
+                  const orgInfo = assignment.auth_clerk_orgs as {
+                    clerk_org_id: string;
+                    clerk_org_name: string;
+                  } | null;
                   if (!orgInfo) continue;
-                  
+
                   const existing = assignmentsByPath.get(storagePath) || [];
-                  
+
                   // Check if already added
-                  if (!existing.some((i) => i.type === "org" && i.id === orgInfo.clerk_org_id)) {
+                  if (
+                    !existing.some(
+                      (i) => i.type === "org" && i.id === orgInfo.clerk_org_id,
+                    )
+                  ) {
                     existing.push({
                       type: "org",
                       id: orgInfo.clerk_org_id,
@@ -1081,21 +1252,36 @@ export function DocumentsView({
                   }
                 }
               }
-              
+
               // Merge user assignments into assignmentsByPath
               if (userAssignments) {
                 for (const assignment of userAssignments) {
-                  const storagePath = pathToIdMap.get(assignment.document_file_id);
+                  const storagePath = pathToIdMap.get(
+                    assignment.document_file_id,
+                  );
                   if (!storagePath) continue;
-                  
-                  const userInfo = assignment.auth_clerk_users as { clerk_user_id: string; first_name: string | null; last_name: string | null; email: string | null } | null;
+
+                  const userInfo = assignment.auth_clerk_users as {
+                    clerk_user_id: string;
+                    first_name: string | null;
+                    last_name: string | null;
+                    email: string | null;
+                  } | null;
                   if (!userInfo) continue;
-                  
-                  const userName = `${userInfo.first_name || ""} ${userInfo.last_name || ""}`.trim() || userInfo.email || "Unknown";
+
+                  const userName =
+                    `${userInfo.first_name || ""} ${userInfo.last_name || ""}`.trim() ||
+                    userInfo.email ||
+                    "Unknown";
                   const existing = assignmentsByPath.get(storagePath) || [];
-                  
+
                   // Check if already added
-                  if (!existing.some((i) => i.type === "user" && i.id === userInfo.clerk_user_id)) {
+                  if (
+                    !existing.some(
+                      (i) =>
+                        i.type === "user" && i.id === userInfo.clerk_user_id,
+                    )
+                  ) {
                     existing.push({
                       type: "user",
                       id: userInfo.clerk_user_id,
@@ -1111,7 +1297,7 @@ export function DocumentsView({
           // Merge assignments, persisted tags, and period dates into documents
           for (const doc of allDocs) {
             doc.investors = assignmentsByPath.get(doc.path) || [];
-            
+
             // Use persisted tags if they exist, otherwise keep auto-generated tags
             const persistedTags = persistedTagsByPath.get(doc.path);
             if (persistedTags !== undefined) {
@@ -1119,7 +1305,7 @@ export function DocumentsView({
               doc.tags = persistedTags;
             }
             // If no persisted tags, keep the auto-generated tags from getDocumentTags()
-            
+
             // Add period dates if they exist
             const period = periodByPath.get(doc.path);
             if (period) {
@@ -1132,7 +1318,7 @@ export function DocumentsView({
         // Sort by creation date, newest first
         allDocs.sort(
           (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
         );
 
         setDocuments(allDocs);
@@ -1143,14 +1329,13 @@ export function DocumentsView({
         setIsLoading(false);
         initialFetchDoneRef.current = true;
       }
-       
     },
     [
       // Only include dependencies that should trigger a refetch
       // supabase client changes shouldn't cause refetch if we already have data
       bucketName,
       basePath,
-    ]
+    ],
   );
 
   // Track recent delete operations to prevent immediate refetch
@@ -1229,7 +1414,7 @@ export function DocumentsView({
       (doc) =>
         doc.name.toLowerCase().includes(query) ||
         doc.description?.toLowerCase().includes(query) ||
-        doc.tags.some((tag) => tag.toLowerCase().includes(query))
+        doc.tags.some((tag) => tag.toLowerCase().includes(query)),
     );
   }, [documents, searchQuery]);
 
@@ -1287,7 +1472,7 @@ export function DocumentsView({
     setIsDownloading(true);
     try {
       const docsToDownload = filteredDocuments.filter((d) =>
-        selectedDocs.has(d.id)
+        selectedDocs.has(d.id),
       );
 
       for (const doc of docsToDownload) {
@@ -1351,8 +1536,8 @@ export function DocumentsView({
                 description: getDocumentDescription(editingName),
                 tags: d.tags, // Preserve existing tags
               }
-            : d
-        )
+            : d,
+        ),
       );
 
       // Also update the storage_path in document_files if it exists
@@ -1389,7 +1574,7 @@ export function DocumentsView({
   // 2. Add/remove entries from document_files_clerk_orgs or document_files_clerk_users
   const handleToggleInvestor = async (
     doc: Document,
-    investor: InvestorAssignment
+    investor: InvestorAssignment,
   ) => {
     // Use the current supabase client directly (not ref) to ensure fresh auth
     if (!supabase || !canUpload) {
@@ -1400,7 +1585,7 @@ export function DocumentsView({
     setIsSavingInvestors(true);
     try {
       const isCurrentlyAssigned = doc.investors.some(
-        (i) => i.type === investor.type && i.id === investor.id
+        (i) => i.type === investor.type && i.id === investor.id,
       );
 
       // First, ensure we have a document_files record for this storage path
@@ -1413,14 +1598,16 @@ export function DocumentsView({
             storage_path: doc.path,
             document_name: doc.name,
           },
-          { onConflict: "storage_bucket,storage_path" }
+          { onConflict: "storage_bucket,storage_path" },
         )
         .select("id")
         .single();
 
       if (upsertError || !docFileData) {
         console.error("Error upserting document_files:", upsertError);
-        throw new Error(upsertError?.message || "Failed to create document record");
+        throw new Error(
+          upsertError?.message || "Failed to create document record",
+        );
       }
 
       const documentFileId = docFileData.id;
@@ -1470,11 +1657,11 @@ export function DocumentsView({
               ? {
                   ...d,
                   investors: d.investors.filter(
-                    (i) => !(i.type === investor.type && i.id === investor.id)
+                    (i) => !(i.type === investor.type && i.id === investor.id),
                   ),
                 }
-              : d
-          )
+              : d,
+          ),
         );
         toast.success(`Removed ${investor.name}`);
       } else {
@@ -1529,8 +1716,8 @@ export function DocumentsView({
                   ...d,
                   investors: [...d.investors, investor],
                 }
-              : d
-          )
+              : d,
+          ),
         );
         toast.success(`Added ${investor.name}`);
       }
@@ -1540,8 +1727,8 @@ export function DocumentsView({
         error instanceof Error
           ? error.message
           : error && typeof error === "object" && "message" in error
-          ? (error as { message: string }).message
-          : String(error);
+            ? (error as { message: string }).message
+            : String(error);
       console.error("Error updating investor assignment:", errorMessage);
       toast.error(`Failed to update investor: ${errorMessage}`);
     } finally {
@@ -1568,7 +1755,10 @@ export function DocumentsView({
       investors.push({
         type: "user",
         id: u.clerk_user_id,
-        name: `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email || "Unknown",
+        name:
+          `${u.first_name || ""} ${u.last_name || ""}`.trim() ||
+          u.email ||
+          "Unknown",
       });
     }
 
@@ -1580,7 +1770,7 @@ export function DocumentsView({
     if (!investorSearchQuery.trim()) return availableInvestors;
     const query = investorSearchQuery.toLowerCase();
     return availableInvestors.filter((inv) =>
-      inv.name.toLowerCase().includes(query)
+      inv.name.toLowerCase().includes(query),
     );
   }, [availableInvestors, investorSearchQuery]);
 
@@ -1599,7 +1789,7 @@ export function DocumentsView({
 
     const trimmedTag = newTag.trim();
     const tagSlug = generateTagSlug(trimmedTag);
-    
+
     // Don't add duplicate tags (check by slug for normalization)
     const existingTagSlugs = doc.tags.map(generateTagSlug);
     if (existingTagSlugs.includes(tagSlug)) {
@@ -1619,21 +1809,23 @@ export function DocumentsView({
             storage_path: doc.path,
             document_name: doc.name,
           },
-          { onConflict: "storage_bucket,storage_path" }
+          { onConflict: "storage_bucket,storage_path" },
         )
         .select("id")
         .single();
 
       if (upsertError || !docFileData) {
         console.error("Error ensuring document_files record:", upsertError);
-        throw new Error(upsertError?.message || "Failed to create document record");
+        throw new Error(
+          upsertError?.message || "Failed to create document record",
+        );
       }
 
       // Step 2: Find or create the tag in document_tags
       // First try to find existing tag by slug
       let tagId: number | null = null;
       const existingTag = availableTags.find((t) => t.slug === tagSlug);
-      
+
       if (existingTag) {
         tagId = existingTag.id;
       } else {
@@ -1653,9 +1845,11 @@ export function DocumentsView({
         }
 
         tagId = newTagData.id;
-        
+
         // Add to available tags for auto-complete
-        setAvailableTags((prev) => [...prev, newTagData].sort((a, b) => a.name.localeCompare(b.name)));
+        setAvailableTags((prev) =>
+          [...prev, newTagData].sort((a, b) => a.name.localeCompare(b.name)),
+        );
       }
 
       // Step 3: Create junction table entry
@@ -1678,10 +1872,8 @@ export function DocumentsView({
       const displayName = existingTag?.name || trimmedTag;
       setDocuments((prev) =>
         prev.map((d) =>
-          d.id === doc.id
-            ? { ...d, tags: [...d.tags, displayName] }
-            : d
-        )
+          d.id === doc.id ? { ...d, tags: [...d.tags, displayName] } : d,
+        ),
       );
 
       setNewTagInput("");
@@ -1691,8 +1883,8 @@ export function DocumentsView({
         error instanceof Error
           ? error.message
           : typeof error === "object" && error !== null && "message" in error
-          ? (error as { message: string }).message
-          : String(error);
+            ? (error as { message: string }).message
+            : String(error);
       console.error("Error adding tag:", errorMessage);
       toast.error(`Failed to add tag: ${errorMessage}`);
     } finally {
@@ -1721,8 +1913,8 @@ export function DocumentsView({
           prev.map((d) =>
             d.id === doc.id
               ? { ...d, tags: d.tags.filter((t) => t !== tagToRemove) }
-              : d
-          )
+              : d,
+          ),
         );
         toast.success(`Removed tag "${tagToRemove}"`);
         return;
@@ -1731,7 +1923,7 @@ export function DocumentsView({
       // Step 2: Find the tag by slug
       const tagSlug = generateTagSlug(tagToRemove);
       const tagRecord = availableTags.find((t) => t.slug === tagSlug);
-      
+
       if (!tagRecord) {
         // Tag not in available tags - might be from old TEXT[] column
         // Just update local state
@@ -1739,8 +1931,8 @@ export function DocumentsView({
           prev.map((d) =>
             d.id === doc.id
               ? { ...d, tags: d.tags.filter((t) => t !== tagToRemove) }
-              : d
-          )
+              : d,
+          ),
         );
         toast.success(`Removed tag "${tagToRemove}"`);
         return;
@@ -1763,8 +1955,8 @@ export function DocumentsView({
         prev.map((d) =>
           d.id === doc.id
             ? { ...d, tags: d.tags.filter((t) => t !== tagToRemove) }
-            : d
-        )
+            : d,
+        ),
       );
 
       toast.success(`Removed tag "${tagToRemove}"`);
@@ -1773,8 +1965,8 @@ export function DocumentsView({
         error instanceof Error
           ? error.message
           : typeof error === "object" && error !== null && "message" in error
-          ? (error as { message: string }).message
-          : String(error);
+            ? (error as { message: string }).message
+            : String(error);
       console.error("Error removing tag:", errorMessage);
       toast.error(`Failed to remove tag: ${errorMessage}`);
     } finally {
@@ -1799,7 +1991,7 @@ export function DocumentsView({
             period_start: editingPeriodStart || null,
             period_end: editingPeriodEnd || null,
           },
-          { onConflict: "storage_bucket,storage_path" }
+          { onConflict: "storage_bucket,storage_path" },
         );
 
       if (upsertError) {
@@ -1816,8 +2008,8 @@ export function DocumentsView({
                 periodStart: editingPeriodStart || null,
                 periodEnd: editingPeriodEnd || null,
               }
-            : d
-        )
+            : d,
+        ),
       );
 
       setEditingPeriodDocId(null);
@@ -1827,8 +2019,8 @@ export function DocumentsView({
         error instanceof Error
           ? error.message
           : typeof error === "object" && error !== null && "message" in error
-          ? (error as { message: string }).message
-          : String(error);
+            ? (error as { message: string }).message
+            : String(error);
       console.error("Error saving period:", errorMessage);
       toast.error(`Failed to save period: ${errorMessage}`);
     } finally {
@@ -1837,7 +2029,11 @@ export function DocumentsView({
   };
 
   // Handle document move in board view (drag-and-drop between columns)
-  const handleDocumentMove = async (docId: string, targetColumnId: string, groupBy: BoardGroupBy) => {
+  const handleDocumentMove = async (
+    docId: string,
+    targetColumnId: string,
+    groupBy: BoardGroupBy,
+  ) => {
     if (!supabase) return;
 
     const doc = documents.find((d) => d.id === docId);
@@ -1851,18 +2047,16 @@ export function DocumentsView({
           // Column ID format: "periodStart_periodEnd" or "no-period"
           if (targetColumnId === "no-period") {
             // Clear the period
-            const { error } = await supabase
-              .from("document_files")
-              .upsert(
-                {
-                  storage_bucket: bucketName,
-                  storage_path: doc.path,
-                  document_name: doc.name,
-                  period_start: null,
-                  period_end: null,
-                },
-                { onConflict: "storage_bucket,storage_path" }
-              );
+            const { error } = await supabase.from("document_files").upsert(
+              {
+                storage_bucket: bucketName,
+                storage_path: doc.path,
+                document_name: doc.name,
+                period_start: null,
+                period_end: null,
+              },
+              { onConflict: "storage_bucket,storage_path" },
+            );
 
             if (error) throw error;
 
@@ -1870,39 +2064,37 @@ export function DocumentsView({
               prev.map((d) =>
                 d.id === docId
                   ? { ...d, periodStart: null, periodEnd: null }
-                  : d
-              )
+                  : d,
+              ),
             );
             toast.success("Period cleared");
           } else {
             // Parse period from column ID (format: "startDate_endDate")
             const [periodStart, periodEnd] = targetColumnId.split("_");
-            
-            const { error } = await supabase
-              .from("document_files")
-              .upsert(
-                {
-                  storage_bucket: bucketName,
-                  storage_path: doc.path,
-                  document_name: doc.name,
-                  period_start: periodStart || null,
-                  period_end: periodEnd || null,
-                },
-                { onConflict: "storage_bucket,storage_path" }
-              );
+
+            const { error } = await supabase.from("document_files").upsert(
+              {
+                storage_bucket: bucketName,
+                storage_path: doc.path,
+                document_name: doc.name,
+                period_start: periodStart || null,
+                period_end: periodEnd || null,
+              },
+              { onConflict: "storage_bucket,storage_path" },
+            );
 
             if (error) throw error;
 
             setDocuments((prev) =>
               prev.map((d) =>
                 d.id === docId
-                  ? { 
-                      ...d, 
-                      periodStart: periodStart || null, 
-                      periodEnd: periodEnd || null 
+                  ? {
+                      ...d,
+                      periodStart: periodStart || null,
+                      periodEnd: periodEnd || null,
                     }
-                  : d
-              )
+                  : d,
+              ),
             );
             toast.success("Period updated");
           }
@@ -1914,24 +2106,20 @@ export function DocumentsView({
           // Column ID format: "tag-{tagName}" or "untagged"
           if (targetColumnId === "untagged") {
             // Clear all tags
-            const { error } = await supabase
-              .from("document_files")
-              .upsert(
-                {
-                  storage_bucket: bucketName,
-                  storage_path: doc.path,
-                  document_name: doc.name,
-                  tags: [],
-                },
-                { onConflict: "storage_bucket,storage_path" }
-              );
+            const { error } = await supabase.from("document_files").upsert(
+              {
+                storage_bucket: bucketName,
+                storage_path: doc.path,
+                document_name: doc.name,
+                tags: [],
+              },
+              { onConflict: "storage_bucket,storage_path" },
+            );
 
             if (error) throw error;
 
             setDocuments((prev) =>
-              prev.map((d) =>
-                d.id === docId ? { ...d, tags: [] } : d
-              )
+              prev.map((d) => (d.id === docId ? { ...d, tags: [] } : d)),
             );
             toast.success("Tags cleared");
           } else {
@@ -1939,24 +2127,20 @@ export function DocumentsView({
             const newTag = targetColumnId.replace("tag-", "");
             const newTags = [...new Set([...doc.tags, newTag])];
 
-            const { error } = await supabase
-              .from("document_files")
-              .upsert(
-                {
-                  storage_bucket: bucketName,
-                  storage_path: doc.path,
-                  document_name: doc.name,
-                  tags: newTags,
-                },
-                { onConflict: "storage_bucket,storage_path" }
-              );
+            const { error } = await supabase.from("document_files").upsert(
+              {
+                storage_bucket: bucketName,
+                storage_path: doc.path,
+                document_name: doc.name,
+                tags: newTags,
+              },
+              { onConflict: "storage_bucket,storage_path" },
+            );
 
             if (error) throw error;
 
             setDocuments((prev) =>
-              prev.map((d) =>
-                d.id === docId ? { ...d, tags: newTags } : d
-              )
+              prev.map((d) => (d.id === docId ? { ...d, tags: newTags } : d)),
             );
             toast.success(`Added tag: ${newTag}`);
           }
@@ -1976,9 +2160,7 @@ export function DocumentsView({
       }
     } catch (error) {
       const errorMessage =
-        error instanceof Error
-          ? error.message
-          : String(error);
+        error instanceof Error ? error.message : String(error);
       console.error("Error moving document:", errorMessage);
       toast.error(`Failed to move document: ${errorMessage}`);
     }
@@ -2034,7 +2216,7 @@ export function DocumentsView({
   // Move handler - moves document to a different folder
   const handleMove = async (doc: Document, targetFolder: string) => {
     if (!supabase || !canUpload) return;
-    
+
     // Don't move to the same folder
     if (doc.path.includes(`/${targetFolder}/`)) {
       toast.info(`Document is already in ${targetFolder}`);
@@ -2047,7 +2229,7 @@ export function DocumentsView({
       // Path format: users/{userId}/{basePath}/{filename} or orgs/{orgId}/{basePath}/{filename}
       const pathParts = doc.path.split("/");
       const filename = pathParts[pathParts.length - 1];
-      
+
       // Determine the prefix (users/{id} or orgs/{id})
       let prefix: string;
       if (pathParts[0] === "users") {
@@ -2057,9 +2239,9 @@ export function DocumentsView({
       } else {
         throw new Error("Unknown path format");
       }
-      
+
       const newPath = `${prefix}/${targetFolder}/${filename}`;
-      
+
       // Move the file in storage
       const { error: moveError } = await supabase.storage
         .from(bucketName)
@@ -2091,15 +2273,17 @@ export function DocumentsView({
         return next;
       });
 
-      const targetLabel = DOCUMENT_FOLDERS.find(f => f.id === targetFolder)?.label || targetFolder;
+      const targetLabel =
+        DOCUMENT_FOLDERS.find((f) => f.id === targetFolder)?.label ||
+        targetFolder;
       toast.success(`Moved "${doc.name}" to ${targetLabel}`);
     } catch (error) {
       const errorMessage =
         error instanceof Error
           ? error.message
           : typeof error === "object" && error !== null && "message" in error
-          ? (error as { message: string }).message
-          : String(error);
+            ? (error as { message: string }).message
+            : String(error);
       console.error("Move error:", errorMessage);
       toast.error(`Failed to move file: ${errorMessage}`);
     } finally {
@@ -2143,7 +2327,7 @@ export function DocumentsView({
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
     },
-    [columnWidths]
+    [columnWidths],
   );
 
   // Helper functions
@@ -2154,7 +2338,7 @@ export function DocumentsView({
 
   function getDocumentTags(
     filename: string,
-    _metadata?: Record<string, unknown>
+    _metadata?: Record<string, unknown>,
   ): string[] {
     // Note: _metadata is available for future use (e.g., extracting tags from file metadata)
     void _metadata;
@@ -2184,7 +2368,7 @@ export function DocumentsView({
   // Format period date range for display
   function formatPeriod(start: string | null, end: string | null): string {
     if (!start && !end) return "";
-    
+
     const formatDate = (dateStr: string) => {
       const date = new Date(dateStr + "T00:00:00"); // Ensure consistent parsing
       const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -2192,11 +2376,11 @@ export function DocumentsView({
       const year = date.getFullYear();
       return `${month}/${day}/${year}`;
     };
-    
+
     if (start && end) {
       return `${formatDate(start)} - ${formatDate(end)}`;
     }
-    
+
     if (start) return formatDate(start);
     if (end) return formatDate(end);
     return "";
@@ -2304,7 +2488,7 @@ export function DocumentsView({
     if (!supabase || !canUpload || selectedDocs.size === 0) return;
 
     const docsToDelete = filteredDocuments.filter((d) =>
-      selectedDocs.has(d.id)
+      selectedDocs.has(d.id),
     );
     const confirmMessage = `Are you sure you want to delete ${
       docsToDelete.length
@@ -2335,7 +2519,7 @@ export function DocumentsView({
       toast.success(
         `Deleted ${docsToDelete.length} file${
           docsToDelete.length > 1 ? "s" : ""
-        }`
+        }`,
       );
     } catch (error) {
       // Reset ref on error so fetches can resume
@@ -2351,15 +2535,13 @@ export function DocumentsView({
   const handleBulkMove = async (targetFolder: string) => {
     if (!supabase || !canUpload || selectedDocs.size === 0) return;
 
-    const docsToMove = filteredDocuments.filter((d) =>
-      selectedDocs.has(d.id)
-    );
-    
+    const docsToMove = filteredDocuments.filter((d) => selectedDocs.has(d.id));
+
     // Filter out docs already in the target folder
     const eligibleDocs = docsToMove.filter(
-      (d) => !d.path.includes(`/${targetFolder}/`)
+      (d) => !d.path.includes(`/${targetFolder}/`),
     );
-    
+
     if (eligibleDocs.length === 0) {
       toast.info("All selected documents are already in that folder");
       return;
@@ -2374,7 +2556,7 @@ export function DocumentsView({
         // Parse the current path to get the base
         const pathParts = doc.path.split("/");
         const filename = pathParts[pathParts.length - 1];
-        
+
         let prefix: string;
         if (pathParts[0] === "users") {
           prefix = `users/${pathParts[1]}`;
@@ -2383,9 +2565,9 @@ export function DocumentsView({
         } else {
           throw new Error("Unknown path format");
         }
-        
+
         const newPath = `${prefix}/${targetFolder}/${filename}`;
-        
+
         // Move the file in storage
         const { error: moveError } = await supabase.storage
           .from(bucketName)
@@ -2413,19 +2595,27 @@ export function DocumentsView({
 
     // Update local state - remove moved docs
     if (successCount > 0) {
-      const movedIds = new Set(eligibleDocs.slice(0, successCount).map((d) => d.id));
+      const movedIds = new Set(
+        eligibleDocs.slice(0, successCount).map((d) => d.id),
+      );
       setDocuments((prev) => prev.filter((d) => !movedIds.has(d.id)));
       setSelectedDocs(new Set());
     }
 
-    const targetLabel = DOCUMENT_FOLDERS.find((f) => f.id === targetFolder)?.label || targetFolder;
-    
+    const targetLabel =
+      DOCUMENT_FOLDERS.find((f) => f.id === targetFolder)?.label ||
+      targetFolder;
+
     if (errorCount === 0) {
-      toast.success(`Moved ${successCount} file${successCount > 1 ? "s" : ""} to ${targetLabel}`);
+      toast.success(
+        `Moved ${successCount} file${successCount > 1 ? "s" : ""} to ${targetLabel}`,
+      );
     } else if (successCount === 0) {
       toast.error("Failed to move files");
     } else {
-      toast.warning(`Moved ${successCount} file${successCount > 1 ? "s" : ""}, ${errorCount} failed`);
+      toast.warning(
+        `Moved ${successCount} file${successCount > 1 ? "s" : ""}, ${errorCount} failed`,
+      );
     }
 
     setIsMoving(false);
@@ -2519,6 +2709,90 @@ export function DocumentsView({
             </Select>
           </div>
 
+          {/* Storage Bucket Selection */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Storage Bucket</label>
+            <Select
+              value={selectedBucket}
+              onValueChange={(v) =>
+                setSelectedBucket(v as "investors" | "documents")
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select storage bucket" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="investors">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    <span>Balance Sheet Investors</span>
+                  </div>
+                </SelectItem>
+                <SelectItem value="documents">
+                  <div className="flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4" />
+                    <span>Deals</span>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {selectedBucket === "investors"
+                ? "Folder-based access to files linked to orgs and users"
+                : "Permission-based access to files linked to deals"}
+            </p>
+          </div>
+
+          {/* Category and Deal Selection - only shown for Deals bucket */}
+          {selectedBucket === "documents" && (
+            <>
+              {/* Document Category Selector (required for Deals bucket) */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Document Category <span className="text-destructive">*</span>
+                </label>
+                <Select
+                  value={selectedCategoryId}
+                  onValueChange={setSelectedCategoryId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {documentCategories.map((cat) => (
+                      <SelectItem key={cat.id} value={String(cat.id)}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Deal Selector (optional) */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Link to Deal (optional)
+                </label>
+                <Select
+                  value={selectedDealId}
+                  onValueChange={setSelectedDealId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select deal (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No deal link</SelectItem>
+                    {deals.map((deal) => (
+                      <SelectItem key={deal.id} value={String(deal.id)}>
+                        {deal.deal_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+
           {/* Dropzone */}
           <Dropzone {...uploadProps}>
             <DropzoneEmptyState />
@@ -2538,7 +2812,11 @@ export function DocumentsView({
             </Button>
             <Button
               onClick={uploadProps.onUpload}
-              disabled={uploadProps.files.length === 0 || uploadProps.loading}
+              disabled={
+                uploadProps.files.length === 0 ||
+                uploadProps.loading ||
+                (selectedBucket === "documents" && !selectedCategoryId)
+              }
             >
               {uploadProps.loading ? (
                 <>
@@ -2600,7 +2878,11 @@ export function DocumentsView({
             showAddButton={true}
             onAddView={(viewType, viewName) => {
               // For now, just switch to the view type
-              if (viewType === "table" || viewType === "board" || viewType === "gallery") {
+              if (
+                viewType === "table" ||
+                viewType === "board" ||
+                viewType === "gallery"
+              ) {
                 setViewMode(viewType as ViewMode);
               }
               toast.success(`Created "${viewName}" view`);
@@ -2663,9 +2945,12 @@ export function DocumentsView({
                 exit={{ opacity: 0, y: -10 }}
                 className={cn(
                   "grid gap-4",
-                  viewSettings.cardSize === "small" && "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6",
-                  viewSettings.cardSize === "medium" && "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
-                  viewSettings.cardSize === "large" && "grid-cols-1 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3"
+                  viewSettings.cardSize === "small" &&
+                    "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6",
+                  viewSettings.cardSize === "medium" &&
+                    "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+                  viewSettings.cardSize === "large" &&
+                    "grid-cols-1 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3",
                 )}
               >
                 {filteredDocuments.map((doc) => (
@@ -2675,7 +2960,7 @@ export function DocumentsView({
                     animate={{ opacity: 1, scale: 1 }}
                     className={cn(
                       "group relative border rounded-lg bg-card overflow-hidden hover:shadow-md transition-shadow cursor-pointer",
-                      selectedDocs.has(doc.id) && "ring-2 ring-primary"
+                      selectedDocs.has(doc.id) && "ring-2 ring-primary",
                     )}
                     onClick={() => handleSelectDoc(doc.id)}
                   >
@@ -2684,9 +2969,21 @@ export function DocumentsView({
                       const fileStyle = getFileIcon(doc.name, doc.type);
                       const IconComponent = fileStyle.icon;
                       const thumbnailSizes = {
-                        small: { aspect: "aspect-[4/3]", box: "h-10 w-10 rounded-lg", icon: "h-5 w-5" },
-                        medium: { aspect: "aspect-[4/3]", box: "h-16 w-16 rounded-xl border-2", icon: "h-8 w-8" },
-                        large: { aspect: "aspect-[16/9]", box: "h-20 w-20 rounded-xl border-2", icon: "h-10 w-10" },
+                        small: {
+                          aspect: "aspect-[4/3]",
+                          box: "h-10 w-10 rounded-lg",
+                          icon: "h-5 w-5",
+                        },
+                        medium: {
+                          aspect: "aspect-[4/3]",
+                          box: "h-16 w-16 rounded-xl border-2",
+                          icon: "h-8 w-8",
+                        },
+                        large: {
+                          aspect: "aspect-[16/9]",
+                          box: "h-20 w-20 rounded-xl border-2",
+                          icon: "h-10 w-10",
+                        },
                       };
                       const sizes = thumbnailSizes[viewSettings.cardSize];
                       return (
@@ -2694,7 +2991,7 @@ export function DocumentsView({
                           className={cn(
                             "flex items-center justify-center border-b",
                             sizes.aspect,
-                            fileStyle.bg
+                            fileStyle.bg,
                           )}
                         >
                           {viewSettings.showPageIcon && (
@@ -2703,7 +3000,7 @@ export function DocumentsView({
                                 "flex items-center justify-center",
                                 sizes.box,
                                 fileStyle.bg,
-                                fileStyle.border
+                                fileStyle.border,
                               )}
                             >
                               <IconComponent
@@ -2798,7 +3095,8 @@ export function DocumentsView({
                           <div className="flex items-center justify-center">
                             <Checkbox
                               checked={
-                                selectedDocs.size === filteredDocuments.length &&
+                                selectedDocs.size ===
+                                  filteredDocuments.length &&
                                 filteredDocuments.length > 0
                               }
                               onCheckedChange={handleSelectAll}
@@ -2889,7 +3187,7 @@ export function DocumentsView({
                           key={doc.id}
                           className={cn(
                             "cursor-pointer",
-                            selectedDocs.has(doc.id) && "bg-muted/50"
+                            selectedDocs.has(doc.id) && "bg-muted/50",
                           )}
                           onClick={() => handleSelectDoc(doc.id)}
                         >
@@ -2914,7 +3212,7 @@ export function DocumentsView({
                               {(() => {
                                 const fileStyle = getFileIcon(
                                   doc.name,
-                                  doc.type
+                                  doc.type,
                                 );
                                 const IconComponent = fileStyle.icon;
                                 return (
@@ -2924,17 +3222,20 @@ export function DocumentsView({
                                         className={cn(
                                           "h-9 w-9 rounded-lg border flex items-center justify-center shrink-0 transition-colors cursor-pointer hover:ring-2 hover:ring-primary/50",
                                           fileStyle.bg,
-                                          fileStyle.border
+                                          fileStyle.border,
                                         )}
                                       >
                                         <IconComponent
-                                          className={cn("h-4 w-4", fileStyle.color)}
+                                          className={cn(
+                                            "h-4 w-4",
+                                            fileStyle.color,
+                                          )}
                                         />
                                       </div>
                                     </HoverCardTrigger>
-                                    <HoverCardContent 
-                                      side="right" 
-                                      align="start" 
+                                    <HoverCardContent
+                                      side="right"
+                                      align="start"
                                       className="w-80 p-3"
                                     >
                                       <div className="space-y-2">
@@ -2943,11 +3244,14 @@ export function DocumentsView({
                                             className={cn(
                                               "h-12 w-12 rounded-lg border flex items-center justify-center shrink-0",
                                               fileStyle.bg,
-                                              fileStyle.border
+                                              fileStyle.border,
                                             )}
                                           >
                                             <IconComponent
-                                              className={cn("h-6 w-6", fileStyle.color)}
+                                              className={cn(
+                                                "h-6 w-6",
+                                                fileStyle.color,
+                                              )}
                                             />
                                           </div>
                                           <div className="flex-1 min-w-0">
@@ -2955,7 +3259,8 @@ export function DocumentsView({
                                               {doc.name}
                                             </p>
                                             <p className="text-xs text-muted-foreground mt-1">
-                                              {doc.type} • {formatFileSize(doc.size)}
+                                              {doc.type} •{" "}
+                                              {formatFileSize(doc.size)}
                                             </p>
                                           </div>
                                         </div>
@@ -3022,9 +3327,11 @@ export function DocumentsView({
                                       <div
                                         className={cn(
                                           "flex items-center gap-2 group min-w-0",
-                                          canUpload && "cursor-text"
+                                          canUpload && "cursor-text",
                                         )}
-                                        onClick={() => canUpload && startEditing(doc)}
+                                        onClick={() =>
+                                          canUpload && startEditing(doc)
+                                        }
                                       >
                                         <span className="font-medium truncate flex-1">
                                           {doc.name}
@@ -3034,8 +3341,8 @@ export function DocumentsView({
                                         )}
                                       </div>
                                     </TooltipTrigger>
-                                    <TooltipContent 
-                                      side="top" 
+                                    <TooltipContent
+                                      side="top"
                                       className="max-w-md break-words"
                                     >
                                       {doc.name}
@@ -3070,12 +3377,14 @@ export function DocumentsView({
                                         <button
                                           className={cn(
                                             "flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors group cursor-pointer w-full max-w-full",
-                                            doc.investors.length === 0 && "italic"
+                                            doc.investors.length === 0 &&
+                                              "italic",
                                           )}
                                         >
                                           {doc.investors.length > 0 ? (
                                             <>
-                                              {doc.investors[0].type === "org" ? (
+                                              {doc.investors[0].type ===
+                                              "org" ? (
                                                 <Building2 className="h-3.5 w-3.5 shrink-0" />
                                               ) : (
                                                 <User className="h-3.5 w-3.5 shrink-0" />
@@ -3102,18 +3411,26 @@ export function DocumentsView({
                                       </PopoverTrigger>
                                     </TooltipTrigger>
                                     {doc.investors.length > 1 && (
-                                      <TooltipContent side="top" className="max-w-xs">
+                                      <TooltipContent
+                                        side="top"
+                                        className="max-w-xs"
+                                      >
                                         <div className="space-y-1">
-                                          {doc.investors.map((investor, idx) => (
-                                            <div key={idx} className="flex items-center gap-1.5">
-                                              {investor.type === "org" ? (
-                                                <Building2 className="h-3 w-3 shrink-0" />
-                                              ) : (
-                                                <User className="h-3 w-3 shrink-0" />
-                                              )}
-                                              <span>{investor.name}</span>
-                                            </div>
-                                          ))}
+                                          {doc.investors.map(
+                                            (investor, idx) => (
+                                              <div
+                                                key={idx}
+                                                className="flex items-center gap-1.5"
+                                              >
+                                                {investor.type === "org" ? (
+                                                  <Building2 className="h-3 w-3 shrink-0" />
+                                                ) : (
+                                                  <User className="h-3 w-3 shrink-0" />
+                                                )}
+                                                <span>{investor.name}</span>
+                                              </div>
+                                            ),
+                                          )}
                                         </div>
                                       </TooltipContent>
                                     )}
@@ -3134,7 +3451,7 @@ export function DocumentsView({
                                         No investors found.
                                       </CommandEmpty>
                                       {filteredInvestors.filter(
-                                        (i) => i.type === "org"
+                                        (i) => i.type === "org",
                                       ).length > 0 && (
                                         <CommandGroup heading="Organizations">
                                           {filteredInvestors
@@ -3144,7 +3461,7 @@ export function DocumentsView({
                                                 doc.investors.some(
                                                   (i) =>
                                                     i.type === investor.type &&
-                                                    i.id === investor.id
+                                                    i.id === investor.id,
                                                 );
                                               return (
                                                 <CommandItem
@@ -3152,7 +3469,7 @@ export function DocumentsView({
                                                   onSelect={() =>
                                                     handleToggleInvestor(
                                                       doc,
-                                                      investor
+                                                      investor,
                                                     )
                                                   }
                                                   disabled={isSavingInvestors}
@@ -3163,7 +3480,7 @@ export function DocumentsView({
                                                       "h-4 w-4 border rounded flex items-center justify-center shrink-0",
                                                       isSelected
                                                         ? "bg-primary border-primary"
-                                                        : "border-muted-foreground/30"
+                                                        : "border-muted-foreground/30",
                                                     )}
                                                   >
                                                     {isSelected && (
@@ -3180,7 +3497,7 @@ export function DocumentsView({
                                         </CommandGroup>
                                       )}
                                       {filteredInvestors.filter(
-                                        (i) => i.type === "user"
+                                        (i) => i.type === "user",
                                       ).length > 0 && (
                                         <CommandGroup heading="Users">
                                           {filteredInvestors
@@ -3190,7 +3507,7 @@ export function DocumentsView({
                                                 doc.investors.some(
                                                   (i) =>
                                                     i.type === investor.type &&
-                                                    i.id === investor.id
+                                                    i.id === investor.id,
                                                 );
                                               return (
                                                 <CommandItem
@@ -3198,7 +3515,7 @@ export function DocumentsView({
                                                   onSelect={() =>
                                                     handleToggleInvestor(
                                                       doc,
-                                                      investor
+                                                      investor,
                                                     )
                                                   }
                                                   disabled={isSavingInvestors}
@@ -3209,7 +3526,7 @@ export function DocumentsView({
                                                       "h-4 w-4 border rounded flex items-center justify-center shrink-0",
                                                       isSelected
                                                         ? "bg-primary border-primary"
-                                                        : "border-muted-foreground/30"
+                                                        : "border-muted-foreground/30",
                                                     )}
                                                   >
                                                     {isSelected && (
@@ -3289,7 +3606,10 @@ export function DocumentsView({
                               >
                                 <PopoverTrigger asChild>
                                   <div className="text-xs text-muted-foreground p-1 border border-primary/50 rounded bg-muted/50 min-h-[24px]">
-                                    {formatPeriod(editingPeriodStart, editingPeriodEnd) || "Set period..."}
+                                    {formatPeriod(
+                                      editingPeriodStart,
+                                      editingPeriodEnd,
+                                    ) || "Set period..."}
                                   </div>
                                 </PopoverTrigger>
                                 <PopoverContent
@@ -3298,10 +3618,14 @@ export function DocumentsView({
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   <div className="space-y-3">
-                                    <div className="text-sm font-medium">Set Period</div>
+                                    <div className="text-sm font-medium">
+                                      Set Period
+                                    </div>
                                     <div className="space-y-2">
                                       <div>
-                                        <Label className="text-xs text-muted-foreground">Start Date</Label>
+                                        <Label className="text-xs text-muted-foreground">
+                                          Start Date
+                                        </Label>
                                         <Popover>
                                           <PopoverTrigger asChild>
                                             <Button
@@ -3311,24 +3635,58 @@ export function DocumentsView({
                                             >
                                               <CalendarIcon className="mr-2 h-3.5 w-3.5" />
                                               {editingPeriodStart
-                                                ? format(parse(editingPeriodStart, "yyyy-MM-dd", new Date()), "PPP")
+                                                ? format(
+                                                    parse(
+                                                      editingPeriodStart,
+                                                      "yyyy-MM-dd",
+                                                      new Date(),
+                                                    ),
+                                                    "PPP",
+                                                  )
                                                 : "Pick a date"}
                                             </Button>
                                           </PopoverTrigger>
-                                          <PopoverContent className="w-auto p-0" align="start">
+                                          <PopoverContent
+                                            className="w-auto p-0"
+                                            align="start"
+                                          >
                                             <Calendar
                                               mode="single"
                                               captionLayout="dropdown"
-                                              selected={editingPeriodStart ? parse(editingPeriodStart, "yyyy-MM-dd", new Date()) : undefined}
-                                              defaultMonth={editingPeriodStart ? parse(editingPeriodStart, "yyyy-MM-dd", new Date()) : undefined}
-                                              onSelect={(date) => setEditingPeriodStart(date ? format(date, "yyyy-MM-dd") : "")}
+                                              selected={
+                                                editingPeriodStart
+                                                  ? parse(
+                                                      editingPeriodStart,
+                                                      "yyyy-MM-dd",
+                                                      new Date(),
+                                                    )
+                                                  : undefined
+                                              }
+                                              defaultMonth={
+                                                editingPeriodStart
+                                                  ? parse(
+                                                      editingPeriodStart,
+                                                      "yyyy-MM-dd",
+                                                      new Date(),
+                                                    )
+                                                  : undefined
+                                              }
+                                              onSelect={(date) =>
+                                                setEditingPeriodStart(
+                                                  date
+                                                    ? format(date, "yyyy-MM-dd")
+                                                    : "",
+                                                )
+                                              }
                                               className="rounded-lg border shadow-sm"
                                             />
                                           </PopoverContent>
                                         </Popover>
                                       </div>
                                       <div>
-                                        <Label className="text-xs text-muted-foreground">End Date</Label>
+                                        <Label className="text-xs text-muted-foreground">
+                                          End Date
+                                        </Label>
                                         <Popover>
                                           <PopoverTrigger asChild>
                                             <Button
@@ -3338,17 +3696,49 @@ export function DocumentsView({
                                             >
                                               <CalendarIcon className="mr-2 h-3.5 w-3.5" />
                                               {editingPeriodEnd
-                                                ? format(parse(editingPeriodEnd, "yyyy-MM-dd", new Date()), "PPP")
+                                                ? format(
+                                                    parse(
+                                                      editingPeriodEnd,
+                                                      "yyyy-MM-dd",
+                                                      new Date(),
+                                                    ),
+                                                    "PPP",
+                                                  )
                                                 : "Pick a date"}
                                             </Button>
                                           </PopoverTrigger>
-                                          <PopoverContent className="w-auto p-0" align="start">
+                                          <PopoverContent
+                                            className="w-auto p-0"
+                                            align="start"
+                                          >
                                             <Calendar
                                               mode="single"
                                               captionLayout="dropdown"
-                                              selected={editingPeriodEnd ? parse(editingPeriodEnd, "yyyy-MM-dd", new Date()) : undefined}
-                                              defaultMonth={editingPeriodEnd ? parse(editingPeriodEnd, "yyyy-MM-dd", new Date()) : undefined}
-                                              onSelect={(date) => setEditingPeriodEnd(date ? format(date, "yyyy-MM-dd") : "")}
+                                              selected={
+                                                editingPeriodEnd
+                                                  ? parse(
+                                                      editingPeriodEnd,
+                                                      "yyyy-MM-dd",
+                                                      new Date(),
+                                                    )
+                                                  : undefined
+                                              }
+                                              defaultMonth={
+                                                editingPeriodEnd
+                                                  ? parse(
+                                                      editingPeriodEnd,
+                                                      "yyyy-MM-dd",
+                                                      new Date(),
+                                                    )
+                                                  : undefined
+                                              }
+                                              onSelect={(date) =>
+                                                setEditingPeriodEnd(
+                                                  date
+                                                    ? format(date, "yyyy-MM-dd")
+                                                    : "",
+                                                )
+                                              }
                                               className="rounded-lg border shadow-sm"
                                             />
                                           </PopoverContent>
@@ -3371,7 +3761,9 @@ export function DocumentsView({
                                       <Button
                                         size="sm"
                                         variant="outline"
-                                        onClick={() => setEditingPeriodDocId(null)}
+                                        onClick={() =>
+                                          setEditingPeriodDocId(null)
+                                        }
                                         disabled={isSavingPeriod}
                                       >
                                         Cancel
@@ -3382,13 +3774,12 @@ export function DocumentsView({
                               </Popover>
                             ) : (
                               <div className="text-xs text-muted-foreground hover:bg-muted/50 rounded p-1 -m-1 transition-colors">
-                                {formatPeriod(doc.periodStart, doc.periodEnd) || (
-                                  canUpload && (
+                                {formatPeriod(doc.periodStart, doc.periodEnd) ||
+                                  (canUpload && (
                                     <span className="text-muted-foreground/50 italic">
                                       + Set period
                                     </span>
-                                  )
-                                )}
+                                  ))}
                               </div>
                             )}
                           </TableCell>
@@ -3439,7 +3830,9 @@ export function DocumentsView({
                                       </Badge>
                                     ))}
                                     {doc.tags.length === 0 && (
-                                      <span className="text-xs text-muted-foreground">No tags</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        No tags
+                                      </span>
                                     )}
                                   </div>
                                 </PopoverTrigger>
@@ -3454,7 +3847,9 @@ export function DocumentsView({
                                         ref={tagInputRef}
                                         placeholder="Type to search or create..."
                                         value={newTagInput}
-                                        onChange={(e) => setNewTagInput(e.target.value)}
+                                        onChange={(e) =>
+                                          setNewTagInput(e.target.value)
+                                        }
                                         onKeyDown={(e) => {
                                           if (e.key === "Enter") {
                                             e.preventDefault();
@@ -3472,8 +3867,12 @@ export function DocumentsView({
                                         size="sm"
                                         variant="secondary"
                                         className="h-8 px-2"
-                                        onClick={() => handleAddTag(doc, newTagInput)}
-                                        disabled={!newTagInput.trim() || isSavingTags}
+                                        onClick={() =>
+                                          handleAddTag(doc, newTagInput)
+                                        }
+                                        disabled={
+                                          !newTagInput.trim() || isSavingTags
+                                        }
                                       >
                                         {isSavingTags ? (
                                           <Loader2 className="h-4 w-4 animate-spin" />
@@ -3482,46 +3881,59 @@ export function DocumentsView({
                                         )}
                                       </Button>
                                     </div>
-                                    
+
                                     {/* Auto-complete suggestions */}
                                     {newTagInput.trim() && (
                                       <div className="max-h-32 overflow-y-auto border rounded">
                                         {(() => {
-                                          const docTagSlugs = doc.tags.map(generateTagSlug);
-                                          const filteredSuggestions = availableTags
-                                            .filter(
-                                              (t) =>
-                                                t.name.toLowerCase().includes(newTagInput.toLowerCase()) &&
-                                                !docTagSlugs.includes(t.slug)
-                                            )
-                                            .slice(0, 5);
-                                          
-                                          if (filteredSuggestions.length === 0) {
+                                          const docTagSlugs =
+                                            doc.tags.map(generateTagSlug);
+                                          const filteredSuggestions =
+                                            availableTags
+                                              .filter(
+                                                (t) =>
+                                                  t.name
+                                                    .toLowerCase()
+                                                    .includes(
+                                                      newTagInput.toLowerCase(),
+                                                    ) &&
+                                                  !docTagSlugs.includes(t.slug),
+                                              )
+                                              .slice(0, 5);
+
+                                          if (
+                                            filteredSuggestions.length === 0
+                                          ) {
                                             return (
                                               <div className="p-2 text-xs text-muted-foreground italic">
-                                                Press Enter to create &quot;{newTagInput.trim()}&quot;
+                                                Press Enter to create &quot;
+                                                {newTagInput.trim()}&quot;
                                               </div>
                                             );
                                           }
-                                          
-                                          return filteredSuggestions.map((tag) => (
-                                            <button
-                                              key={tag.id}
-                                              type="button"
-                                              className="w-full text-left px-2 py-1.5 text-sm hover:bg-muted transition-colors flex items-center justify-between"
-                                              onClick={() => {
-                                                handleAddTag(doc, tag.name);
-                                              }}
-                                              disabled={isSavingTags}
-                                            >
-                                              <span>{tag.name}</span>
-                                              <span className="text-xs text-muted-foreground">Select</span>
-                                            </button>
-                                          ));
+
+                                          return filteredSuggestions.map(
+                                            (tag) => (
+                                              <button
+                                                key={tag.id}
+                                                type="button"
+                                                className="w-full text-left px-2 py-1.5 text-sm hover:bg-muted transition-colors flex items-center justify-between"
+                                                onClick={() => {
+                                                  handleAddTag(doc, tag.name);
+                                                }}
+                                                disabled={isSavingTags}
+                                              >
+                                                <span>{tag.name}</span>
+                                                <span className="text-xs text-muted-foreground">
+                                                  Select
+                                                </span>
+                                              </button>
+                                            ),
+                                          );
                                         })()}
                                       </div>
                                     )}
-                                    
+
                                     {doc.tags.length > 0 && (
                                       <div className="flex flex-wrap gap-1 pt-1 border-t">
                                         {doc.tags.map((tag) => (
@@ -3628,11 +4040,14 @@ export function DocumentsView({
                                     </DropdownMenuSubTrigger>
                                     <DropdownMenuSubContent>
                                       {DOCUMENT_FOLDERS.filter(
-                                        (folder) => !doc.path.includes(`/${folder.id}/`)
+                                        (folder) =>
+                                          !doc.path.includes(`/${folder.id}/`),
                                       ).map((folder) => (
                                         <DropdownMenuItem
                                           key={folder.id}
-                                          onClick={() => handleMove(doc, folder.id)}
+                                          onClick={() =>
+                                            handleMove(doc, folder.id)
+                                          }
                                           disabled={isMoving}
                                         >
                                           <Folder className="h-4 w-4 mr-2" />
@@ -3640,7 +4055,8 @@ export function DocumentsView({
                                         </DropdownMenuItem>
                                       ))}
                                       {DOCUMENT_FOLDERS.filter(
-                                        (folder) => !doc.path.includes(`/${folder.id}/`)
+                                        (folder) =>
+                                          !doc.path.includes(`/${folder.id}/`),
                                       ).length === 0 && (
                                         <DropdownMenuItem disabled>
                                           <span className="text-muted-foreground text-sm">
@@ -3691,9 +4107,9 @@ export function DocumentsView({
                     <span className="text-sm font-medium text-foreground">
                       {selectedDocs.size} selected
                     </span>
-                    <div 
-                      role="separator" 
-                      aria-orientation="vertical" 
+                    <div
+                      role="separator"
+                      aria-orientation="vertical"
                       className="h-4 w-px bg-border ml-0.5"
                     />
                     <Button
@@ -3708,9 +4124,9 @@ export function DocumentsView({
                   </div>
 
                   {/* Main Separator */}
-                  <div 
-                    role="separator" 
-                    aria-orientation="vertical" 
+                  <div
+                    role="separator"
+                    aria-orientation="vertical"
                     className="h-6 w-px bg-border"
                   />
 
@@ -3736,7 +4152,9 @@ export function DocumentsView({
                           <Button
                             variant="ghost"
                             size="sm"
-                            disabled={isDownloading || isBulkDeleting || isMoving}
+                            disabled={
+                              isDownloading || isBulkDeleting || isMoving
+                            }
                             className="gap-2 h-8 px-3 text-foreground hover:bg-muted/50"
                           >
                             {isMoving ? (
@@ -3750,7 +4168,7 @@ export function DocumentsView({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start">
                           {DOCUMENT_FOLDERS.filter(
-                            (folder) => folder.id !== basePath
+                            (folder) => folder.id !== basePath,
                           ).map((folder) => (
                             <DropdownMenuItem
                               key={folder.id}

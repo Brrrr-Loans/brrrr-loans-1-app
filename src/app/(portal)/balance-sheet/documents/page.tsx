@@ -2,11 +2,17 @@
 
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { FileSpreadsheet, CreditCard, FileSignature } from "lucide-react";
+import {
+  FileSpreadsheet,
+  CreditCard,
+  FileSignature,
+  FolderOpen,
+} from "lucide-react";
 import { PageHeader } from "@/components/ui/custom/page-header";
 import { StatementsTable } from "./components/statements-table";
 import { PaymentRecords } from "./components/payment-records";
 import { ParticipationAgreements } from "./components/participation-agreements";
+import { DealDocuments } from "./components/deal-documents";
 
 function DocumentsPageContent() {
   const searchParams = useSearchParams();
@@ -34,6 +40,13 @@ function DocumentsPageContent() {
       icon: FileSignature,
       content: <ParticipationAgreements />,
     },
+    {
+      id: "deal-documents",
+      label: "Deal Documents",
+      href: "/balance-sheet/documents?tab=deal-documents",
+      icon: FolderOpen,
+      content: <DealDocuments />,
+    },
   ];
 
   return (
@@ -52,9 +65,7 @@ export default function DocumentsPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex items-center justify-center py-12">
-          Loading...
-        </div>
+        <div className="flex items-center justify-center py-12">Loading...</div>
       }
     >
       <DocumentsPageContent />
