@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useSupabase } from "@/hooks/use-supabase";
+import { useImpersonation } from "@/contexts/impersonation-context";
 import { Card } from "@/components/ui/shadcn/card";
 import { Button } from "@/components/ui/shadcn/button";
 import { Badge } from "@/components/ui/shadcn/badge";
@@ -74,6 +75,7 @@ function formatFileSize(bytes: number | null): string {
 
 export function DealDocuments() {
   const supabase = useSupabase();
+  const { impersonatedUserId } = useImpersonation();
   const [documents, setDocuments] = useState<DealDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
@@ -107,55 +109,24 @@ export function DealDocuments() {
   });
 
   const fetchDocuments = useCallback(async () => {
-    if (!supabase) return;
-
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("document_files")
-        .select(
-          `
-          id,
-          document_name,
-          storage_bucket,
-          storage_path,
-          file_type,
-          file_size,
-          uploaded_at,
-          document_category:document_categories(name),
-          document_files_deals(deal:deal(deal_name))
-        `,
-        )
-        .eq("storage_bucket", "documents")
-        .not("uploaded_at", "is", null)
-        .order("uploaded_at", { ascending: false });
-
-      if (error) {
-        console.error("Error fetching deal documents:", error);
-        toast.error("Failed to load documents");
-        return;
+      // Build API URL with impersonation parameter if active
+      const params = new URLSearchParams();
+      if (impersonatedUserId) {
+        params.set("impersonate_user_id", impersonatedUserId.toString());
       }
 
-      // Transform to flat structure
-      const docs: DealDocument[] = (data || []).map((df) => ({
-        id: df.id,
-        document_name: df.document_name,
-        storage_bucket: df.storage_bucket,
-        storage_path: df.storage_path,
-        file_type: df.file_type,
-        file_size: df.file_size,
-        uploaded_at: df.uploaded_at,
-        category_name:
-          (df.document_category as { name: string } | null)?.name || null,
-        deal_names: (
-          (df.document_files_deals as
-            | { deal: { deal_name: string } | null }[]
-            | null) || []
-        )
-          .map((d) => d.deal?.deal_name)
-          .filter((n): n is string => Boolean(n)),
-      }));
+      const queryString = params.toString();
+      const url = `/api/documents/deal${queryString ? `?${queryString}` : ""}`;
 
+      const response = await fetch(url);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to fetch documents");
+      }
+
+      const docs: DealDocument[] = await response.json();
       setDocuments(docs);
     } catch (error) {
       console.error("Error fetching deal documents:", error);
@@ -163,7 +134,7 @@ export function DealDocuments() {
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [impersonatedUserId]);
 
   // Fetch categories and deals for upload dialog
   const fetchCategoriesAndDeals = useCallback(async () => {
