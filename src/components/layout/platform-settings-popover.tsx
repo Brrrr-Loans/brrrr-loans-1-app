@@ -9,19 +9,18 @@ import {
   ExternalLink,
   Palette,
   Settings2,
-  Sparkles,
   SunMoon,
   Building2,
   Users,
   Globe,
   Shield,
   ChevronRight,
+  ArrowRightLeft,
+  FileCode2,
+  Mail,
+  Wand2,
 } from "lucide-react";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui";
 import {
   Collapsible,
   CollapsibleContent,
@@ -42,7 +41,13 @@ const ORG_SETTINGS_ITEMS = [
   { id: "general", label: "General", icon: Building2, path: "" },
   { id: "members", label: "Members", icon: Users, path: "" },
   { id: "domains", label: "Domains", icon: Globe, path: "" },
-  { id: "permissions", label: "Permissions", icon: Shield, path: "/documents/permissions" },
+  {
+    id: "permissions",
+    label: "Permissions",
+    icon: Shield,
+    path: "/documents/permissions",
+  },
+  { id: "themes", label: "Themes", icon: Settings2, path: "" },
 ] as const;
 
 export function PlatformSettingsPopover({
@@ -57,20 +62,34 @@ export function PlatformSettingsPopover({
   const [themeManagerOpen, setThemeManagerOpen] = React.useState(false);
   const [themeEditorOpen, setThemeEditorOpen] = React.useState(false);
   const [orgSettingsOpen, setOrgSettingsOpen] = React.useState(false);
+  const [integrationsOpen, setIntegrationsOpen] = React.useState(true);
+  const [whiteLabelOpen, setWhiteLabelOpen] = React.useState(true);
+  const [templateStudioOpen, setTemplateStudioOpen] = React.useState(false);
   const isControlled = open !== undefined;
   const popoverOpen = isControlled ? open : internalOpen;
-  const setPopoverOpen = isControlled ? onOpenChange || (() => {}) : setInternalOpen;
+  const setPopoverOpen = isControlled
+    ? onOpenChange || (() => {})
+    : setInternalOpen;
 
   // Check if integration routes are active (for highlighting active menu items)
-  const isBrexActive = pathname.startsWith("/platform-settings/integrations/brex");
-  const isOFBActive = pathname.startsWith("/platform-settings/integrations/ofb");
-  const isTemplateEditorActive = pathname.startsWith("/platform-settings/integrations/template-editor");
-  
+  const isBrexActive = pathname.startsWith(
+    "/platform-settings/integrations/brex",
+  );
+  const isOFBActive = pathname.startsWith(
+    "/platform-settings/integrations/ofb",
+  );
+  const isTemplateEditorActive = pathname.startsWith(
+    "/platform-settings/integrations/template-editor",
+  );
+
   // Check if org settings routes are active
-  const isOrgSettingsActive = organization && pathname.includes(`/org/${organization.id}/settings`);
-  
+  const isOrgSettingsActive =
+    organization && pathname.includes(`/org/${organization.id}/settings`);
+
   // Build org settings base URL
-  const orgSettingsBaseUrl = organization ? `/org/${organization.id}/settings` : null;
+  const orgSettingsBaseUrl = organization
+    ? `/org/${organization.id}/settings`
+    : null;
 
   const handleBrexClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -139,10 +158,26 @@ export function PlatformSettingsPopover({
                   <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
                     <div className="px-1 pb-2">
                       {ORG_SETTINGS_ITEMS.map((item) => {
+                        // Special handling for Themes - it's a button, not a link
+                        if (item.id === "themes") {
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={handleThemeManagerClick}
+                              className="flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                            >
+                              <item.icon className="h-4 w-4 text-muted-foreground" />
+                              <span>{item.label}</span>
+                            </button>
+                          );
+                        }
+
                         const href = `${orgSettingsBaseUrl}${item.path}`;
-                        const isActive = pathname === href || 
+                        const isActive =
+                          pathname === href ||
                           (item.path === "" && pathname === orgSettingsBaseUrl);
-                        
+
                         return (
                           <Link
                             key={item.id}
@@ -172,84 +207,140 @@ export function PlatformSettingsPopover({
             )}
 
             {/* Integrations Section */}
-            <div className="px-3 py-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                Integrations
-              </p>
-            </div>
-            <div className="px-1 pb-2">
-              <Link
-                href="/platform-settings/integrations/brex"
-                onClick={handleBrexClick}
-                className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
-                  isBrexActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-foreground"
-                }`}
-              >
-                <Plug className="h-4 w-4 text-muted-foreground" />
-                <span>Brex</span>
-              </Link>
-              <Link
-                href="/platform-settings/integrations/ofb"
-                onClick={handleOFBClick}
-                className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
-                  isOFBActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-foreground"
-                }`}
-              >
-                <Plug className="h-4 w-4 text-muted-foreground" />
-                <span>Ocean First</span>
-              </Link>
-            </div>
+            <Collapsible
+              open={integrationsOpen}
+              onOpenChange={setIntegrationsOpen}
+            >
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between px-3 py-2 hover:bg-accent/50 transition-colors"
+                >
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Integrations
+                  </p>
+                  <ChevronRight
+                    className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${
+                      integrationsOpen ? "rotate-90" : ""
+                    }`}
+                  />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
+                <div className="px-1 pb-2">
+                  <Link
+                    href="/platform-settings/integrations/brex"
+                    onClick={handleBrexClick}
+                    className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
+                      isBrexActive
+                        ? "bg-accent text-accent-foreground"
+                        : "text-foreground"
+                    }`}
+                  >
+                    <Plug className="h-4 w-4 text-muted-foreground" />
+                    <span>Brex</span>
+                  </Link>
+                  <Link
+                    href="/platform-settings/integrations/ofb"
+                    onClick={handleOFBClick}
+                    className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
+                      isOFBActive
+                        ? "bg-accent text-accent-foreground"
+                        : "text-foreground"
+                    }`}
+                  >
+                    <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
+                    <span>Accounting Automation</span>
+                  </Link>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
 
             {/* Divider */}
             <div className="h-px bg-border" />
 
             {/* White Label Section */}
-            <div className="px-3 py-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                White Label
-              </p>
-            </div>
-            <div className="px-1 pb-2">
-              <Link
-                href="/platform-settings/integrations/template-editor"
-                onClick={handleTemplateEditorClick}
-                className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
-                  isTemplateEditorActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-foreground"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Sparkles className="h-4 w-4 text-muted-foreground" />
-                  <span>Template Editor</span>
+            <Collapsible open={whiteLabelOpen} onOpenChange={setWhiteLabelOpen}>
+              <CollapsibleTrigger asChild>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-between px-3 py-2 hover:bg-accent/50 transition-colors"
+                >
+                  <p className="text-xs font-medium text-muted-foreground">
+                    White Label
+                  </p>
+                  <ChevronRight
+                    className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${
+                      whiteLabelOpen ? "rotate-90" : ""
+                    }`}
+                  />
+                </button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
+                <div className="px-1 pb-2">
+                  <Collapsible
+                    open={templateStudioOpen}
+                    onOpenChange={setTemplateStudioOpen}
+                  >
+                    <CollapsibleTrigger asChild>
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Wand2 className="h-4 w-4 text-muted-foreground" />
+                          <span>Template Studio</span>
+                        </div>
+                        <ChevronRight
+                          className={`h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 ${
+                            templateStudioOpen ? "rotate-90" : ""
+                          }`}
+                        />
+                      </button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="overflow-hidden data-[state=open]:animate-collapsible-down data-[state=closed]:animate-collapsible-up">
+                      <div className="pl-6 pr-1 pb-1">
+                        <Link
+                          href="/platform-settings/integrations/template-editor"
+                          onClick={handleTemplateEditorClick}
+                          className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
+                            isTemplateEditorActive
+                              ? "bg-accent text-accent-foreground"
+                              : "text-foreground"
+                          }`}
+                        >
+                          <FileCode2 className="h-4 w-4 text-muted-foreground" />
+                          <span>Documents (HTML)</span>
+                        </Link>
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            // TODO: Add email template editor route
+                            console.log("Email templates - coming soon");
+                          }}
+                        >
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          <span>Emails</span>
+                        </button>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                  <button
+                    type="button"
+                    onClick={handleThemeEditorClick}
+                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Palette className="h-4 w-4 text-muted-foreground" />
+                      <span>Themes & CSS</span>
+                    </div>
+                  </button>
                 </div>
-                <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-              </Link>
-              <button
-                type="button"
-                onClick={handleThemeEditorClick}
-                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                <div className="flex items-center gap-3">
-                  <Palette className="h-4 w-4 text-muted-foreground" />
-                  <span>Theme Editor</span>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={handleThemeManagerClick}
-                className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-              >
-                <div className="flex items-center gap-3">
-                  <Settings2 className="h-4 w-4 text-muted-foreground" />
-                  <span>Saved Themes</span>
-                </div>
-              </button>
-            </div>
+              </CollapsibleContent>
+            </Collapsible>
 
             {/* Divider */}
             <div className="h-px bg-border" />
@@ -276,18 +367,15 @@ export function PlatformSettingsPopover({
 
       {/* Theme Manager Sheet - conditionally rendered to avoid Radix portal conflicts */}
       {themeManagerOpen && (
-        <ThemeEditorWrapper 
-          open={themeManagerOpen} 
-          onOpenChange={setThemeManagerOpen} 
+        <ThemeEditorWrapper
+          open={themeManagerOpen}
+          onOpenChange={setThemeManagerOpen}
         />
       )}
 
       {/* Theme Editor Sheet - conditionally rendered to avoid Radix portal conflicts */}
       {themeEditorOpen && (
-        <TinteEditor 
-          open={themeEditorOpen} 
-          onOpenChange={setThemeEditorOpen} 
-        />
+        <TinteEditor open={themeEditorOpen} onOpenChange={setThemeEditorOpen} />
       )}
     </>
   );

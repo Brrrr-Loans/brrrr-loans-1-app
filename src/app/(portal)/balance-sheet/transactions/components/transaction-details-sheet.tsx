@@ -54,7 +54,7 @@ export function TransactionDetailsSheet({
 }: TransactionDetailsSheetProps) {
   const supabase = useSupabase();
   const [transaction, setTransaction] = useState<TransactionWithDetails | null>(
-    null
+    null,
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,7 +114,7 @@ export function TransactionDetailsSheet({
               uploaded_at
             )
           )
-        `
+        `,
         )
         .eq("id", transactionId)
         .maybeSingle();
@@ -196,17 +196,19 @@ export function TransactionDetailsSheet({
     }).format(amount);
   };
 
-  const getStatusBadgeVariant = (status: string | null) => {
+  const getStatusBadgeVariant = (
+    status: string | null,
+  ): "default" | "secondary" | "destructive" | "outline" => {
     switch (status) {
       case "completed":
       case "processed": // Brex uses "PROCESSED" to mean complete
-        return "success";
+        return "default"; // Green for success
       case "pending":
-        return "warning";
+        return "secondary"; // Yellow for warning
       case "failed":
-        return "danger";
+        return "destructive"; // Red for danger
       case "processing":
-        return "info";
+        return "outline"; // Blue for info
       default:
         return "secondary";
     }
@@ -225,7 +227,8 @@ export function TransactionDetailsSheet({
     }
   };
 
-  const getLedgerTypeLabel = (type: string) => {
+  const getLedgerTypeLabel = (type: string | null) => {
+    if (!type) return "N/A";
     switch (type) {
       case "contribution":
         return "Investment";
@@ -292,10 +295,12 @@ export function TransactionDetailsSheet({
                   Transaction #{transaction.id}
                 </SheetTitle>
                 <SheetDescription>
-                  {format(
-                    new Date(transaction.transaction_date),
-                    "MMMM d, yyyy 'at' h:mm a"
-                  )}
+                  {transaction.transaction_date
+                    ? format(
+                        new Date(transaction.transaction_date),
+                        "MMMM d, yyyy 'at' h:mm a",
+                      )
+                    : "Date not available"}
                 </SheetDescription>
               </div>
               <Badge
@@ -354,7 +359,7 @@ export function TransactionDetailsSheet({
                         </p>
                         <Badge
                           variant={getMethodBadgeVariant(
-                            transaction.transaction_method
+                            transaction.transaction_method,
                           )}
                           className="text-sm"
                         >
@@ -365,10 +370,12 @@ export function TransactionDetailsSheet({
                       <div className="space-y-1">
                         <p className="text-sm text-muted-foreground">Date</p>
                         <p className="font-medium">
-                          {format(
-                            new Date(transaction.transaction_date),
-                            "MMM d, yyyy"
-                          )}
+                          {transaction.transaction_date
+                            ? format(
+                                new Date(transaction.transaction_date),
+                                "MMM d, yyyy",
+                              )
+                            : "N/A"}
                         </p>
                       </div>
                       <div className="space-y-1">
@@ -481,12 +488,12 @@ export function TransactionDetailsSheet({
                                 investorAllocation.allocation_amount > 0 && (
                                   <p className="font-semibold">
                                     {formatCurrency(
-                                      investorAllocation.allocation_amount
+                                      investorAllocation.allocation_amount,
                                     )}
                                   </p>
                                 )}
                             </div>
-                          )
+                          ),
                         )}
                       </div>
                     </CardContent>
@@ -533,12 +540,12 @@ export function TransactionDetailsSheet({
                                   {doc.document_files.document_name}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  {doc.document_files.document_categories?.name ||
-                                    "Document"}{" "}
+                                  {doc.document_files.document_categories
+                                    ?.name || "Document"}{" "}
                                   •{" "}
                                   {format(
                                     new Date(doc.document_files.uploaded_at),
-                                    "MMM d, yyyy"
+                                    "MMM d, yyyy",
                                   )}
                                 </p>
                               </div>

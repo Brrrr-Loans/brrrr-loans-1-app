@@ -24,16 +24,18 @@ import { Eye, DollarSign, Calendar } from "lucide-react";
 import { format } from "date-fns";
 
 // Status badge variant helper (matching distributions table)
-const getStatusBadgeVariant = (status: string | null) => {
+const getStatusBadgeVariant = (
+  status: string | null,
+): "default" | "secondary" | "destructive" | "outline" => {
   switch (status?.toLowerCase()) {
     case "active":
-      return "success";
+      return "default"; // Green for success/active
     case "on_hold":
     case "pending":
-      return "warning";
+      return "secondary"; // Yellow for warning
     case "dead":
     case "closed":
-      return "danger";
+      return "destructive"; // Red for danger
     default:
       return "secondary";
   }
@@ -77,9 +79,12 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
         setError(null);
 
         // Determine target user ID (impersonated user or current user)
-        const targetUserId = isImpersonating && impersonatedUserId 
-          ? (typeof impersonatedUserId === 'string' ? parseInt(impersonatedUserId) : impersonatedUserId)
-          : null;
+        const targetUserId =
+          isImpersonating && impersonatedUserId
+            ? typeof impersonatedUserId === "string"
+              ? parseInt(impersonatedUserId)
+              : impersonatedUserId
+            : null;
 
         // Fetch all active deals first
         const { data: allDeals, error: dealsError } = await (supabase as any)
@@ -99,7 +104,7 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
               address_city,
               address_state
             )
-          `
+          `,
           )
           .eq("deal_disposition_1", "active")
           .order("note_date", { ascending: false });
@@ -140,7 +145,8 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
 
           // Filter to all deals the user has access to
           const filteredDeals = (allDeals || []).filter(
-            (deal: ActiveDeal) => userDealIds.has(deal.id) || orgDealIds.has(deal.id)
+            (deal: ActiveDeal) =>
+              userDealIds.has(deal.id) || orgDealIds.has(deal.id),
           );
           setDeals(filteredDeals);
         } else if (clerkOrgId) {
@@ -158,8 +164,8 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
               .eq("clerk_org_id", dbOrg.id);
 
             const orgDealIds = new Set((orgDeals || []).map((d) => d.deal_id));
-            const filteredDeals = (allDeals || []).filter(
-              (deal: ActiveDeal) => orgDealIds.has(deal.id)
+            const filteredDeals = (allDeals || []).filter((deal: ActiveDeal) =>
+              orgDealIds.has(deal.id),
             );
             setDeals(filteredDeals);
           } else {
@@ -214,9 +220,7 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
         <CardContent className="flex items-center justify-center h-32">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-            <p className="text-sm text-muted-foreground">
-              Loading deals...
-            </p>
+            <p className="text-sm text-muted-foreground">Loading deals...</p>
           </div>
         </CardContent>
       </Card>
@@ -238,9 +242,7 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
       <Card className={className}>
         <CardHeader>
           <CardTitle>Deals</CardTitle>
-          <CardDescription>
-            Your investment opportunities
-          </CardDescription>
+          <CardDescription>Your investment opportunities</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-center h-32">
           <div className="text-center text-muted-foreground">
@@ -276,32 +278,32 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
             </TableHeader>
             <TableBody>
               {deals.map((deal) => (
-                  <TableRow key={deal.id}>
-                    <TableCell>
-                      <div>
+                <TableRow key={deal.id}>
+                  <TableCell>
+                    <div>
                       <div className="font-medium">{deal.deal_name || "-"}</div>
-                        <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-muted-foreground">
                         {deal.loan_number || "-"}
-                        </div>
                       </div>
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate">
+                    </div>
+                  </TableCell>
+                  <TableCell className="max-w-[200px] truncate">
                     {formatPropertyAddress(deal)}
-                    </TableCell>
-                    <TableCell className="font-medium">
+                  </TableCell>
+                  <TableCell className="font-medium">
                     {deal.loan_amount_total
                       ? formatCurrency(deal.loan_amount_total)
                       : "-"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
                       <div>{deal.note_rate ? `${deal.note_rate}%` : "-"}</div>
-                        <div className="text-muted-foreground">
+                      <div className="text-muted-foreground">
                         {deal.loan_term ? formatLoanTerm(deal.loan_term) : "-"}
-                        </div>
                       </div>
-                    </TableCell>
-                    <TableCell>
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     {deal.note_date ? (
                       <div className="flex items-center gap-1 text-sm">
                         <Calendar className="h-3 w-3" />
@@ -310,18 +312,20 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
                     ) : (
                       <span className="text-muted-foreground">-</span>
                     )}
-                    </TableCell>
-                    <TableCell>
-                    <Badge variant={getStatusBadgeVariant(deal.deal_disposition_1)}>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={getStatusBadgeVariant(deal.deal_disposition_1)}
+                    >
                       {deal.deal_disposition_1 || "Unknown"}
                     </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                  </TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
               ))}
             </TableBody>
           </Table>

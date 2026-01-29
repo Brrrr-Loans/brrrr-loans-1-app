@@ -85,7 +85,9 @@ export function DealDocuments() {
   const [documentCategories, setDocumentCategories] = useState<
     { id: number; name: string }[]
   >([]);
-  const [deals, setDeals] = useState<{ id: number; deal_name: string }[]>([]);
+  const [deals, setDeals] = useState<
+    { id: number; deal_name: string | null }[]
+  >([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [selectedDealId, setSelectedDealId] = useState<string>("");
 
@@ -270,7 +272,11 @@ export function DealDocuments() {
             <Badge variant="secondary">{documents.length}</Badge>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={fetchDocuments}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchDocuments()}
+            >
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh
             </Button>

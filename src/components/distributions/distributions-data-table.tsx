@@ -36,17 +36,19 @@ interface DistributionsDataTableProps {
 }
 
 // Status badge variant helper (matching transactions table)
-const getStatusBadgeVariant = (status: string | null) => {
+const getStatusBadgeVariant = (
+  status: string | null,
+): "default" | "secondary" | "destructive" | "outline" => {
   switch (status) {
     case "completed":
     case "processed":
-      return "success";
+      return "default"; // Green for success
     case "pending":
-      return "warning";
+      return "secondary"; // Yellow for warning
     case "failed":
-      return "danger";
+      return "destructive"; // Red for danger
     case "processing":
-      return "info";
+      return "outline"; // Blue for info
     default:
       return "secondary";
   }
@@ -89,7 +91,7 @@ export function DistributionsDataTable({
       } catch (err) {
         console.error("Error fetching distributions:", err);
         setError(
-          err instanceof Error ? err.message : "Failed to load distributions"
+          err instanceof Error ? err.message : "Failed to load distributions",
         );
       } finally {
         setLoading(false);
@@ -206,7 +208,9 @@ export function DistributionsDataTable({
 
                   {/* Status */}
                   <TableCell>
-                    <Badge variant={getStatusBadgeVariant(dist.transaction_status)}>
+                    <Badge
+                      variant={getStatusBadgeVariant(dist.transaction_status)}
+                    >
                       {dist.transaction_status}
                     </Badge>
                   </TableCell>

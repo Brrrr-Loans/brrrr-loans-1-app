@@ -5,7 +5,7 @@ export class AppError extends Error {
     message: string,
     public code: string = "UNKNOWN_ERROR",
     public statusCode: number = 500,
-    public context?: Record<string, unknown>
+    public context?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "AppError";
@@ -37,7 +37,7 @@ export const SupabaseErrorCodes = {
 export function handleSupabaseError(
   error: unknown,
   context: string,
-  additionalContext?: Record<string, unknown>
+  additionalContext?: Record<string, unknown>,
 ): never {
   console.error(`Supabase error in ${context}:`, {
     error,
@@ -55,7 +55,7 @@ export function handleSupabaseError(
       "A record with this information already exists",
       "DUPLICATE_ENTRY",
       409,
-      { context, originalError: errorWithCode.message }
+      { context, originalError: errorWithCode.message },
     );
   }
 
@@ -64,7 +64,7 @@ export function handleSupabaseError(
       "Referenced record not found",
       "INVALID_REFERENCE",
       400,
-      { context, originalError: errorWithCode.message }
+      { context, originalError: errorWithCode.message },
     );
   }
 
@@ -73,7 +73,7 @@ export function handleSupabaseError(
       "Required field is missing",
       "MISSING_REQUIRED_FIELD",
       400,
-      { context, originalError: errorWithCode.message }
+      { context, originalError: errorWithCode.message },
     );
   }
 
@@ -89,7 +89,7 @@ export function handleSupabaseError(
       "Multiple records found when only one was expected",
       "MULTIPLE_RECORDS",
       409,
-      { context, originalError: errorWithCode.message }
+      { context, originalError: errorWithCode.message },
     );
   }
 
@@ -128,7 +128,7 @@ export function handleSupabaseError(
     errorWithCode.message || "Database operation failed",
     "DATABASE_ERROR",
     500,
-    { context, originalError: errorWithCode.message }
+    { context, originalError: errorWithCode.message },
   );
 }
 
@@ -143,13 +143,13 @@ export function handleValidationError(error: Error, context: string): never {
     error.message || "Validation error",
     "VALIDATION_ERROR",
     400,
-    { context }
+    { context },
   );
 }
 
 export function handleAuthError(
   message: string = "Authentication required",
-  context: string
+  context: string,
 ): never {
   console.error(`Auth error in ${context}:`, {
     message,
@@ -162,7 +162,7 @@ export function handleAuthError(
 
 export function handlePermissionError(
   message: string = "Insufficient permissions",
-  context: string
+  context: string,
 ): never {
   console.error(`Permission error in ${context}:`, {
     message,
@@ -176,7 +176,7 @@ export function handlePermissionError(
 // API response helpers
 export function createErrorResponse(
   error: AppError | Error,
-  fallbackMessage: string = "An error occurred"
+  fallbackMessage: string = "An error occurred",
 ) {
   if (error instanceof AppError) {
     return {
@@ -206,7 +206,7 @@ export function createSuccessResponse<T>(data: T, message?: string) {
 // Async error wrapper for server actions
 export function withErrorHandling<T extends unknown[], R>(
   fn: (...args: T) => Promise<R>,
-  context: string
+  context: string,
 ) {
   return async (...args: T): Promise<R> => {
     try {
@@ -248,7 +248,7 @@ export function withErrorHandling<T extends unknown[], R>(
         "An unexpected error occurred",
         "INTERNAL_ERROR",
         500,
-        { context, originalError: String(error) }
+        { context, originalError: String(error) },
       );
     }
   };
@@ -259,13 +259,15 @@ export function logOperation(
   operation: string,
   table: string,
   userId?: string,
-  additionalData?: Record<string, unknown>
+  additionalData?: Record<string, unknown>,
 ) {
-  console.log("Database operation:", {
-    operation,
-    table,
-    userId,
-    timestamp: new Date().toISOString(),
-    ...additionalData,
-  });
+  if (process.env.NODE_ENV === "development") {
+    console.log("Database operation:", {
+      operation,
+      table,
+      userId,
+      timestamp: new Date().toISOString(),
+      ...additionalData,
+    });
+  }
 }

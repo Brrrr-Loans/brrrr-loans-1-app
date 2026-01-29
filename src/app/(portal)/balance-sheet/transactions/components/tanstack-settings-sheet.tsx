@@ -43,7 +43,7 @@ interface TableSettingsSheetProps<TData> {
   onOpenChange: (open: boolean) => void;
   table: Table<TData>;
   columnOrder: string[];
-  setColumnOrder: (order: string[]) => void;
+  setColumnOrder: (order: string[] | ((prev: string[]) => string[])) => void;
   tableDensity: "compact" | "simple" | "detailed";
   setTableDensity: (density: "compact" | "simple" | "detailed") => void;
 }
@@ -142,7 +142,7 @@ export function TransactionTableSettingsSheet<TData>({
         tolerance: 8,
       },
     }),
-    useSensor(KeyboardSensor)
+    useSensor(KeyboardSensor),
   );
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -162,14 +162,14 @@ export function TransactionTableSettingsSheet<TData>({
         return;
       }
 
-      setColumnOrder((prev) => {
+      setColumnOrder((prev: string[]) => {
         const oldIndex = prev.indexOf(activeId);
         const newIndex = prev.indexOf(overId);
         const newOrder = arrayMove(prev, oldIndex, newIndex);
 
         // Ensure expand is first and actions is last
         const finalOrder = newOrder.filter(
-          (id) => id !== "expand" && id !== "actions"
+          (id) => id !== "expand" && id !== "actions",
         );
         return ["expand", ...finalOrder, "actions"];
       });
@@ -196,7 +196,9 @@ export function TransactionTableSettingsSheet<TData>({
 
   const draggableColumns = table
     .getAllColumns()
-    .filter((col) => col.getCanHide() && col.id !== "expand" && col.id !== "actions");
+    .filter(
+      (col) => col.getCanHide() && col.id !== "expand" && col.id !== "actions",
+    );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -252,7 +254,7 @@ export function TransactionTableSettingsSheet<TData>({
               >
                 <SortableContext
                   items={columnOrder.filter(
-                    (id) => id !== "expand" && id !== "actions"
+                    (id) => id !== "expand" && id !== "actions",
                   )}
                   strategy={verticalListSortingStrategy}
                 >
@@ -280,7 +282,8 @@ export function TransactionTableSettingsSheet<TData>({
                 type="single"
                 value={tableDensity}
                 onValueChange={(value) => {
-                  if (value) setTableDensity(value as "compact" | "simple" | "detailed");
+                  if (value)
+                    setTableDensity(value as "compact" | "simple" | "detailed");
                 }}
                 className="flex flex-col items-stretch gap-2"
               >
@@ -295,11 +298,9 @@ export function TransactionTableSettingsSheet<TData>({
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>
-
           </TabsContent>
         </Tabs>
       </SheetContent>
     </Sheet>
   );
 }
-

@@ -45,15 +45,14 @@ export function SectionCards() {
         const totalDeals = dealsList.length;
         const activeDeals = dealsList.filter(
           (deal) =>
-            deal.deal_disposition_1 === "active" ||
-            deal.deal_stage_2 === "active" ||
+            // Note: deal_disposition_1 doesn't have "active" - check deal_stage_2 instead
             deal.deal_stage_2 === "closed_and_funded" ||
-            deal.deal_stage_2 === "clear_to_close"
+            deal.deal_stage_2 === "clear_to_close",
         ).length;
 
         const totalVolume = dealsList.reduce(
           (sum, deal) => sum + (Number(deal.loan_amount_total) || 0),
-          0
+          0,
         );
 
         setMetrics({

@@ -31,17 +31,19 @@ const formatCurrency = (amount: number | null) => {
   }).format(amount);
 };
 
-const getStatusBadgeVariant = (status: string | null) => {
+const getStatusBadgeVariant = (
+  status: string | null,
+): "default" | "secondary" | "destructive" | "outline" => {
   switch (status) {
     case "completed":
     case "processed": // Brex uses "PROCESSED" to mean complete
-      return "success";
+      return "default"; // Green for success
     case "pending":
-      return "warning";
+      return "secondary"; // Yellow for warning
     case "failed":
-      return "danger";
+      return "destructive"; // Red for danger
     case "processing":
-      return "info";
+      return "outline"; // Blue for info
     default:
       return "secondary";
   }
@@ -49,7 +51,7 @@ const getStatusBadgeVariant = (status: string | null) => {
 
 export const createTransactionColumns = (
   onDownload: (txId: number) => void,
-  onPrint: (txId: number) => void
+  onPrint: (txId: number) => void,
 ): ColumnDef<TransactionWithDetails>[] => [
   // Column 1: Expand chevron
   {
@@ -70,7 +72,7 @@ export const createTransactionColumns = (
         <ChevronRight
           className={cn(
             "h-4 w-4 transition-transform",
-            row.getIsExpanded() && "rotate-90"
+            row.getIsExpanded() && "rotate-90",
           )}
         />
       </Button>
@@ -101,7 +103,7 @@ export const createTransactionColumns = (
         brexTransfer?.process_date || row.original.transaction_date;
       return (
         <div className="text-sm text-muted-foreground">
-          {format(new Date(dateStr), "MMM d, yyyy")}
+          {dateStr ? format(new Date(dateStr), "MMM d, yyyy") : "N/A"}
         </div>
       );
     },
@@ -190,13 +192,14 @@ export const createTransactionColumns = (
       const method = row.getValue("transaction_type") as string | null;
       const ledgerType = row.original.ledger_entry_type;
       // From investor's perspective: distributions come TO them, contributions go FROM them
-      const isIncoming = ledgerType === "distribution" || ledgerType === "redemption";
-      
+      const isIncoming =
+        ledgerType === "distribution" || ledgerType === "redemption";
+
       // Format method name (Wire, ACH, Check, etc.)
-      const formattedMethod = method 
+      const formattedMethod = method
         ? method.charAt(0).toUpperCase() + method.slice(1).toLowerCase()
         : "N/A";
-      
+
       return (
         <div className="flex flex-col">
           <span className="text-sm font-medium">{formattedMethod}</span>
@@ -230,11 +233,11 @@ export const createTransactionColumns = (
     header: "Ledger Type",
     cell: ({ row }) => {
       const type = row.getValue("ledger_type") as string | null;
-      
+
       if (type === "contribution") {
         return (
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className="text-sm gap-1.5 border-dashed border-destructive bg-transparent"
           >
             <ArrowDownLeft className="h-3.5 w-3.5 text-destructive" />
@@ -242,12 +245,12 @@ export const createTransactionColumns = (
           </Badge>
         );
       }
-      
+
       if (type === "distribution" || type === "redemption") {
         const label = type === "distribution" ? "Distribution" : "Redemption";
         return (
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className="text-sm gap-1.5 border-dashed border-success-foreground dark:border-success bg-transparent"
           >
             <ArrowUpRight className="h-3.5 w-3.5 text-success-foreground dark:text-success" />
@@ -255,7 +258,7 @@ export const createTransactionColumns = (
           </Badge>
         );
       }
-      
+
       return (
         <Badge variant="outline" className="text-sm">
           {type || "N/A"}
@@ -269,7 +272,7 @@ export const createTransactionColumns = (
     id: "amount",
     size: 150,
     accessorKey: "transaction_amount",
-    header: ({ column}) => (
+    header: ({ column }) => (
       <div className="text-right">
         <Button
           variant="ghost"
@@ -286,17 +289,16 @@ export const createTransactionColumns = (
       const ledgerType = row.original.ledger_entry_type;
       // From investor's perspective: distributions/redemptions = incoming, contributions = outgoing (-)
       const isOutgoing = ledgerType === "contribution";
-      
+
       // Format: no prefix for incoming, "- " prefix for outgoing
-      const formattedAmount = amount !== null
-        ? isOutgoing ? `- ${formatCurrency(amount)}` : formatCurrency(amount)
-        : "N/A";
-      
-      return (
-        <div className="text-right font-semibold">
-          {formattedAmount}
-        </div>
-      );
+      const formattedAmount =
+        amount !== null
+          ? isOutgoing
+            ? `- ${formatCurrency(amount)}`
+            : formatCurrency(amount)
+          : "N/A";
+
+      return <div className="text-right font-semibold">{formattedAmount}</div>;
     },
   },
 

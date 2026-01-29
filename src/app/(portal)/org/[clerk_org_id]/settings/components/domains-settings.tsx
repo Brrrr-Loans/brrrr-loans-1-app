@@ -100,7 +100,12 @@ export function DomainsSettings() {
         className: "text-green-600",
       };
     }
-    if (domain.verification?.status === "pending") {
+    // Note: Clerk domain verification status is "unverified" | undefined, not "pending"
+    // Keeping this check for future compatibility but it won't match current types
+    if (
+      domain.verification?.status &&
+      domain.verification.status !== "unverified"
+    ) {
       return {
         icon: Clock,
         label: "Pending",
@@ -161,9 +166,7 @@ export function DomainsSettings() {
                   Cancel
                 </Button>
                 <Button onClick={handleAddDomain} disabled={isAdding}>
-                  {isAdding && (
-                    <Loader2 className="mr-2 size-4 animate-spin" />
-                  )}
+                  {isAdding && <Loader2 className="mr-2 size-4 animate-spin" />}
                   Add domain
                 </Button>
               </div>
@@ -175,7 +178,9 @@ export function DomainsSettings() {
       {/* Info card */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">What are verified domains?</CardTitle>
+          <CardTitle className="text-base">
+            What are verified domains?
+          </CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           <p>
@@ -224,8 +229,8 @@ export function DomainsSettings() {
                           {domain.enrollmentMode === "automatic_invitation"
                             ? "Auto invite"
                             : domain.enrollmentMode === "automatic_suggestion"
-                            ? "Auto suggest"
-                            : "Manual"}
+                              ? "Auto suggest"
+                              : "Manual"}
                         </Badge>
                       </TableCell>
                       <TableCell>

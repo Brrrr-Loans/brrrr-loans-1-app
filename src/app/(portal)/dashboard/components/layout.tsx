@@ -10,7 +10,7 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const { isLoaded } = useAuth();
 
   // Show loading state while authentication is being checked

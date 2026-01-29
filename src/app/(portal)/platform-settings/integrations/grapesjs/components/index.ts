@@ -41,9 +41,9 @@ const PROPERTY_DETAILS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width
  */
 const BLOCK_LABEL_OVERRIDES: Record<string, string> = {
   // Grid/Layout blocks - make column layouts clearer
-  "column1": "1 Column",
-  "column2": "2 Column",
-  "column3": "3 Column",
+  column1: "1 Column",
+  column2: "2 Column",
+  column3: "3 Column",
   "column3-7": "2 Column (3/7)",
 };
 
@@ -57,23 +57,30 @@ export function reorganizeDefaultBlocks(editor: Editor) {
 
   // Get all blocks and update their labels
   const blocks = blockManager.getAll();
-  
+
   // Log all available blocks for debugging (helps discover block IDs)
-  console.log("[GrapesJS] Available blocks:", blocks.map(b => ({
-    id: b.getId(),
-    label: b.getLabel(),
-    category: b.getCategoryLabel?.() || "uncategorized"
-  })));
-  
-  blocks.forEach((block) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  console.log(
+    "[GrapesJS] Available blocks:",
+    blocks.map((b: any) => ({
+      id: b.getId(),
+      label: b.getLabel(),
+      category: b.getCategoryLabel?.() || "uncategorized",
+    })),
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  blocks.forEach((block: any) => {
     const blockId = block.getId();
     const currentLabel = block.getLabel();
-    
+
     // Check if we have a label override for this block
     const overrideLabel = BLOCK_LABEL_OVERRIDES[blockId];
     if (overrideLabel) {
       block.set("label", overrideLabel);
-      console.log(`[GrapesJS] Renamed block "${blockId}" from "${currentLabel}" to "${overrideLabel}"`);
+      console.log(
+        `[GrapesJS] Renamed block "${blockId}" from "${currentLabel}" to "${overrideLabel}"`,
+      );
     }
   });
 }
@@ -85,11 +92,17 @@ export function reorganizeDefaultBlocks(editor: Editor) {
 export function registerPropertyAddressComponent(editor: Editor) {
   // The script that runs inside the iframe to enable Google Places autocomplete
   // Updated to use the new Places API (Place class) instead of deprecated PlacesService
-  const propertyAddressScript = function (props: { apiKey: string }) {
-    const el = this as HTMLElement;
+  const propertyAddressScript = function (
+    this: HTMLElement,
+    props: { apiKey: string },
+  ) {
+    const el = this;
     const apiKey = props.apiKey;
 
-    console.log("[PropertyAddress] Script initialized, API key present:", !!apiKey);
+    console.log(
+      "[PropertyAddress] Script initialized, API key present:",
+      !!apiKey,
+    );
 
     // Prevent re-initialization
     if (el.dataset.initialized === "true") {
@@ -99,43 +112,47 @@ export function registerPropertyAddressComponent(editor: Editor) {
     el.dataset.initialized = "true";
 
     const input = el.querySelector(
-      ".property-address-input"
+      ".property-address-input",
     ) as HTMLInputElement;
     const suggestionsContainer = el.querySelector(
-      ".property-address-suggestions"
+      ".property-address-suggestions",
     ) as HTMLElement;
     const expandedFields = el.querySelector(
-      ".property-address-expanded"
+      ".property-address-expanded",
     ) as HTMLElement;
     const cityInput = el.querySelector(
-      ".property-address-city"
+      ".property-address-city",
     ) as HTMLInputElement;
     const stateSelect = el.querySelector(
-      ".property-address-state"
+      ".property-address-state",
     ) as HTMLSelectElement;
     const zipInput = el.querySelector(
-      ".property-address-zip"
+      ".property-address-zip",
     ) as HTMLInputElement;
     const loadingIndicator = el.querySelector(
-      ".property-address-loading"
+      ".property-address-loading",
     ) as HTMLElement;
 
     if (!input || !suggestionsContainer) return;
 
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    let sessionToken: google.maps.places.AutocompleteSessionToken | null = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let sessionToken: any | null = null; // google.maps.places.AutocompleteSessionToken
 
     // Load Google Places API with the new Places library
     function loadGooglePlacesAPI() {
       console.log("[PropertyAddress] loadGooglePlacesAPI called");
-      
+
       if (!apiKey) {
-        console.warn("[PropertyAddress] No API key provided - Google Places will not work");
+        console.warn(
+          "[PropertyAddress] No API key provided - Google Places will not work",
+        );
         if (expandedFields) expandedFields.classList.remove("hidden");
         return;
       }
-      
-      if (window.google?.maps?.places?.Place) {
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      if ((window as any).google?.maps?.places?.Place) {
         console.log("[PropertyAddress] Google Places (new API) already loaded");
         initAutocomplete();
         return;
@@ -145,7 +162,8 @@ export function registerPropertyAddressComponent(editor: Editor) {
       if (document.querySelector('script[src*="maps.googleapis.com"]')) {
         console.log("[PropertyAddress] Script already loading, waiting...");
         const checkInterval = setInterval(() => {
-          if (window.google?.maps?.places?.Place) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          if ((window as any).google?.maps?.places?.Place) {
             clearInterval(checkInterval);
             initAutocomplete();
           }
@@ -153,7 +171,9 @@ export function registerPropertyAddressComponent(editor: Editor) {
         return;
       }
 
-      console.log("[PropertyAddress] Loading Google Places API script (new version)...");
+      console.log(
+        "[PropertyAddress] Loading Google Places API script (new version)...",
+      );
       const script = document.createElement("script");
       // Load with loading=async for better performance
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async`;
@@ -180,8 +200,10 @@ export function registerPropertyAddressComponent(editor: Editor) {
 
       // Create a session token for billing optimization
       sessionToken = new window.google.maps.places.AutocompleteSessionToken();
-      console.log("[PropertyAddress] New API initialized, adding input listeners");
-      
+      console.log(
+        "[PropertyAddress] New API initialized, adding input listeners",
+      );
+
       input.addEventListener("input", handleInput);
       input.addEventListener("focus", () => {
         if (suggestionsContainer.children.length > 0) {
@@ -219,15 +241,18 @@ export function registerPropertyAddressComponent(editor: Editor) {
     // Search for addresses using new Autocomplete API
     async function searchAddresses(query: string) {
       console.log("[PropertyAddress] searchAddresses called, query:", query);
-      
+
       try {
         // Use the new AutocompleteSuggestion API
-        const { suggestions } = await window.google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions({
-          input: query,
-          sessionToken: sessionToken,
-          includedPrimaryTypes: ["street_address", "premise", "subpremise"],
-          includedRegionCodes: ["us"],
-        });
+        const { suggestions } =
+          await window.google.maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions(
+            {
+              input: query,
+              sessionToken: sessionToken,
+              includedPrimaryTypes: ["street_address", "premise", "subpremise"],
+              includedRegionCodes: ["us"],
+            },
+          );
 
         console.log("[PropertyAddress] Got suggestions:", suggestions?.length);
         if (loadingIndicator) loadingIndicator.classList.add("hidden");
@@ -247,7 +272,9 @@ export function registerPropertyAddressComponent(editor: Editor) {
     }
 
     // Render suggestions dropdown using new API response format
-    function renderSuggestions(suggestions: google.maps.places.AutocompleteSuggestion[]) {
+    function renderSuggestions(
+      suggestions: google.maps.places.AutocompleteSuggestion[],
+    ) {
       suggestionsContainer.innerHTML = "";
 
       suggestions.forEach((suggestion) => {
@@ -273,14 +300,15 @@ export function registerPropertyAddressComponent(editor: Editor) {
         `;
 
         // New API uses different structure for text
-        const mainText = prediction.mainText?.text || prediction.text?.text || "";
+        const mainText =
+          prediction.mainText?.text || prediction.text?.text || "";
         const secondaryText = prediction.secondaryText?.text || "";
-        
+
         item.innerHTML = `
           <span style="font-size: 14px; font-weight: 500; color: #111;">${mainText}</span>
           <span style="font-size: 12px; color: #6b7280;">${secondaryText}</span>
         `;
-        
+
         // Add hover effect
         item.addEventListener("mouseenter", () => {
           item.style.backgroundColor = "#f3f4f6";
@@ -288,7 +316,7 @@ export function registerPropertyAddressComponent(editor: Editor) {
         item.addEventListener("mouseleave", () => {
           item.style.backgroundColor = "#fff";
         });
-        
+
         item.addEventListener("click", () => selectSuggestion(prediction));
         suggestionsContainer.appendChild(item);
       });
@@ -297,9 +325,14 @@ export function registerPropertyAddressComponent(editor: Editor) {
     }
 
     // Handle suggestion selection using new Place API
-    async function selectSuggestion(prediction: google.maps.places.PlacePrediction) {
-      console.log("[PropertyAddress] Selecting suggestion:", prediction.placeId);
-      
+    async function selectSuggestion(
+      prediction: google.maps.places.PlacePrediction,
+    ) {
+      console.log(
+        "[PropertyAddress] Selecting suggestion:",
+        prediction.placeId,
+      );
+
       try {
         // Use the new Place class to get details
         const place = new window.google.maps.places.Place({
@@ -311,15 +344,18 @@ export function registerPropertyAddressComponent(editor: Editor) {
           fields: ["addressComponents", "formattedAddress"],
         });
 
-        console.log("[PropertyAddress] Got place details:", place.formattedAddress);
-        
+        console.log(
+          "[PropertyAddress] Got place details:",
+          place.formattedAddress,
+        );
+
         if (place.addressComponents) {
           parseAndFillAddress(place.addressComponents);
         }
-        
+
         suggestionsContainer.classList.add("hidden");
         suggestionsContainer.innerHTML = "";
-        
+
         // Create a new session token for the next search
         sessionToken = new window.google.maps.places.AutocompleteSessionToken();
       } catch (error) {
@@ -328,7 +364,9 @@ export function registerPropertyAddressComponent(editor: Editor) {
     }
 
     // Parse address components and fill fields (works with new API format)
-    function parseAndFillAddress(components: google.maps.places.AddressComponent[]) {
+    function parseAndFillAddress(
+      components: google.maps.places.AddressComponent[],
+    ) {
       let streetNumber = "";
       let route = "";
       let city = "";

@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/shadcn/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/shadcn/card";
 import { Button } from "@/components/ui/shadcn/button";
 import { Badge } from "@/components/ui/shadcn/badge";
 import { Skeleton } from "@/components/ui/shadcn/skeleton";
@@ -21,7 +26,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/shadcn/table";
-import { Check, Search, Users, AlertCircle, Sparkles, Link2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import {
+  Check,
+  Search,
+  Users,
+  AlertCircle,
+  Sparkles,
+  Link2,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react";
 
 type SortField = "process_date" | "counterparty_name" | "amount";
 type SortDirection = "asc" | "desc";
@@ -56,12 +71,16 @@ export function StepVendorMatching({
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTransfers, setSelectedTransfers] = useState<Set<string>>(new Set());
+  const [selectedTransfers, setSelectedTransfers] = useState<Set<string>>(
+    new Set(),
+  );
   const [bulkVendor, setBulkVendor] = useState<number | null>(null);
   const [isMatching, setIsMatching] = useState(false);
   const [matchedCount, setMatchedCount] = useState(0);
   // Per-row vendor selection
-  const [rowVendorSelections, setRowVendorSelections] = useState<Record<string, number | null>>({});
+  const [rowVendorSelections, setRowVendorSelections] = useState<
+    Record<string, number | null>
+  >({});
   const [matchingRows, setMatchingRows] = useState<Set<string>>(new Set());
   // Sorting state
   const [sortField, setSortField] = useState<SortField>("process_date");
@@ -77,7 +96,9 @@ export function StepVendorMatching({
       // Fetch all transfers
       const { data: allTransfers, error: transferError } = await supabase
         .from("api_ofb_transfers")
-        .select("id, ofb_transfer_id, counterparty_name, amount, process_date, description")
+        .select(
+          "id, ofb_transfer_id, counterparty_name, amount, process_date, description",
+        )
         .order("process_date", { ascending: false });
 
       if (transferError) {
@@ -97,9 +118,11 @@ export function StepVendorMatching({
         console.error("Error fetching matched transfers:", matchError);
       }
 
-      const matchedSet = new Set(matchedTransferIds?.map((m) => m.ofb_transfer_id) || []);
+      const matchedSet = new Set(
+        matchedTransferIds?.map((m) => m.ofb_transfer_id) || [],
+      );
       const unmatchedTransfers = (allTransfers || []).filter(
-        (t) => !matchedSet.has(t.ofb_transfer_id)
+        (t) => !matchedSet.has(t.ofb_transfer_id),
       );
 
       setTransfers(unmatchedTransfers);
@@ -156,7 +179,7 @@ export function StepVendorMatching({
       (t) =>
         t.counterparty_name?.toLowerCase().includes(query) ||
         t.description?.toLowerCase().includes(query) ||
-        t.ofb_transfer_id.toLowerCase().includes(query)
+        t.ofb_transfer_id.toLowerCase().includes(query),
     );
 
     return filtered.sort((a, b) => {
@@ -174,7 +197,7 @@ export function StepVendorMatching({
           comparison = nameA.localeCompare(nameB);
           break;
         case "amount":
-          comparison = a.amount - b.amount;
+          comparison = (a.amount || 0) - (b.amount || 0);
           break;
       }
 
@@ -186,7 +209,9 @@ export function StepVendorMatching({
     if (selectedTransfers.size === filteredAndSortedTransfers.length) {
       setSelectedTransfers(new Set());
     } else {
-      setSelectedTransfers(new Set(filteredAndSortedTransfers.map((t) => t.ofb_transfer_id)));
+      setSelectedTransfers(
+        new Set(filteredAndSortedTransfers.map((t) => t.ofb_transfer_id)),
+      );
     }
   };
 
@@ -203,10 +228,13 @@ export function StepVendorMatching({
   };
 
   // Handle per-row vendor selection
-  const handleRowVendorChange = (transferId: string, vendorId: number | null) => {
-    setRowVendorSelections(prev => ({
+  const handleRowVendorChange = (
+    transferId: string,
+    vendorId: number | null,
+  ) => {
+    setRowVendorSelections((prev) => ({
       ...prev,
-      [transferId]: vendorId
+      [transferId]: vendorId,
     }));
   };
 
@@ -214,7 +242,7 @@ export function StepVendorMatching({
   const handleSingleMatch = async (transferId: string, vendorId: number) => {
     if (!supabase) return;
 
-    setMatchingRows(prev => new Set(prev).add(transferId));
+    setMatchingRows((prev) => new Set(prev).add(transferId));
 
     try {
       const { error } = await supabase
@@ -236,8 +264,10 @@ export function StepVendorMatching({
       onMatchComplete(matchedCount + 1);
 
       // Remove from local state and clear selection
-      setTransfers(prev => prev.filter(t => t.ofb_transfer_id !== transferId));
-      setRowVendorSelections(prev => {
+      setTransfers((prev) =>
+        prev.filter((t) => t.ofb_transfer_id !== transferId),
+      );
+      setRowVendorSelections((prev) => {
         const next = { ...prev };
         delete next[transferId];
         return next;
@@ -246,7 +276,7 @@ export function StepVendorMatching({
       console.error("Match error:", error);
       toast.error("Failed to match transfer");
     } finally {
-      setMatchingRows(prev => {
+      setMatchingRows((prev) => {
         const next = new Set(prev);
         next.delete(transferId);
         return next;
@@ -299,11 +329,13 @@ export function StepVendorMatching({
 
   const suggestVendor = (counterpartyName: string | null): Vendor | null => {
     if (!counterpartyName || vendors.length === 0) return null;
-    
+
     const nameLower = counterpartyName.toLowerCase();
-    const match = vendors.find((v) => 
-      v.name.toLowerCase().includes(nameLower) ||
-      nameLower.includes(v.name.toLowerCase())
+    const match = vendors.find(
+      (v) =>
+        v.name &&
+        (v.name.toLowerCase().includes(nameLower) ||
+          nameLower.includes(v.name.toLowerCase())),
     );
     return match || null;
   };
@@ -405,9 +437,13 @@ export function StepVendorMatching({
             </div>
             <Button
               onClick={handleBulkMatch}
-              disabled={selectedTransfers.size === 0 || !bulkVendor || isMatching}
+              disabled={
+                selectedTransfers.size === 0 || !bulkVendor || isMatching
+              }
             >
-              {isMatching ? "Matching..." : `Match ${selectedTransfers.size} Transfer(s)`}
+              {isMatching
+                ? "Matching..."
+                : `Match ${selectedTransfers.size} Transfer(s)`}
             </Button>
           </div>
         </CardContent>
@@ -421,7 +457,11 @@ export function StepVendorMatching({
               <TableHead className="w-12">
                 <input
                   type="checkbox"
-                  checked={selectedTransfers.size === filteredAndSortedTransfers.length && filteredAndSortedTransfers.length > 0}
+                  checked={
+                    selectedTransfers.size ===
+                      filteredAndSortedTransfers.length &&
+                    filteredAndSortedTransfers.length > 0
+                  }
                   onChange={handleSelectAll}
                   className="rounded border-gray-300"
                 />
@@ -461,16 +501,19 @@ export function StepVendorMatching({
           <TableBody>
             {filteredAndSortedTransfers.slice(0, 50).map((transfer) => {
               const suggestedVendor = suggestVendor(transfer.counterparty_name);
-              const selectedVendorId = rowVendorSelections[transfer.ofb_transfer_id];
+              const selectedVendorId =
+                rowVendorSelections[transfer.ofb_transfer_id];
               const isRowMatching = matchingRows.has(transfer.ofb_transfer_id);
-              
+
               return (
                 <TableRow key={transfer.ofb_transfer_id}>
                   <TableCell>
                     <input
                       type="checkbox"
                       checked={selectedTransfers.has(transfer.ofb_transfer_id)}
-                      onChange={() => handleSelectTransfer(transfer.ofb_transfer_id)}
+                      onChange={() =>
+                        handleSelectTransfer(transfer.ofb_transfer_id)
+                      }
                       className="rounded border-gray-300"
                     />
                   </TableCell>
@@ -484,20 +527,30 @@ export function StepVendorMatching({
                     {transfer.description || "—"}
                   </TableCell>
                   <TableCell className="text-right whitespace-nowrap">
-                    {formatAmount(transfer.amount)}
+                    {transfer.amount !== null
+                      ? formatAmount(transfer.amount)
+                      : "N/A"}
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Select
                         value={selectedVendorId?.toString() || ""}
-                        onValueChange={(v) => handleRowVendorChange(transfer.ofb_transfer_id, v ? parseInt(v) : null)}
+                        onValueChange={(v) =>
+                          handleRowVendorChange(
+                            transfer.ofb_transfer_id,
+                            v ? parseInt(v) : null,
+                          )
+                        }
                       >
                         <SelectTrigger className="h-8 text-xs">
                           <SelectValue placeholder="Select vendor..." />
                         </SelectTrigger>
                         <SelectContent>
                           {vendors.map((vendor) => (
-                            <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                            <SelectItem
+                              key={vendor.id}
+                              value={vendor.id.toString()}
+                            >
                               {vendor.name}
                             </SelectItem>
                           ))}
@@ -508,7 +561,12 @@ export function StepVendorMatching({
                           variant="ghost"
                           size="sm"
                           className="h-8 px-2 text-xs shrink-0"
-                          onClick={() => handleRowVendorChange(transfer.ofb_transfer_id, suggestedVendor.id)}
+                          onClick={() =>
+                            handleRowVendorChange(
+                              transfer.ofb_transfer_id,
+                              suggestedVendor.id,
+                            )
+                          }
                           title={`Suggested: ${suggestedVendor.name}`}
                         >
                           <Sparkles className="h-3 w-3 text-yellow-500" />
@@ -522,7 +580,13 @@ export function StepVendorMatching({
                       size="sm"
                       className="h-8 px-2"
                       disabled={!selectedVendorId || isRowMatching}
-                      onClick={() => selectedVendorId && handleSingleMatch(transfer.ofb_transfer_id, selectedVendorId)}
+                      onClick={() =>
+                        selectedVendorId &&
+                        handleSingleMatch(
+                          transfer.ofb_transfer_id,
+                          selectedVendorId,
+                        )
+                      }
                     >
                       {isRowMatching ? (
                         "..."
@@ -549,7 +613,9 @@ export function StepVendorMatching({
       {vendors.length === 0 && (
         <div className="flex items-center gap-2 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-yellow-800 dark:text-yellow-200">
           <AlertCircle className="h-5 w-5" />
-          <span>No vendors found. Add vendors in the OFB vendors table first.</span>
+          <span>
+            No vendors found. Add vendors in the OFB vendors table first.
+          </span>
         </div>
       )}
     </div>

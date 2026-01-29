@@ -29,7 +29,10 @@ export const ROUTE_SEGMENTS = {
   platformSettings: { path: "platform-settings", label: "Platform Settings" },
 
   // Balance Sheet sub-sections
-  investorPortfolio: { path: "investor-portfolio", label: "Investor Portfolio" },
+  investorPortfolio: {
+    path: "investor-portfolio",
+    label: "Investor Portfolio",
+  },
   transactions: { path: "transactions", label: "Transactions" },
   documents: { path: "documents", label: "Documents" },
   deals: { path: "deals", label: "Deals" },
@@ -52,8 +55,8 @@ export const ROUTE_SEGMENTS = {
 
   // Integration pages
   brex: { path: "brex", label: "Brex" },
-  ofb: { path: "ofb", label: "Ocean First" },
-  templateEditor: { path: "template-editor", label: "Template Editor" },
+  ofb: { path: "ofb", label: "Accounting Automation" },
+  templateEditor: { path: "template-editor", label: "Template Studio" },
 } as const;
 
 // ============================================================================
@@ -198,7 +201,7 @@ export interface BreadcrumbSegment {
  */
 export function getBreadcrumbSegments(
   pathname: string,
-  searchParams?: URLSearchParams
+  searchParams?: URLSearchParams,
 ): BreadcrumbSegment[] {
   const path = pathname.replace(/\/$/, "");
 
@@ -210,8 +213,14 @@ export function getBreadcrumbSegments(
   // Balance Sheet - Investor Portfolio - Analytics
   if (path === ROUTES.investorPortfolio.analytics.split("?")[0]) {
     return [
-      { label: ROUTE_SEGMENTS.balanceSheet.label, href: ROUTES.investorPortfolio.analytics },
-      { label: ROUTE_SEGMENTS.investorPortfolio.label, href: ROUTES.investorPortfolio.analytics },
+      {
+        label: ROUTE_SEGMENTS.balanceSheet.label,
+        href: ROUTES.investorPortfolio.analytics,
+      },
+      {
+        label: ROUTE_SEGMENTS.investorPortfolio.label,
+        href: ROUTES.investorPortfolio.analytics,
+      },
       { label: ROUTE_SEGMENTS.analytics.label },
     ];
   }
@@ -219,8 +228,14 @@ export function getBreadcrumbSegments(
   // Balance Sheet - Investor Portfolio - Deals
   if (path === ROUTES.investorPortfolio.deals) {
     return [
-      { label: ROUTE_SEGMENTS.balanceSheet.label, href: ROUTES.investorPortfolio.analytics },
-      { label: ROUTE_SEGMENTS.investorPortfolio.label, href: ROUTES.investorPortfolio.analytics },
+      {
+        label: ROUTE_SEGMENTS.balanceSheet.label,
+        href: ROUTES.investorPortfolio.analytics,
+      },
+      {
+        label: ROUTE_SEGMENTS.investorPortfolio.label,
+        href: ROUTES.investorPortfolio.analytics,
+      },
       { label: ROUTE_SEGMENTS.deals.label },
     ];
   }
@@ -231,7 +246,10 @@ export function getBreadcrumbSegments(
     path !== ROUTES.investorPortfolio.deals
   ) {
     return [
-      { label: ROUTE_SEGMENTS.deals.label, href: ROUTES.investorPortfolio.deals },
+      {
+        label: ROUTE_SEGMENTS.deals.label,
+        href: ROUTES.investorPortfolio.deals,
+      },
       // The deal name will be added by the component using dealName prop
     ];
   }
@@ -247,8 +265,14 @@ export function getBreadcrumbSegments(
           : ROUTE_SEGMENTS.allTransactions.label;
 
     return [
-      { label: ROUTE_SEGMENTS.balanceSheet.label, href: ROUTES.transactions.all },
-      { label: ROUTE_SEGMENTS.transactions.label, href: ROUTES.transactions.all },
+      {
+        label: ROUTE_SEGMENTS.balanceSheet.label,
+        href: ROUTES.transactions.all,
+      },
+      {
+        label: ROUTE_SEGMENTS.transactions.label,
+        href: ROUTES.transactions.all,
+      },
       { label: tabLabel },
     ];
   }
@@ -256,8 +280,14 @@ export function getBreadcrumbSegments(
   // Balance Sheet - Transactions - New
   if (path === ROUTES.transactions.new) {
     return [
-      { label: ROUTE_SEGMENTS.balanceSheet.label, href: ROUTES.transactions.all },
-      { label: ROUTE_SEGMENTS.transactions.label, href: ROUTES.transactions.all },
+      {
+        label: ROUTE_SEGMENTS.balanceSheet.label,
+        href: ROUTES.transactions.all,
+      },
+      {
+        label: ROUTE_SEGMENTS.transactions.label,
+        href: ROUTES.transactions.all,
+      },
       { label: "New Transaction" },
     ];
   }
@@ -269,8 +299,14 @@ export function getBreadcrumbSegments(
   ) {
     const transactionId = path.split("/").pop();
     return [
-      { label: ROUTE_SEGMENTS.balanceSheet.label, href: ROUTES.transactions.all },
-      { label: ROUTE_SEGMENTS.transactions.label, href: ROUTES.transactions.all },
+      {
+        label: ROUTE_SEGMENTS.balanceSheet.label,
+        href: ROUTES.transactions.all,
+      },
+      {
+        label: ROUTE_SEGMENTS.transactions.label,
+        href: ROUTES.transactions.all,
+      },
       { label: `Transaction #${transactionId}` },
     ];
   }
@@ -320,7 +356,9 @@ export function getBreadcrumbSegments(
   const lastSegment = segments[segments.length - 1];
   return [
     {
-      label: lastSegment.charAt(0).toUpperCase() + lastSegment.slice(1).replace(/-/g, " "),
+      label:
+        lastSegment.charAt(0).toUpperCase() +
+        lastSegment.slice(1).replace(/-/g, " "),
     },
   ];
 }
@@ -340,5 +378,8 @@ export const DOCUMENT_TAB_ITEMS = [
 export const INTEGRATION_ITEMS = [
   { label: ROUTE_SEGMENTS.brex.label, href: ROUTES.integrations.brex },
   { label: ROUTE_SEGMENTS.ofb.label, href: ROUTES.integrations.ofb },
-  { label: ROUTE_SEGMENTS.templateEditor.label, href: ROUTES.integrations.templateEditor },
+  {
+    label: ROUTE_SEGMENTS.templateEditor.label,
+    href: ROUTES.integrations.templateEditor,
+  },
 ];

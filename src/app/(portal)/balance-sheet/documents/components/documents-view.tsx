@@ -529,7 +529,9 @@ export function DocumentsView({
   const [documentCategories, setDocumentCategories] = useState<
     { id: number; name: string }[]
   >([]);
-  const [deals, setDeals] = useState<{ id: number; deal_name: string }[]>([]);
+  const [deals, setDeals] = useState<
+    { id: number; deal_name: string | null }[]
+  >([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [selectedDealId, setSelectedDealId] = useState<string>("");
 
@@ -610,8 +612,7 @@ export function DocumentsView({
           .from("auth_clerk_users")
           .select("id, clerk_user_id")
           .eq("id", impersonatedUserId)
-          .single()
-          .abortSignal(abortController.signal);
+          .single();
 
         // Check if request was cancelled
         if (isCancelled) return;

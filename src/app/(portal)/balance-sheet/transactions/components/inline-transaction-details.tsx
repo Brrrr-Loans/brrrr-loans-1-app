@@ -32,17 +32,19 @@ const formatCurrency = (amount: number | null) => {
   }).format(amount);
 };
 
-const getStatusBadgeVariant = (status: string | null) => {
+const getStatusBadgeVariant = (
+  status: string | null,
+): "default" | "secondary" | "destructive" | "outline" => {
   switch (status) {
     case "completed":
     case "processed":
-      return "success";
+      return "default"; // Green for success
     case "pending":
-      return "warning";
+      return "secondary"; // Yellow for warning
     case "failed":
-      return "danger";
+      return "destructive"; // Red for danger
     case "processing":
-      return "info";
+      return "outline"; // Blue for info
     default:
       return "outline";
   }
@@ -100,7 +102,7 @@ export function InlineTransactionDetails({
                   <h3 className="font-semibold text-base">Transfer Details</h3>
                   <Badge
                     variant={getStatusBadgeVariant(
-                      transaction.transaction_status
+                      transaction.transaction_status,
                     )}
                   >
                     {transaction.transaction_status || "N/A"}
@@ -118,17 +120,19 @@ export function InlineTransactionDetails({
                       {formatCurrency(
                         transaction.transaction_amount
                           ? Math.abs(Number(transaction.transaction_amount))
-                          : null
+                          : null,
                       )}
                     </p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-muted-foreground text-sm">Date</p>
                     <p className="font-semibold text-base">
-                      {format(
-                        new Date(transaction.transaction_date),
-                        "MMM d, yyyy"
-                      )}
+                      {transaction.transaction_date
+                        ? format(
+                            new Date(transaction.transaction_date),
+                            "MMM d, yyyy",
+                          )
+                        : "N/A"}
                     </p>
                   </div>
                   <div className="space-y-1">
@@ -178,8 +182,8 @@ export function InlineTransactionDetails({
                 <CollapsibleTrigger className="flex w-full items-center justify-between p-4 font-semibold border-b hover:bg-muted/50">
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-base">Investors</h3>
-                    <Badge 
-                      variant="outline" 
+                    <Badge
+                      variant="outline"
                       className="h-5 min-w-5 rounded-full px-1 font-mono text-xs tabular-nums"
                     >
                       {investors.length}
@@ -199,7 +203,9 @@ export function InlineTransactionDetails({
                               <div className="flex items-center gap-2">
                                 <Building className="h-4 w-4 text-muted-foreground" />
                                 <div>
-                                  <p className="font-medium text-sm">{inv.name}</p>
+                                  <p className="font-medium text-sm">
+                                    {inv.name}
+                                  </p>
                                   <p className="text-xs text-muted-foreground">
                                     Organization
                                   </p>
@@ -214,7 +220,9 @@ export function InlineTransactionDetails({
                               <div className="flex items-center gap-2">
                                 <User className="h-4 w-4 text-muted-foreground" />
                                 <div>
-                                  <p className="font-medium text-sm">{inv.name}</p>
+                                  <p className="font-medium text-sm">
+                                    {inv.name}
+                                  </p>
                                   <p className="text-xs text-muted-foreground">
                                     {inv.email}
                                   </p>
@@ -242,8 +250,8 @@ export function InlineTransactionDetails({
             <div className="rounded-lg border bg-card shadow-sm">
               <div className="flex items-center gap-2 p-4 font-semibold border-b">
                 <h3 className="font-semibold text-base">Associated Deals</h3>
-                <Badge 
-                  variant="outline" 
+                <Badge
+                  variant="outline"
                   className="h-5 min-w-5 rounded-full px-1 font-mono text-xs tabular-nums"
                 >
                   {transaction.deals.length}
@@ -280,8 +288,8 @@ export function InlineTransactionDetails({
         <div className="rounded-lg border bg-card shadow-sm">
           <div className="flex items-center gap-2 p-4 font-semibold border-b">
             <h3 className="font-semibold text-base">Documents</h3>
-            <Badge 
-              variant="outline" 
+            <Badge
+              variant="outline"
               className="h-5 min-w-5 rounded-full px-1 font-mono text-xs tabular-nums"
             >
               {transaction.documents.length}
@@ -299,10 +307,11 @@ export function InlineTransactionDetails({
                     {doc.document_files.document_name}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {doc.document_files.document_categories?.name || "Document"} •{" "}
+                    {doc.document_files.document_categories?.name || "Document"}{" "}
+                    •{" "}
                     {format(
                       new Date(doc.document_files.uploaded_at),
-                      "MMM d, yyyy"
+                      "MMM d, yyyy",
                     )}
                   </p>
                 </div>

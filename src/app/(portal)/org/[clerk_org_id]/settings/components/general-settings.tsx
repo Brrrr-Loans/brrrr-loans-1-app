@@ -32,7 +32,7 @@ export function GeneralSettings() {
 
   const handleUpdateProfile = async () => {
     if (!organization) return;
-    
+
     setIsUpdating(true);
     try {
       await organization.update({
@@ -108,6 +108,7 @@ export function GeneralSettings() {
                 accept="image/*"
                 className="hidden"
                 onChange={handleImageUpload}
+                aria-label="Upload organization logo"
               />
               <p className="text-xs text-muted-foreground">
                 Recommended: Square image, at least 256x256px
