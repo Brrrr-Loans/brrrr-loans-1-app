@@ -22,28 +22,28 @@ import {
 // These components use Radix UI primitives that generate IDs differently on server vs client
 const SearchForm = dynamic(
   () => import("@/components/layout/search-form").then((mod) => mod.SearchForm),
-  { ssr: false }
+  { ssr: false },
 );
 const ThemeDropdown = dynamic(
   () =>
     import("@/components/theme/theme-dropdown").then(
-      (mod) => mod.ThemeDropdown
+      (mod) => mod.ThemeDropdown,
     ),
-  { ssr: false }
+  { ssr: false },
 );
 const PlatformSettingsPopover = dynamic(
   () =>
     import("@/components/layout/platform-settings-popover").then(
-      (mod) => mod.PlatformSettingsPopover
+      (mod) => mod.PlatformSettingsPopover,
     ),
-  { ssr: false }
+  { ssr: false },
 );
 const ImpersonationSwitcher = dynamic(
   () =>
-    import(
-      "@/app/(portal)/platform-settings/components/impersonation-switcher"
-    ).then((mod) => mod.ImpersonationSwitcher),
-  { ssr: false }
+    import("@/app/(portal)/platform-settings/components/impersonation-switcher").then(
+      (mod) => mod.ImpersonationSwitcher,
+    ),
+  { ssr: false },
 );
 import {
   Dialog,
@@ -85,7 +85,7 @@ interface SiteHeaderProps {
 function generateBreadcrumbs(
   pathname: string,
   searchParams?: URLSearchParams,
-  dealName?: string
+  dealName?: string,
 ): React.ReactNode {
   const path = pathname.replace(/\/$/, "");
   const segments = getBreadcrumbSegments(pathname, searchParams);

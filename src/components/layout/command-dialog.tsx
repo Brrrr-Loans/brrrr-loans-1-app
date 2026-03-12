@@ -9,7 +9,6 @@ import {
   FileText,
   Settings,
   User,
-  BarChart,
   FolderOpen,
   Plus,
   Home,
@@ -46,7 +45,7 @@ export function AppCommandDialog({
       onOpenChange(false);
       command();
     },
-    [onOpenChange]
+    [onOpenChange],
   );
 
   return (
@@ -64,7 +63,11 @@ export function AppCommandDialog({
             <CommandShortcut>⌘H</CommandShortcut>
           </CommandItem>
           <CommandItem
-            onSelect={() => runCommand(() => router.push("/balance-sheet/investor-portfolio/deals"))}
+            onSelect={() =>
+              runCommand(() =>
+                router.push("/balance-sheet/investor-portfolio/deals"),
+              )
+            }
           >
             <FolderOpen />
             <span>Deals</span>
@@ -103,7 +106,9 @@ export function AppCommandDialog({
           </CommandItem>
           <CommandItem
             onSelect={() =>
-              runCommand(() => router.push("/balance-sheet/documents?status=draft"))
+              runCommand(() =>
+                router.push("/balance-sheet/documents?status=draft"),
+              )
             }
           >
             <FileText />
@@ -112,7 +117,7 @@ export function AppCommandDialog({
           <CommandItem
             onSelect={() =>
               runCommand(() =>
-                router.push("/balance-sheet/documents?status=completed")
+                router.push("/balance-sheet/documents?status=completed"),
               )
             }
           >
@@ -122,7 +127,7 @@ export function AppCommandDialog({
           <CommandItem
             onSelect={() =>
               runCommand(() =>
-                router.push("/balance-sheet/documents?status=pending")
+                router.push("/balance-sheet/documents?status=pending"),
               )
             }
           >
@@ -131,7 +136,9 @@ export function AppCommandDialog({
           </CommandItem>
           <CommandItem
             onSelect={() =>
-              runCommand(() => router.push("/balance-sheet/documents?status=inbox"))
+              runCommand(() =>
+                router.push("/balance-sheet/documents?status=inbox"),
+              )
             }
           >
             <FileText />
@@ -143,7 +150,9 @@ export function AppCommandDialog({
         <CommandGroup heading="Quick Actions">
           <CommandItem
             onSelect={() =>
-              runCommand(() => router.push("/balance-sheet/investor-portfolio/deals/new"))
+              runCommand(() =>
+                router.push("/balance-sheet/investor-portfolio/deals/new"),
+              )
             }
           >
             <Plus />
