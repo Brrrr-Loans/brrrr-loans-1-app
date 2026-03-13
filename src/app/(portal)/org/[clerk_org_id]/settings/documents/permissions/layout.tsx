@@ -10,6 +10,7 @@ import {
   Users,
   Globe,
   Shield,
+  ShieldCheck,
   FileText,
   Loader2,
 } from "lucide-react";
@@ -70,6 +71,13 @@ export default function DocumentPermissionsLayout({
       icon: Shield,
       href: `/org/${clerkOrgId}/settings/documents/permissions`,
       isActive: true,
+    },
+    {
+      id: "policies",
+      label: "Policies",
+      subtitle: "Custom access rules",
+      icon: ShieldCheck,
+      href: `/org/${clerkOrgId}/settings/policies`,
     },
   ];
 
