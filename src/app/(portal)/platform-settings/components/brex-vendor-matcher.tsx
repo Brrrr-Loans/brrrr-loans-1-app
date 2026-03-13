@@ -341,7 +341,7 @@ export function BrexVendorMatcher() {
                 <PopoverContent className="w-[400px] p-0" align="start">
                   <Command>
                     <CommandInput placeholder="Search vendors..." />
-                    <CommandList className="max-h-[300px]">
+                    <CommandList className="max-h-[300px] overflow-y-auto">
                       <CommandEmpty>No vendor found.</CommandEmpty>
                       <CommandGroup>
                         {vendors.map((vendor) => (
@@ -397,7 +397,7 @@ export function BrexVendorMatcher() {
                   <PopoverContent className="w-[350px] p-0" align="start">
                     <Command>
                       <CommandInput placeholder="Search users..." />
-                      <CommandList className="max-h-[300px]">
+                      <CommandList className="max-h-[300px] overflow-y-auto">
                         <CommandEmpty>No user found.</CommandEmpty>
                         <CommandGroup>
                           {clerkUsers.map((user) => (
@@ -461,7 +461,7 @@ export function BrexVendorMatcher() {
                   <PopoverContent className="w-[350px] p-0" align="start">
                     <Command>
                       <CommandInput placeholder="Search organizations..." />
-                      <CommandList className="max-h-[300px]">
+                      <CommandList className="max-h-[300px] overflow-y-auto">
                         <CommandEmpty>No organization found.</CommandEmpty>
                         <CommandGroup>
                           {clerkOrgs.map((org) => (
