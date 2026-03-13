@@ -58,13 +58,35 @@ CommandInput.displayName = CommandPrimitive.Input.displayName
 const CommandList = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.List>
->(({ className, ...props }, ref) => (
-  <CommandPrimitive.List
-    ref={ref}
-    className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden", className)}
-    {...props}
-  />
-))
+>(({ className, ...props }, ref) => {
+  const internalRef = React.useRef<HTMLDivElement>(null);
+  
+  // Combine refs
+  React.useImperativeHandle(ref, () => internalRef.current as HTMLDivElement);
+  
+  // Ensure mouse wheel scrolling works
+  React.useEffect(() => {
+    const list = internalRef.current;
+    if (!list) return;
+    
+    const handleWheel = (e: WheelEvent) => {
+      // Allow native scroll behavior, prevent cmdk from blocking
+      e.stopPropagation();
+    };
+    
+    list.addEventListener('wheel', handleWheel, { passive: true });
+    return () => list.removeEventListener('wheel', handleWheel);
+  }, []);
+  
+  return (
+    <CommandPrimitive.List
+      ref={internalRef}
+      className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden", className)}
+      style={{ overscrollBehavior: 'contain', touchAction: 'pan-y' }}
+      {...props}
+    />
+  );
+})
 
 CommandList.displayName = CommandPrimitive.List.displayName
 
