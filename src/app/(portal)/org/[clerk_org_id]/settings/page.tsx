@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useOrganization, useOrganizationList } from "@clerk/nextjs";
@@ -67,11 +67,14 @@ const settingsNavItems: NavItem[] = [
 export default function OrganizationSettingsPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const clerkOrgIdFromUrl = params.clerk_org_id as string;
   
   const { organization, isLoaded: orgLoaded } = useOrganization();
   const { setActive } = useOrganizationList();
-  const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  
+  // Get active tab from URL query param, default to "general"
+  const activeTab = (searchParams.get("tab") as SettingsTab) || "general";
   const [isValidating, setIsValidating] = useState(true);
 
   // Validate that the URL org matches the active org, or switch to it
@@ -151,7 +154,7 @@ export default function OrganizationSettingsPage() {
       {/* Main content */}
       <div className="flex flex-1">
         {/* Left sidebar navigation */}
-        <div className="w-64 border-r bg-muted/30 p-6">
+        <div className="w-64 border-r bg-[var(--background)] p-6">
           {/* Organization info */}
           <div className="mb-6 flex items-center gap-3">
             {organization.imageUrl ? (
@@ -181,38 +184,30 @@ export default function OrganizationSettingsPage() {
               Organization
             </p>
             {settingsNavItems.map((item) => {
-              // If item has href, render as Link
-              if (item.href) {
-                return (
-                  <Link
-                    key={item.id}
-                    href={`/org/${clerkOrgIdFromUrl}/settings/${item.href}`}
-                    className={cn(
-                      "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                      "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                    )}
-                  >
-                    <item.icon className="size-4" />
-                    {item.label}
-                  </Link>
-                );
-              }
-              
-              // Otherwise render as button for tab switching
+              const isActive = item.href ? false : activeTab === item.id;
+              const linkHref = item.href
+                ? `/org/${clerkOrgIdFromUrl}/settings/${item.href}`
+                : `/org/${clerkOrgIdFromUrl}/settings?tab=${item.id}`;
+
               return (
-                <button
+                <Link
                   key={item.id}
-                  onClick={() => setActiveTab(item.id as SettingsTab)}
+                  href={linkHref}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                    activeTab === item.id
+                    "flex w-full items-start gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                    isActive
                       ? "bg-accent text-accent-foreground"
                       : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                   )}
                 >
-                  <item.icon className="size-4" />
-                  {item.label}
-                </button>
+                  <item.icon className="mt-0.5 size-4 shrink-0" />
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-medium">{item.label}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {item.description}
+                    </span>
+                  </div>
+                </Link>
               );
             })}
           </nav>
