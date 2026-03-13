@@ -4,7 +4,7 @@ import React from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
-import { Home } from "lucide-react";
+import { LayoutDashboard } from "lucide-react";
 import { NavSearch } from "./nav-search";
 import { NavMain } from "./nav-main";
 import { TeamSwitcherV2 } from "./team-switcher-v2";
@@ -40,7 +40,7 @@ export function AppSidebar(
   // Use centralized navigation config with runtime isActive state
   const mainNavItems = MAIN_NAV_ITEMS.map((item) => ({
     ...item,
-    icon: Home,
+    icon: LayoutDashboard,
     isActive: pathname === item.url,
   }));
 

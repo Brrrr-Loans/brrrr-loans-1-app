@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 interface NavItem {
   id: string;
   label: string;
+  subtitle?: string;
   icon: typeof Building2;
   href: string;
   isActive?: boolean;
@@ -44,24 +45,28 @@ export default function DocumentPermissionsLayout({
     {
       id: "general",
       label: "General",
+      subtitle: "Organization profile and settings",
       icon: Building2,
       href: `/org/${clerkOrgId}/settings`,
     },
     {
       id: "members",
       label: "Members",
+      subtitle: "Manage team members and roles",
       icon: Users,
       href: `/org/${clerkOrgId}/settings`,
     },
     {
       id: "domains",
       label: "Domains",
+      subtitle: "Verified domains and email settings",
       icon: Globe,
       href: `/org/${clerkOrgId}/settings`,
     },
     {
       id: "permissions",
       label: "Permissions",
+      subtitle: "Document access control",
       icon: Shield,
       href: `/org/${clerkOrgId}/settings/documents/permissions`,
       isActive: true,
@@ -88,10 +93,10 @@ export default function DocumentPermissionsLayout({
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
                 <Link
-                  href="/dashboard"
+                  href={`/org/${clerkOrgId}/settings`}
                   className="text-muted-foreground hover:text-foreground"
                 >
-                  Dashboard
+                  {organization?.slug || clerkOrgId}
                 </Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
@@ -108,7 +113,18 @@ export default function DocumentPermissionsLayout({
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Document Permissions</BreadcrumbPage>
+              <BreadcrumbLink asChild>
+                <Link
+                  href={`/org/${clerkOrgId}/settings/documents`}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Documents
+                </Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Permissions</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
@@ -121,7 +137,7 @@ export default function DocumentPermissionsLayout({
       {/* Main content */}
       <div className="flex flex-1">
         {/* Left sidebar navigation */}
-        <div className="w-64 border-r bg-muted/30 p-6">
+        <div className="w-64 border-r bg-[var(--background)] p-6">
           {/* Organization info */}
           {organization && (
             <div className="mb-6 flex items-center gap-3">
@@ -157,14 +173,21 @@ export default function DocumentPermissionsLayout({
                 key={item.id}
                 href={item.href}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "flex w-full items-start gap-3 rounded-md px-3 py-2 text-sm transition-colors",
                   item.isActive
                     ? "bg-accent text-accent-foreground"
                     : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 )}
               >
-                <item.icon className="size-4" />
-                {item.label}
+                <item.icon className="mt-0.5 size-4 shrink-0" />
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-medium">{item.label}</span>
+                  {item.subtitle && (
+                    <span className="text-xs text-muted-foreground">
+                      {item.subtitle}
+                    </span>
+                  )}
+                </div>
               </Link>
             ))}
           </nav>
