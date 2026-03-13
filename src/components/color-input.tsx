@@ -312,6 +312,12 @@ export function ColorInput({
 
   return (
     <div className="flex items-center gap-3 py-2">
+      {/* Color preview square */}
+      <div
+        className="size-10 shrink-0 rounded-md border-2 border-border shadow-sm"
+        style={{ backgroundColor: hexColor }}
+        aria-label={`Color preview: ${displayValue}`}
+      />
       <Popover
         open={isOpen && !disabled}
         onOpenChange={(open) => !disabled && setIsOpen(open)}
@@ -324,7 +330,6 @@ export function ColorInput({
               disabled && "opacity-50 cursor-not-allowed",
             )}
             disabled={disabled}
-            style={{ backgroundColor: hexColor, color: contrastColor }}
           >
             <span className="truncate">{displayValue}</span>
             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-70" />

@@ -315,10 +315,55 @@ export function TinteEditor({ onChange, open, onOpenChange }: TinteEditorProps) 
         throw new Error("Failed to fetch themes from Tinte");
       }
       const data = await response.json();
-      setTinteThemes(data.themes || []);
+      
+      // Filter to only show clean, neutral themes from legitimate sources
+      const curatedThemes = (data.themes || []).filter((theme: TinteThemePreview) => {
+        const name = theme.name?.toLowerCase() || "";
+        const concept = theme.concept?.toLowerCase() || "";
+        const slug = theme.slug?.toLowerCase() || "";
+        
+        // Include themes from known companies/libraries
+        const legitimateSources = [
+          "vercel",
+          "supabase",
+          "shadcn",
+          "radix",
+          "tailwind",
+          "github",
+          "linear",
+          "stripe",
+          "next",
+          "react",
+        ];
+        
+        // Include neutral/clean theme keywords
+        const desiredKeywords = [
+          "neutral",
+          "clean",
+          "minimal",
+          "modern",
+          "professional",
+          "slate",
+          "gray",
+          "subtle",
+        ];
+        
+        // Check if theme matches legitimate sources or desired keywords
+        const matchesSource = legitimateSources.some(source => 
+          name.includes(source) || slug.includes(source) || concept.includes(source)
+        );
+        
+        const matchesKeyword = desiredKeywords.some(keyword =>
+          name.includes(keyword) || concept.includes(keyword)
+        );
+        
+        return matchesSource || matchesKeyword;
+      });
+      
+      setTinteThemes(curatedThemes);
       setCurrentPage(data.pagination.page);
-      setHasMore(data.pagination.hasMore);
-      setTotalPages(Math.ceil(data.pagination.total / data.pagination.limit));
+      setHasMore(data.pagination.hasMore && curatedThemes.length > 0);
+      setTotalPages(Math.ceil(curatedThemes.length / 20));
     } catch (error) {
       console.error("Error fetching Tinte themes:", error);
       setTinteError(
