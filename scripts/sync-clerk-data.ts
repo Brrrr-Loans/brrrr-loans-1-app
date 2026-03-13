@@ -53,43 +53,37 @@ async function syncExistingClerkData() {
         dbRole = "balance_sheet_investor";
       }
 
-      // Check if user already exists
-      const { data: existingUser } = await supabase
+      // Upsert user (idempotent - safe for re-runs)
+      const { error } = await supabase
         .from("auth_clerk_users")
-        .select("id")
-        .eq("clerk_user_id", user.id)
-        .single();
-
-      if (existingUser) {
-        console.log(`  ✅ User ${primaryEmail} already synced`);
-        continue;
-      }
-
-      // Insert new user
-      const { error } = await supabase.from("auth_clerk_users").insert({
-        clerk_user_id: user.id,
-        email: primaryEmail,
-        clerk_username: username,
-        first_name: user.firstName || null,
-        last_name: user.lastName || null,
-        phone_number: primaryPhone,
-        role: dbRole as
-          | "admin"
-          | "account_executive"
-          | "loan_processor"
-          | "loan_opener"
-          | "balance_sheet_investor"
-          | null,
-        is_internal_yn: false,
-        is_active_yn: true,
-      });
+        .upsert(
+          {
+            clerk_user_id: user.id,
+            email: primaryEmail,
+            clerk_username: username,
+            first_name: user.firstName || null,
+            last_name: user.lastName || null,
+            phone_number: primaryPhone,
+            role: dbRole as
+              | "admin"
+              | "account_executive"
+              | "loan_processor"
+              | "loan_opener"
+              | "balance_sheet_investor"
+              | null,
+            is_internal_yn: false,
+            is_active_yn: true,
+            image_url: user.imageUrl || null,
+            has_image: user.hasImage || false,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "clerk_user_id" }
+        );
 
       if (error) {
         console.error(`  ❌ Error syncing user ${primaryEmail}:`, error);
       } else {
-        console.log(
-          `  ✅ Synced user: ${primaryEmail} ${primaryPhone ? `(${primaryPhone})` : ""}`
-        );
+        console.log(`  ✅ Synced user: ${primaryEmail}`);
       }
     }
 
@@ -101,30 +95,24 @@ async function syncExistingClerkData() {
     const orgs = orgsResponse.data || orgsResponse; // Handle both v5 and v6 formats
 
     for (const org of orgs) {
-      // Check if org already exists
-      const { data: existingOrg } = await supabase
+      // Upsert organization (idempotent)
+      const { error } = await supabase
         .from("auth_clerk_orgs")
-        .select("id")
-        .eq("clerk_org_id", org.id)
-        .single();
-
-      if (existingOrg) {
-        console.log(`  ✅ Org ${org.name} already synced`);
-        continue;
-      }
-
-      // Insert new organization
-      const { error } = await supabase.from("auth_clerk_orgs").insert({
-        clerk_org_id: org.id,
-        clerk_org_name: org.name,
-        clerk_org_slug: org.slug,
-        created_by_clerk_user_id: org.createdBy || "",
-      });
+        .upsert(
+          {
+            clerk_org_id: org.id,
+            clerk_org_name: org.name,
+            clerk_org_slug: org.slug,
+            created_by_clerk_user_id: org.createdBy || "",
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "clerk_org_id" }
+        );
 
       if (error) {
         console.error(`  ❌ Error syncing org ${org.name}:`, error);
       } else {
-        console.log(`  ✅ Synced organization: ${org.name}`);
+        console.log(`  ✅ Synced org: ${org.name}`);
       }
     }
 
@@ -164,36 +152,22 @@ async function syncExistingClerkData() {
           continue;
         }
 
-        // Check if membership already exists
-        const { data: existingMembership } = await supabase
-          .from("auth_clerk_orgs_members")
-          .select("id")
-          .eq("auth_clerk_users_id", user.id)
-          .eq("clerk_org_id", orgData.id)
-          .single();
-
-        if (existingMembership) {
-          console.log(
-            `  ✅ Membership already synced: ${membership.publicUserData?.identifier} in ${org.name}`
-          );
-          continue;
-        }
-
-        // Insert new membership
+        // Upsert membership (idempotent)
         const { error } = await supabase
           .from("auth_clerk_orgs_members")
-          .insert({
-            user_id: user.id,
-            clerk_org_id: orgData.id,
-            clerk_org_role: membership.role as "admin" | "member",
-          });
+          .upsert(
+            {
+              auth_clerk_users_id: user.id,
+              clerk_org_id: orgData.id,
+              clerk_org_role: membership.role as "admin" | "member",
+            },
+            { onConflict: "auth_clerk_users_id,clerk_org_id" }
+          );
 
         if (error) {
           console.error(`  ❌ Error syncing membership:`, error);
         } else {
-          console.log(
-            `  ✅ Synced membership: ${membership.publicUserData?.identifier} → ${org.name} (${membership.role})`
-          );
+          console.log(`  ✅ Synced membership: ${membership.publicUserData?.identifier} → ${org.name}`);
         }
       }
     }

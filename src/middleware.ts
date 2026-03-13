@@ -7,6 +7,7 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   // Public API routes (webhooks, external integrations)
+  "/webhooks(.*)",
   "/api/webhooks(.*)",
   "/api/sync-clerk(.*)",
 ]);

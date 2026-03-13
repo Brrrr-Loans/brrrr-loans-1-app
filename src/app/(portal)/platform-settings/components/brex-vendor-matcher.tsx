@@ -355,14 +355,22 @@ export function BrexVendorMatcher() {
                           >
                             <Check
                               className={cn(
-                                "mr-2 h-4 w-4",
+                                "mr-2 h-4 w-4 mt-0.5",
                                 selectedVendor === vendor.id
                                   ? "opacity-100"
                                   : "opacity-0"
                               )}
                             />
-                            {vendor.name || vendor.brex_vendor_id}
-                            {vendor.email && ` (${vendor.email})`}
+                            <div className="flex min-w-0 flex-col">
+                              <span className="truncate">
+                                {vendor.name || vendor.brex_vendor_id}
+                              </span>
+                              {vendor.email ? (
+                                <span className="truncate text-xs text-muted-foreground">
+                                  {vendor.email}
+                                </span>
+                              ) : null}
+                            </div>
                           </CommandItem>
                         ))}
                       </CommandGroup>

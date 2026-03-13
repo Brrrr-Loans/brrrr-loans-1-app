@@ -5,12 +5,6 @@ import type { NextRequest } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-server";
 import type { Database } from "@/types/supabase";
 
-// Debug logging for service role key
-console.log(
-  "Service role key available:",
-  !!process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
 // Clerk event types
 interface ClerkUser {
   id: string;
@@ -128,13 +122,6 @@ async function handleUserCreated(
     throw new Error("No primary email found for user: " + clerkId);
   }
 
-  // Validate required fields based on Clerk configuration
-  if (!first_name || !last_name) {
-    throw new Error(
-      `Missing required name fields for user: ${clerkId}. First name: ${first_name}, Last name: ${last_name}`
-    );
-  }
-
   // Generate unique username using helper function
   const username = await generateUniqueUsername(
     first_name || "",
@@ -178,19 +165,23 @@ async function handleUserCreated(
 
   const { data: profile, error } = await supabase
     .from("auth_clerk_users")
-    .insert({
-      clerk_user_id: clerkId,
-      email: primaryEmail,
-      clerk_username: username,
-      first_name: first_name || null,
-      last_name: last_name || null,
-      phone_number: primaryPhone,
-      role: dbRole as Database["public"]["Enums"]["user_role_internal"],
-      is_internal_yn: false,
-      is_active_yn: true,
-      image_url: image_url || null,
-      has_image: has_image || false,
-    })
+    .upsert(
+      {
+        clerk_user_id: clerkId,
+        email: primaryEmail,
+        clerk_username: username,
+        first_name: first_name || null,
+        last_name: last_name || null,
+        phone_number: primaryPhone,
+        role: dbRole as Database["public"]["Enums"]["user_role_internal"],
+        is_internal_yn: false,
+        is_active_yn: true,
+        image_url: image_url || null,
+        has_image: has_image || false,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "clerk_user_id" }
+    )
     .select()
     .single();
 
@@ -669,10 +660,6 @@ async function handleEmailVerified(
 export async function POST(req: NextRequest) {
   try {
     const rawEvt = await verifyWebhook(req);
-    console.log(
-      "Service role key available:",
-      !!process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
     const supabase = createServiceRoleClient();
 
     console.log("Webhook received:", { type: rawEvt.type, data: rawEvt.data });
@@ -768,7 +755,8 @@ export async function POST(req: NextRequest) {
     return new Response("Webhook processed successfully", { status: 200 });
   } catch (err) {
     console.error("Error processing webhook:", err);
-    if (err instanceof Error && err.message.includes("verification")) {
+    const errorMessage = err instanceof Error ? err.message : "";
+    if (/verif|signat/i.test(errorMessage)) {
       return new Response("Error verifying webhook", { status: 400 });
     }
     return new Response("Error processing webhook", { status: 500 });

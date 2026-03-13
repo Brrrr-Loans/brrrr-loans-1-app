@@ -138,92 +138,85 @@ export default function OrganizationSettingsPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col min-h-0">
       {/* Header with breadcrumbs */}
-      <div className="border-b px-6 py-4">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link
-                  href="/dashboard"
-                  className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
-                >
-                  <ArrowLeft className="size-4" />
-                  Back to Dashboard
-                </Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
-        <h1 className="mt-4 text-2xl font-semibold">Settings</h1>
-      </div>
-
-      {/* Main content */}
-      <div className="flex flex-1">
-        {/* Left sidebar navigation */}
-        <div className="w-64 border-r bg-[var(--background)] p-6">
-          {/* Organization info */}
-          <div className="mb-6 flex items-center gap-3">
+      <div className="shrink-0 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="px-6 py-5">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-3"
+          >
+            <ArrowLeft className="size-4" />
+            Back to Dashboard
+          </Link>
+          <div className="flex items-center gap-4">
             {organization.imageUrl ? (
               <Image
                 src={organization.imageUrl}
                 alt={organization.name}
-                width={40}
-                height={40}
-                className="rounded-lg"
+                width={48}
+                height={48}
+                className="rounded-xl"
               />
             ) : (
-              <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <Building2 className="size-5" />
+              <div className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                <Building2 className="size-6" />
               </div>
             )}
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{organization.name}</p>
-              <p className="truncate text-sm text-muted-foreground">
-                {organization.slug || "organization"}
+            <div>
+              <h1 className="text-2xl font-bold">{organization.name}</h1>
+              <p className="text-sm text-muted-foreground">
+                Organization Settings
               </p>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Navigation */}
-          <nav className="space-y-1">
-            <p className="mb-2 px-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Organization
-            </p>
-            {settingsNavItems.map((item) => {
-              const isActive = item.href ? false : activeTab === item.id;
-              const linkHref = item.href
-                ? `/org/${clerkOrgIdFromUrl}/settings/${item.href}`
-                : `/org/${clerkOrgIdFromUrl}/settings?tab=${item.id}`;
+      {/* Main content */}
+      <div className="flex flex-1 min-h-0">
+        {/* Left sidebar navigation */}
+        <div className="w-72 shrink-0 border-r bg-muted/20 overflow-y-auto">
+          <div className="p-6">
+            {/* Navigation */}
+            <nav className="space-y-1">
+              <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Settings
+              </p>
+              {settingsNavItems.map((item) => {
+                const isActive = item.href ? false : activeTab === item.id;
+                const linkHref = item.href
+                  ? `/org/${clerkOrgIdFromUrl}/settings/${item.href}`
+                  : `/org/${clerkOrgIdFromUrl}/settings?tab=${item.id}`;
 
-              return (
-                <Link
-                  key={item.id}
-                  href={linkHref}
-                  className={cn(
-                    "flex w-full items-start gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                    isActive
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                  )}
-                >
-                  <item.icon className="mt-0.5 size-4 shrink-0" />
-                  <div className="flex flex-col gap-0.5">
-                    <span className="font-medium">{item.label}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {item.description}
-                    </span>
-                  </div>
-                </Link>
-              );
-            })}
-          </nav>
+                return (
+                  <Link
+                    key={item.id}
+                    href={linkHref}
+                    className={cn(
+                      "flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200",
+                      isActive
+                        ? "bg-accent text-accent-foreground shadow-sm"
+                        : "text-muted-foreground hover:bg-accent/50 hover:text-foreground hover:shadow-sm"
+                    )}
+                  >
+                    <item.icon className="mt-0.5 size-4 shrink-0" />
+                    <div className="flex flex-col gap-1 min-w-0">
+                      <span className="font-medium leading-none">{item.label}</span>
+                      <span className="text-xs text-muted-foreground leading-tight">
+                        {item.description}
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
         </div>
 
         {/* Right content area */}
-        <div className="flex-1 overflow-auto">
-          <div className="mx-auto max-w-3xl p-8">
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-4xl px-6 py-8 md:px-8 md:py-10">
             {activeTab === "general" && <GeneralSettings />}
             {activeTab === "members" && <MembersSettings />}
             {activeTab === "domains" && <DomainsSettings />}
