@@ -586,7 +586,6 @@ async function handleOrganizationMembershipUpdated(
     .from("auth_clerk_orgs_members")
     .update({
       clerk_org_role: orgRole,
-      updated_at: new Date().toISOString(),
     })
     .eq("auth_clerk_users_id", user.id)
     .eq("clerk_org_id", org.id);
