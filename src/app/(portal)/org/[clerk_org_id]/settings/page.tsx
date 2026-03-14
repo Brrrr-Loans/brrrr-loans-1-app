@@ -206,9 +206,9 @@ export default function OrganizationSettingsPage() {
       {/* Main content container */}
       <div className="flex flex-1 min-h-0">
         {/* Left sidebar navigation */}
-        <div className="w-80 shrink-0 border-r overflow-y-auto">
+        <div className="w-80 shrink-0 overflow-y-auto">
           {/* Organization info card */}
-          <div className="border-b p-6">
+          <div className="p-6">
             <div className="flex items-center gap-3">
               {organization.imageUrl ? (
                 <Image
@@ -233,7 +233,7 @@ export default function OrganizationSettingsPage() {
           </div>
 
           {/* Navigation */}
-          <nav className="p-4 space-y-0.5">
+          <nav className="px-4 pb-4 space-y-0.5">
             {settingsNavItems.map((item) => {
               const isActive = item.href ? false : activeTab === item.id;
               const linkHref = item.href
@@ -265,22 +265,19 @@ export default function OrganizationSettingsPage() {
         </div>
 
         {/* Right content area */}
-        <div className="flex-1 flex flex-col min-h-0">
-          {/* Header */}
-          <div className="shrink-0 border-b px-8 py-6">
-            <h1 className="text-2xl font-bold">Settings</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Manage your organization profile, members, and preferences
-            </p>
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-8">
-              {activeTab === "general" && <GeneralSettings />}
-              {activeTab === "members" && <MembersSettings />}
-              {activeTab === "domains" && <DomainsSettings />}
+        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+          {/* Content with inline section heading */}
+          <div className="px-8 py-6">
+            <div className="mb-8">
+              <h1 className="text-2xl font-bold">Settings</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Manage your organization profile, members, and preferences
+              </p>
             </div>
+
+            {activeTab === "general" && <GeneralSettings />}
+            {activeTab === "members" && <MembersSettings />}
+            {activeTab === "domains" && <DomainsSettings />}
           </div>
         </div>
       </div>
