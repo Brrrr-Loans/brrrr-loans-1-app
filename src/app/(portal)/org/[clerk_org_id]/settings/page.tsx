@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { use, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useOrganization, useOrganizationList } from "@clerk/nextjs";
@@ -12,10 +12,15 @@ import {
   Globe,
   Shield,
   ShieldCheck,
+  Palette,
   Loader2,
+  Briefcase,
+  LayoutDashboard,
+  Workflow,
+  Plug,
+  Key,
 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/shadcn/tabs";
-import { Separator } from "@/components/ui/shadcn/separator";
+import { cn } from "@/lib/utils";
 
 // Import the tab content components
 import { GeneralSettings } from "./components/general-settings";
@@ -24,94 +29,102 @@ import { DomainsSettings } from "./components/domains-settings";
 
 type SettingsTab = "general" | "members" | "domains";
 
-interface TabConfig {
-  value: SettingsTab;
+interface NavItem {
+  id: SettingsTab | "permissions" | "policies";
   label: string;
   icon: typeof Building2;
   description: string;
-  component: React.ReactNode;
+  href?: string;
 }
 
-interface ExternalLink {
-  label: string;
-  icon: typeof Shield;
-  description: string;
-  href: string;
+const settingsNavItems: NavItem[] = [
+  {
+    id: "general",
+    label: "General",
+    icon: Building2,
+    description: "Organization profile and settings",
+  },
+  {
+    id: "members",
+    label: "Members",
+    icon: Users,
+    description: "Manage organization members",
+  },
+  {
+    id: "domains",
+    label: "Domains",
+    icon: Globe,
+    description: "Verified domains and SSO",
+  },
+  {
+    id: "permissions",
+    label: "Permissions",
+    icon: Shield,
+    description: "Document access permissions",
+    href: "documents/permissions",
+  },
+  {
+    id: "policies",
+    label: "Policies",
+    icon: ShieldCheck,
+    description: "Global access policies",
+    href: "policies",
+  },
+];
+
+type PageProps = {
+  params: Promise<{ clerk_org_id: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+function getSearchParam(
+  sp: { [key: string]: string | string[] | undefined },
+  key: string
+): string | null {
+  const v = sp?.[key];
+  return Array.isArray(v) ? v[0] ?? null : (v ?? null);
 }
 
-export default function OrganizationSettingsPage() {
-  const params = useParams();
+export default function OrganizationSettingsPage({
+  params,
+  searchParams,
+}: PageProps) {
+  const resolvedParams = use(params);
+  const resolvedSearchParams = use(searchParams);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const clerkOrgIdFromUrl = params.clerk_org_id as string;
-  
+  const clerkOrgIdFromUrl = resolvedParams.clerk_org_id;
+
   const { organization, isLoaded: orgLoaded } = useOrganization();
   const { setActive } = useOrganizationList();
-  
-  // Get active tab from URL query param, default to "general"
-  const activeTab = (searchParams.get("tab") as SettingsTab) || "general";
+  const [isValidating, setIsValidating] = useState(true);
 
-  // Validate that the URL org matches the active org
+  // Get active tab from URL search params, default to "general"
+  const tabParam = getSearchParam(resolvedSearchParams, "tab");
+  const activeTab = (tabParam as SettingsTab) || "general";
+
+  // Validate that the URL org matches the active org, or switch to it
   useEffect(() => {
-    if (!orgLoaded || !clerkOrgIdFromUrl || !organization) return;
+    if (!orgLoaded || !clerkOrgIdFromUrl) return;
 
-    // If URL org doesn't match active org - redirect to correct URL
-    if (organization.id !== clerkOrgIdFromUrl) {
-      router.replace(`/org/${organization.id}/settings`);
+    if (!organization) {
+      setIsValidating(false);
+      return;
     }
-  }, [orgLoaded, organization, clerkOrgIdFromUrl, router]);
 
-  // Handle tab changes via URL
-  const handleTabChange = (value: string) => {
-    router.push(`/org/${clerkOrgIdFromUrl}/settings?tab=${value}`);
-  };
+    if (organization.id === clerkOrgIdFromUrl) {
+      setIsValidating(false);
+      return;
+    }
 
-  // Tab configurations
-  const tabs: TabConfig[] = [
-    {
-      value: "general",
-      label: "General",
-      icon: Building2,
-      description: "Organization profile and settings",
-      component: <GeneralSettings />,
-    },
-    {
-      value: "members",
-      label: "Members",
-      icon: Users,
-      description: "Manage organization members",
-      component: <MembersSettings />,
-    },
-    {
-      value: "domains",
-      label: "Domains",
-      icon: Globe,
-      description: "Verified domains and SSO",
-      component: <DomainsSettings />,
-    },
-  ];
+    router.replace(`/org/${organization.id}/settings`);
+  }, [orgLoaded, organization, clerkOrgIdFromUrl, router, setActive]);
 
-  const externalLinks: ExternalLink[] = [
-    {
-      label: "Permissions",
-      icon: Shield,
-      description: "Document access control",
-      href: `/org/${clerkOrgIdFromUrl}/settings/documents/permissions`,
-    },
-    {
-      label: "Policies",
-      icon: ShieldCheck,
-      description: "Custom access rules",
-      href: `/org/${clerkOrgIdFromUrl}/settings/policies`,
-    },
-  ];
-
-  if (!orgLoaded) {
+  if (!orgLoaded || isValidating) {
     return (
-      <div className="flex flex-1 items-center justify-center">
+      <div className="w-full flex justify-center px-4 py-8 md:px-6">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="size-5 animate-spin" />
-          <span>Loading...</span>
+          <span>Loading organization...</span>
         </div>
       </div>
     );
@@ -119,11 +132,11 @@ export default function OrganizationSettingsPage() {
 
   if (!organization) {
     return (
-      <div className="flex flex-1 items-center justify-center">
+      <div className="w-full flex justify-center px-4 py-8 md:px-6">
         <div className="text-center">
-          <Building2 className="mx-auto size-12 text-muted-foreground/30" />
-          <h2 className="mt-4 text-lg font-semibold">No organization selected</h2>
-          <p className="mt-1.5 text-sm text-muted-foreground">
+          <Building2 className="mx-auto size-12 text-muted-foreground/50" />
+          <h2 className="mt-4 text-lg font-medium">No organization selected</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
             Please select an organization to view settings
           </p>
           <Link
@@ -139,111 +152,101 @@ export default function OrganizationSettingsPage() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Compact header */}
-      <div className="shrink-0 border-b bg-background px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="size-4" />
-            </Link>
-            <Separator orientation="vertical" className="h-5" />
-            {organization.imageUrl ? (
-              <Image
-                src={organization.imageUrl}
-                alt={organization.name}
-                width={32}
-                height={32}
-                className="rounded-lg"
-              />
-            ) : (
-              <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <Building2 className="size-4" />
+    <div className="w-full px-4 pt-3 pb-3 mx-7 md:px-8 md:pt-9 md:pb-9">
+      <div className="w-full max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold">Settings</h1>
+          <p className="mt-1 text-muted-foreground">
+            Manage your organization profile, members, and preferences.
+          </p>
+        </div>
+
+        {/* Main content with sidebar */}
+        <div className="flex gap-8">
+          {/* Left sidebar navigation */}
+          <div className="w-64 flex-shrink-0">
+            <div className="sticky top-4">
+              {/* Organization info */}
+              <div className="mb-6 flex items-center gap-3 rounded-lg border bg-card p-4">
+                {organization.imageUrl ? (
+                  <Image
+                    src={organization.imageUrl}
+                    alt={organization.name}
+                    width={40}
+                    height={40}
+                    className="rounded-lg"
+                  />
+                ) : (
+                  <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                    <Building2 className="size-5" />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">{organization.name}</p>
+                  <p className="truncate text-sm text-muted-foreground">
+                    {organization.slug || "organization"}
+                  </p>
+                </div>
               </div>
-            )}
-            <div>
-              <h1 className="text-base font-semibold leading-none">{organization.name}</h1>
-              <p className="text-xs text-muted-foreground mt-1">Settings</p>
+
+              {/* Navigation */}
+              <nav className="space-y-1">
+                {settingsNavItems.map((item) => {
+                  if (item.href) {
+                    return (
+                      <Link
+                        key={item.id}
+                        href={`/org/${clerkOrgIdFromUrl}/settings/${item.href}`}
+                        className={cn(
+                          "flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors",
+                          "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                        )}
+                      >
+                        <item.icon className="size-5 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium">{item.label}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {item.description}
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  }
+
+                  const isActive = activeTab === item.id;
+                  return (
+                    <Link
+                      key={item.id}
+                      href={`/org/${clerkOrgIdFromUrl}/settings?tab=${item.id}`}
+                      className={cn(
+                        "flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors",
+                        isActive
+                          ? "bg-accent text-accent-foreground"
+                          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                      )}
+                    >
+                      <item.icon className="size-5 flex-shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium">{item.label}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {item.description}
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </nav>
             </div>
           </div>
+
+          {/* Right content area */}
+          <div className="flex-1 min-w-0">
+            {activeTab === "general" && <GeneralSettings />}
+            {activeTab === "members" && <MembersSettings />}
+            {activeTab === "domains" && <DomainsSettings />}
+          </div>
         </div>
-      </div>
-
-      {/* Main content with vertical tabs */}
-      <div className="flex-1 overflow-hidden">
-        <Tabs
-          value={activeTab}
-          onValueChange={handleTabChange}
-          orientation="vertical"
-          className="flex h-full"
-        >
-          {/* Vertical tabs sidebar */}
-          <div className="w-64 shrink-0 border-r bg-muted/30 overflow-y-auto">
-            <TabsList className="flex flex-col items-stretch w-full h-auto bg-transparent p-3 gap-1">
-              {tabs.map((tab) => (
-                <TabsTrigger
-                  key={tab.value}
-                  value={tab.value}
-                  className="justify-start data-[state=active]:bg-background data-[state=active]:shadow-sm px-3 py-2.5 rounded-md"
-                >
-                  <tab.icon className="size-4 mr-3 shrink-0" />
-                  <div className="flex flex-col items-start gap-0.5 text-left">
-                    <span className="text-sm font-medium">{tab.label}</span>
-                    <span className="text-xs text-muted-foreground font-normal">
-                      {tab.description}
-                    </span>
-                  </div>
-                </TabsTrigger>
-              ))}
-              
-              {/* Separator before external links */}
-              <div className="my-2">
-                <Separator />
-              </div>
-              
-              <div className="px-2 mb-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Advanced
-                </p>
-              </div>
-              
-              {/* External navigation links */}
-              {externalLinks.map((link) => (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  className="flex items-start gap-3 px-3 py-2.5 text-sm rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground transition-colors"
-                >
-                  <link.icon className="size-4 mt-0.5 shrink-0" />
-                  <div className="flex flex-col gap-0.5 text-left">
-                    <span className="font-medium">{link.label}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {link.description}
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </TabsList>
-          </div>
-
-          {/* Content area */}
-          <div className="flex-1 overflow-y-auto bg-background">
-            {tabs.map((tab) => (
-              <TabsContent
-                key={tab.value}
-                value={tab.value}
-                className="m-0 h-full data-[state=inactive]:hidden"
-              >
-                <div className="mx-auto max-w-4xl px-6 py-6 md:px-8 md:py-8">
-                  {tab.component}
-                </div>
-              </TabsContent>
-            ))}
-          </div>
-        </Tabs>
       </div>
     </div>
   );
