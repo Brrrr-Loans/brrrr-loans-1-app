@@ -15,6 +15,7 @@ import {
   ListTree,
   PieChart,
   BarChart3,
+  Upload,
   type LucideIcon,
 } from "lucide-react";
 
@@ -183,6 +184,14 @@ export const BALANCE_SHEET_NAV_ITEMS: NavItem[] = [
         icon: ArrowUpRight,
       },
     ],
+  },
+];
+
+export const TOOLS_NAV_ITEMS: NavItem[] = [
+  {
+    name: "Import Transactions",
+    url: "/platform-settings/integrations/ofb",
+    icon: Upload,
   },
 ];
 

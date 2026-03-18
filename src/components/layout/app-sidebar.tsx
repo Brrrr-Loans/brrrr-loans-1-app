@@ -8,7 +8,7 @@ import { LayoutDashboard } from "lucide-react";
 import { NavSearch } from "./nav-search";
 import { NavMain } from "./nav-main";
 import { TeamSwitcherV2 } from "./team-switcher-v2";
-import { MAIN_NAV_ITEMS, BALANCE_SHEET_NAV_ITEMS } from "@/config/navigation";
+import { MAIN_NAV_ITEMS, BALANCE_SHEET_NAV_ITEMS, TOOLS_NAV_ITEMS } from "@/config/navigation";
 
 // Dynamic imports with ssr: false to prevent hydration mismatches
 // These components use Radix UI primitives that generate IDs differently on server vs client
@@ -18,6 +18,10 @@ const WorkspaceSwitcher = dynamic(
 );
 const NavBalanceSheet = dynamic(
   () => import("./nav-balancesheet").then((mod) => mod.NavBalanceSheet),
+  { ssr: false }
+);
+const NavTools = dynamic(
+  () => import("./nav-tools").then((mod) => mod.NavTools),
   { ssr: false }
 );
 const NavUser = dynamic(() => import("./nav-user").then((mod) => mod.NavUser), {
@@ -78,6 +82,7 @@ export function AppSidebar(
         <NavSearch />
         <NavMain items={mainNavItems} />
         <NavBalanceSheet items={BALANCE_SHEET_NAV_ITEMS} />
+        <NavTools items={TOOLS_NAV_ITEMS} />
       </SidebarContent>
       <SidebarFooter className="mt-auto border-t border-sidebar-border pt-2">
         <NavUser user={userData} />
