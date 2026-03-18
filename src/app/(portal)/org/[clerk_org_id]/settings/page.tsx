@@ -19,15 +19,17 @@ import {
   Workflow,
   Plug,
   Key,
+  Mail,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Import the tab content components
 import { GeneralSettings } from "./components/general-settings";
 import { MembersSettings } from "./components/members-settings";
+import { InvitationsSettings } from "./components/invitations-settings";
 import { DomainsSettings } from "./components/domains-settings";
 
-type SettingsTab = "general" | "members" | "domains";
+type SettingsTab = "general" | "members" | "invitations" | "domains";
 
 interface NavItem {
   id: SettingsTab | "permissions" | "policies";
@@ -49,6 +51,12 @@ const settingsNavItems: NavItem[] = [
     label: "Members",
     icon: Users,
     description: "Manage organization members",
+  },
+  {
+    id: "invitations",
+    label: "Invitations",
+    icon: Mail,
+    description: "Manage pending invitations",
   },
   {
     id: "domains",
@@ -244,6 +252,7 @@ export default function OrganizationSettingsPage({
           <div className="flex-1 min-w-0">
             {activeTab === "general" && <GeneralSettings />}
             {activeTab === "members" && <MembersSettings />}
+            {activeTab === "invitations" && <InvitationsSettings />}
             {activeTab === "domains" && <DomainsSettings />}
           </div>
         </div>

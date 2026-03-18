@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Building2,
   FileText,
+  BookOpen,
   ChevronDown,
   Check,
 } from "lucide-react";
@@ -44,6 +45,15 @@ const workspaces: Workspace[] = [
     icon: FileText,
     href: "/docs",
     prefixes: ["/docs"],
+  },
+  {
+    id: "resources",
+    label: "Resources",
+    shortLabel: "Resources",
+    description: "Guides, templates & tools",
+    icon: BookOpen,
+    href: "/resources",
+    prefixes: ["/resources"],
   },
 ];
 
