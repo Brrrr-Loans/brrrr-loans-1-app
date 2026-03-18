@@ -4,12 +4,12 @@ import { auth } from "@clerk/nextjs/server";
 
 interface DealDocumentResult {
   id: number;
-  document_name: string;
-  storage_bucket: string;
-  storage_path: string;
+  document_name: string | null;
+  storage_bucket: string | null;
+  storage_path: string | null;
   file_type: string | null;
   file_size: number | null;
-  uploaded_at: string;
+  uploaded_at: string | null;
   category_name: string | null;
   deal_names: string[];
 }
@@ -242,14 +242,14 @@ async function fetchDocumentsForUser(
 function transformDocuments(
   data: Array<{
     id: number;
-    document_name: string;
-    storage_bucket: string;
-    storage_path: string;
+    document_name: string | null;
+    storage_bucket: string | null;
+    storage_path: string | null;
     file_type: string | null;
     file_size: number | null;
-    uploaded_at: string;
+    uploaded_at: string | null;
     document_category: { name: string } | null;
-    document_files_deals: Array<{ deal: { deal_name: string } | null }> | null;
+    document_files_deals: Array<{ deal: { deal_name: string | null } | null }> | null;
   }>,
 ): DealDocumentResult[] {
   return data.map((df) => ({

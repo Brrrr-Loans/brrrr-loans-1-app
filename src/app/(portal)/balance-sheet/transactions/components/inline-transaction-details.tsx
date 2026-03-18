@@ -309,10 +309,12 @@ export function InlineTransactionDetails({
                   <p className="text-xs text-muted-foreground">
                     {doc.document_files.document_categories?.name || "Document"}{" "}
                     •{" "}
-                    {format(
-                      new Date(doc.document_files.uploaded_at),
-                      "MMM d, yyyy",
-                    )}
+                    {doc.document_files.uploaded_at
+                      ? format(
+                          new Date(doc.document_files.uploaded_at),
+                          "MMM d, yyyy",
+                        )
+                      : "Unknown date"}
                   </p>
                 </div>
               </div>

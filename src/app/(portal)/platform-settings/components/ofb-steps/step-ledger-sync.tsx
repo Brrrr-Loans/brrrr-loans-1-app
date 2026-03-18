@@ -222,6 +222,8 @@ export function StepLedgerSync({
           // Positive = money coming in (distribution)
           const amount = transfer.amount ?? 0;
           const ledgerEntryType = amount < 0 ? "contribution" : "distribution";
+          const transactionDate =
+            transfer.process_date ?? new Date().toISOString().split("T")[0];
 
           // Create BSI transaction - link to org OR user
           // Use freshClient to ensure we have a valid JWT
@@ -229,7 +231,7 @@ export function StepLedgerSync({
             .from("bsi_transactions")
             .insert({
               transaction_amount: Math.abs(amount),
-              transaction_date: transfer.process_date,
+              transaction_date: transactionDate,
               transaction_method: "wire",
               transaction_status: "completed",
               ledger_entry_type: ledgerEntryType,
@@ -437,6 +439,7 @@ export function StepLedgerSync({
                       type="checkbox"
                       checked={selectedTransfers.size === transfers.length}
                       onChange={handleSelectAll}
+                      aria-label="Select all transfers"
                       className="rounded border-gray-300"
                     />
                   </TableHead>
@@ -456,6 +459,7 @@ export function StepLedgerSync({
                         type="checkbox"
                         checked={selectedTransfers.has(transfer.ofb_transfer_id)}
                         onChange={() => handleSelectTransfer(transfer.ofb_transfer_id)}
+                        aria-label={`Select transfer ${transfer.ofb_transfer_id}`}
                         className="rounded border-gray-300"
                       />
                     </TableCell>

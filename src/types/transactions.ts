@@ -63,11 +63,11 @@ export interface TransactionWithDetails {
   // Related deals
   deals?: Array<{
     deal_id: number;
-    allocation_amount: number;
+    allocation_amount: number | null;
     deal: {
-      deal_name: string;
+      deal_name: string | null;
       loan_number: string;
-      loan_amount_total: number;
+      loan_amount_total: number | null;
     };
   }>;
   
@@ -75,14 +75,14 @@ export interface TransactionWithDetails {
   investors?: Array<{
     clerk_user_id: number | null;
     clerk_org_id: number | null;
-    allocation_amount: number;
+    allocation_amount: number | null;
     auth_clerk_users: {
-      full_name: string;
-      email: string;
+      full_name: string | null;
+      email: string | null;
     } | null;
     auth_clerk_orgs: {
       id: number;
-      clerk_org_name: string;
+      clerk_org_name: string | null;
     } | null;
   }>;
   
@@ -91,23 +91,23 @@ export interface TransactionWithDetails {
     document_file_id: number;
     document_files: {
       id: number;
-      document_name: string;
+      document_name: string | null;
       document_category_id: number | null;
       document_categories: { name: string } | null;
-      uploaded_at: string;
+      uploaded_at: string | null;
     };
   }>;
   
   // Direct user/org links (for OFB-synced transactions)
   direct_user?: {
     id: number;
-    full_name: string;
-    email: string;
+    full_name: string | null;
+    email: string | null;
   } | null;
   
   direct_org?: {
     id: number;
-    clerk_org_name: string;
+    clerk_org_name: string | null;
   } | null;
 }
 

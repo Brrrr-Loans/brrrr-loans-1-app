@@ -181,7 +181,10 @@ export function DealNoticesWidget() {
           return;
         }
 
-        const dealIds = userDeals?.map((item) => item.deal_id) || [];
+        const dealIds =
+          userDeals
+            ?.map((item) => item.deal_id)
+            .filter((id): id is number => id !== null) || [];
         console.log("User deal IDs:", dealIds);
 
         if (dealIds.length === 0) {

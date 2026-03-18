@@ -257,10 +257,10 @@ export async function deleteDocument(id: string) {
     }
 
     // Delete the file from storage if we have a path
-    if (document.file_path) {
+    if (document.storage_path && document.storage_bucket) {
       const { error: storageError } = await supabase.storage
-        .from("documents")
-        .remove([document.file_path]);
+        .from(document.storage_bucket)
+        .remove([document.storage_path]);
 
       if (storageError) {
         console.error("Error deleting file from storage:", storageError);

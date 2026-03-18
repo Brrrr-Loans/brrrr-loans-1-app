@@ -97,11 +97,12 @@ async function generateUniqueUsername(
 
 // User event handlers
 async function handleUserCreated(
-  data: WebhookEvent["data"],
+  data: ClerkUser & {
+    image_url?: string;
+    has_image?: boolean;
+  },
   supabase: ReturnType<typeof createServiceRoleClient>
 ) {
-  if (!("email_addresses" in data)) return;
-
   const {
     id: clerkId,
     email_addresses,
@@ -111,10 +112,7 @@ async function handleUserCreated(
     public_metadata,
     image_url,
     has_image,
-  } = data as WebhookEvent["data"] & {
-    image_url?: string;
-    has_image?: boolean;
-  };
+  } = data;
   const primaryEmail = email_addresses?.[0]?.email_address;
   const primaryPhone = phone_numbers?.[0]?.phone_number || null;
 
@@ -667,7 +665,12 @@ export async function POST(req: NextRequest) {
     const evt = rawEvt as WebhookEvent;
     switch (evt.type) {
       case "user.created":
-        await handleUserCreated(evt.data, supabase);
+        if ("email_addresses" in evt.data) {
+          await handleUserCreated(
+            evt.data as ClerkUser & { image_url?: string; has_image?: boolean },
+            supabase
+          );
+        }
         break;
       case "user.updated":
         if ("email_addresses" in evt.data) {

@@ -1,14 +1,8 @@
 import Link from "next/link";
-import { ArrowLeft, ShieldCheck, AlertCircle } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/shadcn/card";
+import { ArrowLeft, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/shadcn/alert";
 import { getOrgPolicies, getOrgDisplayName } from "./actions";
+import OrgPolicyBuilder from "@/components/policies/org-policy-builder";
 
 export default async function PoliciesPage({
   params,
@@ -58,48 +52,10 @@ export default async function PoliciesPage({
         )}
 
         {policiesData && !error && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Organization Policies</CardTitle>
-              <CardDescription>
-                {orgDisplayName} has {policiesData.policies.length} active{" "}
-                {policiesData.policies.length === 1 ? "policy" : "policies"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {policiesData.policies.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <ShieldCheck className="size-12 text-muted-foreground/50 mb-3" />
-                  <p className="text-sm text-muted-foreground">
-                    No policies defined yet. Click "New Policy" to create your
-                    first access rule.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {policiesData.policies.map((policy) => (
-                    <div
-                      key={policy.id}
-                      className="flex items-center justify-between p-3 border rounded-md"
-                    >
-                      <div>
-                        <p className="font-medium">
-                          {policy.resource_type}/{policy.resource_name}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Action: {policy.action} | Scope: {policy.scope} |
-                          Effect: {policy.effect}
-                        </p>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        v{policy.version}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <OrgPolicyBuilder
+            initialPolicies={policiesData.policies}
+            orgDisplayName={orgDisplayName}
+          />
         )}
       </div>
     </div>

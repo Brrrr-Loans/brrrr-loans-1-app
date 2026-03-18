@@ -23,6 +23,20 @@ const validCategories = [
 ] as const;
 type CategoryType = (typeof validCategories)[number];
 
+async function getCategoryIdByCode(
+  supabase: Awaited<ReturnType<typeof getSupabaseClient>>,
+  categoryCode: CategoryType,
+): Promise<number | null> {
+  const { data, error } = await supabase
+    .from("document_categories")
+    .select("id")
+    .eq("code", categoryCode)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data.id;
+}
+
 export async function GET(request: Request) {
   try {
     const { userId } = await auth();
@@ -49,7 +63,13 @@ export async function GET(request: Request) {
       category !== "all" &&
       validCategories.includes(category as CategoryType)
     ) {
-      query = query.eq("document_category", category as CategoryType);
+      const categoryId = await getCategoryIdByCode(
+        supabase,
+        category as CategoryType,
+      );
+      if (categoryId) {
+        query = query.eq("document_category_id", categoryId);
+      }
     }
 
     // Note: dealId filtering now requires a JOIN with document_files_deals junction table
@@ -110,10 +130,13 @@ export async function POST(request: Request) {
     const categoryValue = validCategories.includes(category as CategoryType)
       ? (category as CategoryType)
       : undefined;
+    const categoryId = categoryValue
+      ? await getCategoryIdByCode(supabase, categoryValue)
+      : null;
 
     const insertObj: TablesInsert<"document_files"> = {
       document_name,
-      document_category: categoryValue,
+      document_category_id: categoryId,
       file_type,
       file_size,
       storage_bucket,

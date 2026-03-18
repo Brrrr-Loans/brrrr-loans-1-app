@@ -45,7 +45,7 @@ export async function GET(request: Request) {
 
     interface DistributionResult {
       id: number;
-      transaction_date: string;
+      transaction_date: string | null;
       from: string;
       to: string;
       transaction_method: string;
@@ -94,7 +94,7 @@ export async function GET(request: Request) {
           transaction_method: tx.transaction_method || "wire",
           transaction_status: tx.transaction_status || "pending",
           ledger_entry_type: tx.ledger_entry_type || "distribution",
-          transaction_amount: Math.abs(parseFloat(tx.transaction_amount || "0")),
+          transaction_amount: Math.abs(Number(tx.transaction_amount ?? 0)),
         }));
       }
     } else {
@@ -201,7 +201,7 @@ export async function GET(request: Request) {
         transaction_method: tx.transaction_method || "wire",
         transaction_status: tx.transaction_status || "pending",
         ledger_entry_type: tx.ledger_entry_type || "distribution",
-        transaction_amount: Math.abs(parseFloat(tx.transaction_amount || "0")),
+        transaction_amount: Math.abs(Number(tx.transaction_amount ?? 0)),
       }));
     }
 

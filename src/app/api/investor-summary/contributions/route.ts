@@ -67,7 +67,7 @@ export async function GET(request: Request) {
         if (error) throw error;
 
         contributions = (data || []).map((tx) => ({
-          contribution_amount: Math.abs(parseFloat(tx.transaction_amount || "0")),
+          contribution_amount: Math.abs(Number(tx.transaction_amount ?? 0)),
           contribution_status: tx.transaction_status || "pending",
           active: true,
         }));
@@ -135,7 +135,7 @@ export async function GET(request: Request) {
       );
 
       contributions = uniqueContributions.map((tx) => ({
-        contribution_amount: Math.abs(parseFloat(tx.transaction_amount || "0")),
+        contribution_amount: Math.abs(Number(tx.transaction_amount ?? 0)),
         contribution_status: tx.transaction_status || "pending",
         active: true,
       }));

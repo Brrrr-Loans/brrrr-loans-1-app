@@ -86,13 +86,14 @@ async function getUserProfileWorkflow(userId: string): Promise<WorkflowResult> {
     const permissions: UserPermissions = {
       userId: user.id,
       email: user.emailAddresses?.[0]?.emailAddress ?? "",
-      contactType: contact?.contact_type ?? "Balance Sheet Investor",
+      contactType: "Balance Sheet Investor",
       role,
       contactId: contact?.id ?? 0,
       authUserProfileId: profile.id,
       canAccessDeals: true, // Calculate based on your business logic
       canAccessDistributions: true,
       canAccessDocuments: true,
+      canAccessReports: true,
       canAccessAdminFeatures: role === "admin",
     };
 

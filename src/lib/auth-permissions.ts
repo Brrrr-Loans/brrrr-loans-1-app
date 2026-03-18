@@ -23,7 +23,7 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
         `
         id,
         email,
-        role,
+        personal_role,
         contact_id,
         contact:contact_id (
           id,
@@ -41,7 +41,7 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
 
     // Default to Balance Sheet Investor since contact_types is now in a junction table
     const contactType: ContactType = "Balance Sheet Investor";
-    const role = userProfile.role as UserRole;
+    const role = (userProfile.personal_role ?? "balance_sheet_investor") as UserRole;
     const contact = userProfile.contact as { id: number; email_address: string | null } | null;
 
     // Define permission rules based on contact type and role

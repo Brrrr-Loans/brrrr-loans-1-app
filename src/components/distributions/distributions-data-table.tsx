@@ -72,7 +72,7 @@ export function DistributionsDataTable({
         // When impersonating, don't apply org filter - show all impersonated user's data
         const params = new URLSearchParams();
         if (impersonatedUserId) {
-          params.set("impersonate_user_id", impersonatedUserId);
+          params.set("impersonate_user_id", String(impersonatedUserId));
         } else if (clerkOrgId) {
           // Only apply org filter when NOT impersonating
           params.set("clerk_org_id", clerkOrgId);
