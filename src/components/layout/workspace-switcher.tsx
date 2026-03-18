@@ -35,7 +35,7 @@ const workspaces: Workspace[] = [
     description: "Lender Platform",
     icon: Building2,
     href: "/dashboard",
-    prefixes: ["/dashboard", "/balance-sheet", "/platform-settings"],
+    prefixes: ["/dashboard", "/balance-sheet", "/platform-settings", "/tools"],
   },
   {
     id: "docs",

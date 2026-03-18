@@ -190,7 +190,7 @@ export const BALANCE_SHEET_NAV_ITEMS: NavItem[] = [
 export const TOOLS_NAV_ITEMS: NavItem[] = [
   {
     name: "Import Transactions",
-    url: "/platform-settings/integrations/ofb",
+    url: "/tools/import-transactions",
     icon: Upload,
   },
 ];
@@ -337,7 +337,15 @@ export function getBreadcrumbSegments(
     ];
   }
 
-  // Tools - Import Transactions (OFB)
+  // Tools - Import Transactions
+  if (path.startsWith("/tools/import-transactions")) {
+    return [
+      { label: "Tools" },
+      { label: "Import Transactions" },
+    ];
+  }
+
+  // Legacy OFB route redirect
   if (path === ROUTES.integrations.ofb) {
     return [
       { label: "Tools" },

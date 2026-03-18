@@ -65,10 +65,25 @@ const initialState: ImportState = {
   syncedTransactionCount: 0,
 };
 
-export function OFBImportWizard() {
-  const [currentStep, setCurrentStep] = useState<StepId>("bank");
+interface OFBImportWizardProps {
+  initialStep?: number;
+  onStepChange?: (stepNumber: number) => void;
+}
+
+export function OFBImportWizard({
+  initialStep = 1,
+  onStepChange,
+}: OFBImportWizardProps = {}) {
+  const initialStepId = STEPS[Math.max(0, Math.min(initialStep - 1, STEPS.length - 1))]?.id ?? "bank";
+  const [currentStep, setCurrentStepInternal] = useState<StepId>(initialStepId);
   const [importState, setImportState] = useState<ImportState>(initialState);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const setCurrentStep = useCallback((step: StepId) => {
+    setCurrentStepInternal(step);
+    const stepIndex = STEPS.findIndex((s) => s.id === step);
+    onStepChange?.(stepIndex + 1);
+  }, [onStepChange]);
 
   const currentStepIndex = useMemo(
     () => STEPS.findIndex((s) => s.id === currentStep),
