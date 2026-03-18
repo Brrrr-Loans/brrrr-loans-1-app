@@ -1,7 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useOrganization } from "@clerk/nextjs";
+import {
+  useReactTable,
+  getCoreRowModel,
+  getPaginationRowModel,
+  type ColumnDef,
+  flexRender,
+} from "@tanstack/react-table";
 import {
   Mail,
   UserPlus,
@@ -9,7 +16,14 @@ import {
   Clock,
   MoreHorizontal,
   Trash2,
-  RotateCcw,
+  Copy,
+  Check,
+  ChevronsLeft,
+  ChevronsRight,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/shadcn/button";
 import { Input } from "@/components/ui/shadcn/input";
@@ -51,40 +65,172 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/shadcn/table";
+import {
+  getOrgInvitations,
+  revokeInvitation,
+  sendInvitation,
+  type InvitationRow,
+} from "../actions/invitations";
+
+const statusConfig: Record<
+  string,
+  { label: string; icon: typeof Clock; className: string }
+> = {
+  pending: {
+    label: "Pending",
+    icon: Clock,
+    className: "text-amber-600 border-amber-300",
+  },
+  accepted: {
+    label: "Accepted",
+    icon: CheckCircle2,
+    className: "text-emerald-600 border-emerald-300",
+  },
+  revoked: {
+    label: "Revoked",
+    icon: XCircle,
+    className: "text-red-600 border-red-300",
+  },
+};
+
+function CopyUrlButton({ url }: { url: string | null }) {
+  const [copied, setCopied] = useState(false);
+
+  if (!url) return null;
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="size-8"
+      onClick={async () => {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }}
+    >
+      {copied ? (
+        <Check className="size-4 text-emerald-500" />
+      ) : (
+        <Copy className="size-4" />
+      )}
+      <span className="sr-only">Copy invitation link</span>
+    </Button>
+  );
+}
+
+const columns: ColumnDef<InvitationRow>[] = [
+  {
+    accessorKey: "emailAddress",
+    header: "Email",
+    cell: ({ row }) => (
+      <span className="font-medium">{row.original.emailAddress}</span>
+    ),
+  },
+  {
+    accessorKey: "role",
+    header: "Role",
+    cell: ({ row }) => {
+      const label = row.original.role === "org:admin" ? "Admin" : "Member";
+      return <Badge variant="secondary">{label}</Badge>;
+    },
+  },
+  {
+    accessorKey: "createdAt",
+    header: "Sent",
+    cell: ({ row }) =>
+      new Date(row.original.createdAt).toLocaleDateString(),
+  },
+  {
+    accessorKey: "status",
+    header: "Status",
+    cell: ({ row }) => {
+      const config = statusConfig[row.original.status] ?? statusConfig.pending;
+      const Icon = config.icon;
+      return (
+        <Badge variant="outline" className={`gap-1 ${config.className}`}>
+          <Icon className="size-3" />
+          {config.label}
+        </Badge>
+      );
+    },
+  },
+  {
+    id: "copyUrl",
+    header: "Link",
+    cell: ({ row }) => <CopyUrlButton url={row.original.url} />,
+  },
+  {
+    id: "actions",
+    header: "",
+    cell: function ActionsCell({ row, table }) {
+      const meta = table.options.meta as {
+        onRevoke: (id: string) => void;
+      } | undefined;
+      if (row.original.status !== "pending") return null;
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="size-8">
+              <MoreHorizontal className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => meta?.onRevoke(row.original.id)}
+              className="text-destructive"
+            >
+              <Trash2 className="size-4 mr-2" />
+              Revoke invitation
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    },
+  },
+];
 
 export function InvitationsSettings() {
-  const { organization, isLoaded, invitations } = useOrganization({
-    invitations: {
-      infinite: true,
-      keepPreviousData: true,
-    },
-  });
-  const [isInviting, setIsInviting] = useState(false);
+  const { organization, isLoaded } = useOrganization();
+  const [invitations, setInvitations] = useState<InvitationRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isPending, startTransition] = useTransition();
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("org:member");
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [isInviting, setIsInviting] = useState(false);
 
-  if (!isLoaded || !organization) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  const loadInvitations = async () => {
+    setLoading(true);
+    try {
+      const data = await getOrgInvitations();
+      setInvitations(data);
+    } catch (error) {
+      console.error("Failed to load invitations:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const invitationsList = invitations?.data || [];
+  useEffect(() => {
+    if (isLoaded && organization) {
+      loadInvitations();
+    }
+  }, [isLoaded, organization]);
 
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return;
     setIsInviting(true);
     try {
-      await organization.inviteMember({
+      await sendInvitation({
         emailAddress: inviteEmail.trim(),
-        role: inviteRole as "org:admin" | "org:member",
+        role: inviteRole,
       });
       setInviteEmail("");
       setShowInviteDialog(false);
-      invitations?.revalidate?.();
+      startTransition(() => {
+        loadInvitations();
+      });
     } catch (error) {
       console.error("Failed to send invitation:", error);
     } finally {
@@ -94,19 +240,35 @@ export function InvitationsSettings() {
 
   const handleRevoke = async (invitationId: string) => {
     try {
-      const inv = invitationsList.find((i) => i.id === invitationId);
-      if (inv) {
-        await inv.revoke();
-        invitations?.revalidate?.();
-      }
+      await revokeInvitation(invitationId);
+      startTransition(() => {
+        loadInvitations();
+      });
     } catch (error) {
       console.error("Failed to revoke invitation:", error);
     }
   };
 
-  const pendingInvitations = invitationsList.filter(
-    (inv) => inv.status === "pending"
-  );
+  const table = useReactTable({
+    data: invitations,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    initialState: {
+      pagination: { pageSize: 10 },
+    },
+    meta: {
+      onRevoke: handleRevoke,
+    },
+  });
+
+  if (!isLoaded || !organization) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -182,86 +344,147 @@ export function InvitationsSettings() {
         </Dialog>
       </div>
 
-      {/* Pending invitations */}
+      {/* Invitations table */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Pending Invitations</CardTitle>
+          <CardTitle className="text-base">All Invitations</CardTitle>
           <CardDescription>
-            {pendingInvitations.length === 0
-              ? "No pending invitations"
-              : `${pendingInvitations.length} pending ${pendingInvitations.length === 1 ? "invitation" : "invitations"}`}
+            {invitations.length === 0
+              ? "No invitations sent yet"
+              : `${invitations.length} total ${invitations.length === 1 ? "invitation" : "invitations"}`}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {pendingInvitations.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="size-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : invitations.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <Mail className="size-10 text-muted-foreground/50 mb-3" />
               <p className="text-sm text-muted-foreground">
-                No pending invitations. Invite someone to get started.
+                No invitations sent. Invite someone to get started.
               </p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Sent</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-10" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pendingInvitations.map((inv) => {
-                  const roleLabel =
-                    inv.role === "org:admin" ? "Admin" : "Member";
-                  const sentDate = inv.createdAt
-                    ? new Date(inv.createdAt).toLocaleDateString()
-                    : "—";
+            <>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <TableRow key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                          <TableHead key={header.id}>
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(
+                                  header.column.columnDef.header,
+                                  header.getContext()
+                                )}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableHeader>
+                  <TableBody>
+                    {table.getRowModel().rows.map((row) => (
+                      <TableRow key={row.id}>
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id}>
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
-                  return (
-                    <TableRow key={inv.id}>
-                      <TableCell className="font-medium">
-                        {inv.emailAddress}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{roleLabel}</Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {sentDate}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className="gap-1 text-amber-600"
-                        >
-                          <Clock className="size-3" />
-                          Pending
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="size-8">
-                              <MoreHorizontal className="size-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => handleRevoke(inv.id)}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="size-4 mr-2" />
-                              Revoke invitation
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+              {/* Pagination footer - shown when >= 10 invitations */}
+              {invitations.length >= 10 && (
+                <div className="flex items-center justify-between py-4">
+                  <div className="text-sm text-muted-foreground">
+                    {invitations.length} total{" "}
+                    {invitations.length === 1 ? "invitation" : "invitations"}
+                  </div>
+                  <div className="flex items-center gap-8">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-foreground">
+                        Rows per page
+                      </p>
+                      <Select
+                        value={table
+                          .getState()
+                          .pagination.pageSize.toString()}
+                        onValueChange={(value) => {
+                          table.setPageSize(Number(value));
+                        }}
+                      >
+                        <SelectTrigger className="w-[80px] h-9">
+                          <SelectValue placeholder="10" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="10">10</SelectItem>
+                          <SelectItem value="20">20</SelectItem>
+                          <SelectItem value="30">30</SelectItem>
+                          <SelectItem value="50">50</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <p className="text-sm font-medium text-foreground">
+                      Page{" "}
+                      {table.getState().pagination.pageIndex + 1} of{" "}
+                      {table.getPageCount()}
+                    </p>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => table.setPageIndex(0)}
+                        disabled={!table.getCanPreviousPage()}
+                      >
+                        <ChevronsLeft className="h-4 w-4" />
+                        <span className="sr-only">First page</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => table.previousPage()}
+                        disabled={!table.getCanPreviousPage()}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        <span className="sr-only">Previous page</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => table.nextPage()}
+                        disabled={!table.getCanNextPage()}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                        <span className="sr-only">Next page</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() =>
+                          table.setPageIndex(table.getPageCount() - 1)
+                        }
+                        disabled={!table.getCanNextPage()}
+                      >
+                        <ChevronsRight className="h-4 w-4" />
+                        <span className="sr-only">Last page</span>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
