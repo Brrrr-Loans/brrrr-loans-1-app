@@ -53,6 +53,7 @@ interface ImpersonationUser {
   id: number;
   full_name: string | null;
   email: string | null;
+  image_url: string | null;
 }
 
 export function NavUser({
@@ -93,7 +94,7 @@ export function NavUser({
     if (supabase && impersonateUsers.length === 0) {
       const { data } = await supabase
         .from("auth_clerk_users")
-        .select("id, full_name, email")
+        .select("id, full_name, email, image_url")
         .order("full_name");
       setImpersonateUsers(data || []);
     }
@@ -190,8 +191,11 @@ export function NavUser({
         {/* Impersonation Modal */}
         <Dialog open={impersonateOpen} onOpenChange={setImpersonateOpen}>
           <DialogContent className="sm:max-w-md p-0">
-            <DialogHeader className="px-4 pt-4 pb-0">
+            <DialogHeader className="px-4 pt-4 pb-2">
               <DialogTitle>View As User</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Select a user to view the application from their perspective.
+              </p>
             </DialogHeader>
             <Command className="border-t">
               <CommandInput placeholder="Search users..." />
@@ -203,20 +207,34 @@ export function NavUser({
                       key={u.id}
                       value={`${u.full_name} ${u.email}`}
                       onSelect={() => handleSelectImpersonateUser(u)}
+                      className="gap-3 py-2"
                     >
                       <Check
                         className={cn(
-                          "mr-2 h-4 w-4",
+                          "h-4 w-4 shrink-0",
                           impersonatedUserId === u.id
                             ? "opacity-100"
                             : "opacity-0"
                         )}
                       />
-                      <div className="flex flex-col">
-                        <span className="font-medium">
+                      <Avatar className="size-7 shrink-0">
+                        <AvatarImage
+                          src={u.image_url || undefined}
+                          alt={u.full_name || ""}
+                        />
+                        <AvatarFallback className="text-xs">
+                          {(u.full_name || "U")
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-medium truncate">
                           {u.full_name || "Unnamed"}
                         </span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground truncate">
                           {u.email}
                         </span>
                       </div>

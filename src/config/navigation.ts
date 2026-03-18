@@ -25,13 +25,13 @@ import {
 export const ROUTE_SEGMENTS = {
   // Top-level sections
   dashboard: { path: "dashboard", label: "Dashboard" },
-  balanceSheet: { path: "balance-sheet", label: "Balance Sheet" },
+  balanceSheet: { path: "balance-sheet", label: "Asset Management" },
   platformSettings: { path: "platform-settings", label: "Platform Settings" },
 
   // Balance Sheet sub-sections
   investorPortfolio: {
     path: "investor-portfolio",
-    label: "Investor Portfolio",
+    label: "Balance Sheet",
   },
   transactions: { path: "transactions", label: "Transactions" },
   documents: { path: "documents", label: "Documents" },

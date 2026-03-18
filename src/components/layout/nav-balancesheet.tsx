@@ -51,7 +51,7 @@ export function NavBalanceSheet({
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel className="text-xs font-medium text-sidebar-foreground/70">
-        Balance Sheet
+        Asset Management
       </SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
