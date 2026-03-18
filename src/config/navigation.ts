@@ -56,7 +56,7 @@ export const ROUTE_SEGMENTS = {
 
   // Integration pages
   brex: { path: "brex", label: "Brex" },
-  ofb: { path: "ofb", label: "Accounting Automation" },
+  ofb: { path: "ofb", label: "Import Transactions" },
   templateEditor: { path: "template-editor", label: "Template Studio" },
 } as const;
 
@@ -337,17 +337,23 @@ export function getBreadcrumbSegments(
     ];
   }
 
+  // Tools - Import Transactions (OFB)
+  if (path === ROUTES.integrations.ofb) {
+    return [
+      { label: "Tools" },
+      { label: "Import Transactions" },
+    ];
+  }
+
   // Platform Settings - Integrations
   if (path.startsWith(ROUTES.integrations.base + "/")) {
     const integrationSlug = path.split("/").pop();
     const integrationLabel =
       integrationSlug === ROUTE_SEGMENTS.brex.path
         ? ROUTE_SEGMENTS.brex.label
-        : integrationSlug === ROUTE_SEGMENTS.ofb.path
-          ? ROUTE_SEGMENTS.ofb.label
-          : integrationSlug === ROUTE_SEGMENTS.templateEditor.path
-            ? ROUTE_SEGMENTS.templateEditor.label
-            : integrationSlug;
+        : integrationSlug === ROUTE_SEGMENTS.templateEditor.path
+          ? ROUTE_SEGMENTS.templateEditor.label
+          : integrationSlug;
 
     return [
       { label: ROUTE_SEGMENTS.platformSettings.label },

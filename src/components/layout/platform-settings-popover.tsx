@@ -240,18 +240,6 @@ export function PlatformSettingsPopover({
                     <Plug className="h-4 w-4 text-muted-foreground" />
                     <span>Brex</span>
                   </Link>
-                  <Link
-                    href="/platform-settings/integrations/ofb"
-                    onClick={handleOFBClick}
-                    className={`flex items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent hover:text-accent-foreground ${
-                      isOFBActive
-                        ? "bg-accent text-accent-foreground"
-                        : "text-foreground"
-                    }`}
-                  >
-                    <ArrowRightLeft className="h-4 w-4 text-muted-foreground" />
-                    <span>Accounting Automation</span>
-                  </Link>
                 </div>
               </CollapsibleContent>
             </Collapsible>
