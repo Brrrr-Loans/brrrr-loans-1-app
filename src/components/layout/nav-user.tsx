@@ -177,7 +177,7 @@ export function NavUser({
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleOpenImpersonate}>
                 <UserCog />
-                View As User
+                Impersonate
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
