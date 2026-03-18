@@ -1,13 +1,32 @@
 "use client";
 
+import { useState } from "react";
 import {
   BadgeCheck,
   Bell,
   ChevronsUpDown,
-  CreditCard,
   LogOut,
+  UserCog,
 } from "lucide-react";
 import { useClerk } from "@clerk/nextjs";
+import { useImpersonation } from "@/contexts/impersonation-context";
+import { useSupabase } from "@/hooks/use-supabase";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/shadcn/dialog";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/shadcn/command";
+import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import {
   Avatar,
@@ -30,6 +49,12 @@ import {
   useSidebar,
 } from "@/components/ui";
 
+interface ImpersonationUser {
+  id: number;
+  full_name: string | null;
+  email: string | null;
+}
+
 export function NavUser({
   user,
 }: {
@@ -41,21 +66,43 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar();
   const { signOut, openUserProfile } = useClerk();
+  const supabase = useSupabase();
+  const {
+    impersonatedUserId,
+    setImpersonation,
+  } = useImpersonation();
+  const [impersonateOpen, setImpersonateOpen] = useState(false);
+  const [impersonateUsers, setImpersonateUsers] = useState<ImpersonationUser[]>([]);
 
   const handleSignOut = async () => {
     try {
       await signOut({ redirectUrl: "/sign-in" });
-      // Force page reload to ensure clean state
       window.location.href = "/sign-in";
     } catch (error) {
       console.error("Sign out error:", error);
-      // Force redirect even if signOut fails
       window.location.href = "/sign-in";
     }
   };
 
   const handleAccountClick = () => {
     openUserProfile();
+  };
+
+  const handleOpenImpersonate = async () => {
+    setImpersonateOpen(true);
+    if (supabase && impersonateUsers.length === 0) {
+      const { data } = await supabase
+        .from("auth_clerk_users")
+        .select("id, full_name, email")
+        .order("full_name");
+      setImpersonateUsers(data || []);
+    }
+  };
+
+  const handleSelectImpersonateUser = (u: ImpersonationUser) => {
+    setImpersonation(u.id, u.full_name || u.email || "Unknown");
+    setImpersonateOpen(false);
+    window.location.reload();
   };
 
   return (
@@ -124,12 +171,12 @@ export function NavUser({
                 Account
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <CreditCard />
-                Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
                 <Bell />
                 Notifications
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleOpenImpersonate}>
+                <UserCog />
+                View As User
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
@@ -139,6 +186,47 @@ export function NavUser({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Impersonation Modal */}
+        <Dialog open={impersonateOpen} onOpenChange={setImpersonateOpen}>
+          <DialogContent className="sm:max-w-md p-0">
+            <DialogHeader className="px-4 pt-4 pb-0">
+              <DialogTitle>View As User</DialogTitle>
+            </DialogHeader>
+            <Command className="border-t">
+              <CommandInput placeholder="Search users..." />
+              <CommandList className="max-h-[300px] overflow-y-auto">
+                <CommandEmpty>No users found.</CommandEmpty>
+                <CommandGroup>
+                  {impersonateUsers.map((u) => (
+                    <CommandItem
+                      key={u.id}
+                      value={`${u.full_name} ${u.email}`}
+                      onSelect={() => handleSelectImpersonateUser(u)}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          impersonatedUserId === u.id
+                            ? "opacity-100"
+                            : "opacity-0"
+                        )}
+                      />
+                      <div className="flex flex-col">
+                        <span className="font-medium">
+                          {u.full_name || "Unnamed"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {u.email}
+                        </span>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </DialogContent>
+        </Dialog>
       </SidebarMenuItem>
     </SidebarMenu>
   );
