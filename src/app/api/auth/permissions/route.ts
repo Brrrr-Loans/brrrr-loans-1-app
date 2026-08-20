@@ -2,26 +2,18 @@ import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { getSupabaseClient } from "@/lib/supabase-server";
 import type { ContactType, UserRole, UserPermissions } from "@/types/auth";
-
-function canAccessDeals(contactType: ContactType, role: UserRole): boolean {
-  if (role === "admin") return true;
-
-  const allowedContactTypes: ContactType[] = [
-    "Balance Sheet Investor",
-    "Lender",
-    "Point of Contact",
-    "Broker",
-    "Borrower",
-  ];
-
-  return allowedContactTypes.includes(contactType);
-}
+import {
+  canAccessDeals,
+  isClerkOrgAdminRole,
+  isOrgAdminFromMemberships,
+} from "@/lib/deal-access";
 
 function canAccessDistributions(
   contactType: ContactType,
-  role: UserRole
+  role: UserRole,
+  isOrgAdmin: boolean
 ): boolean {
-  if (role === "admin") return true;
+  if (isOrgAdmin || role === "admin") return true;
 
   const allowedContactTypes: ContactType[] = [
     "Balance Sheet Investor",
@@ -32,25 +24,82 @@ function canAccessDistributions(
   return allowedContactTypes.includes(contactType);
 }
 
-function canAccessDocuments(contactType: ContactType, role: UserRole): boolean {
-  if (role === "admin") return true;
+function canAccessDocuments(
+  contactType: ContactType,
+  role: UserRole,
+  isOrgAdmin: boolean
+): boolean {
+  if (isOrgAdmin || role === "admin") return true;
 
   const restrictedContactTypes: ContactType[] = ["Appraisal Administration"];
 
   return !restrictedContactTypes.includes(contactType);
 }
 
-function canAccessAdminFeatures(
-  contactType: ContactType,
-  role: UserRole
-): boolean {
+function canAccessAdminFeatures(role: UserRole): boolean {
   return role === "admin";
+}
+
+function buildPermissions(input: {
+  userId: string;
+  email: string;
+  contactType: ContactType;
+  role: UserRole;
+  contactId: number;
+  authUserProfileId: number;
+  isOrgAdmin: boolean;
+}): UserPermissions {
+  return {
+    userId: input.userId,
+    email: input.email,
+    contactType: input.contactType,
+    role: input.role,
+    contactId: input.contactId,
+    authUserProfileId: input.authUserProfileId,
+    isOrgAdmin: input.isOrgAdmin,
+    canAccessDeals: canAccessDeals({
+      contactType: input.contactType,
+      personalRole: input.role,
+      isOrgAdmin: input.isOrgAdmin,
+    }),
+    canAccessDistributions: canAccessDistributions(
+      input.contactType,
+      input.role,
+      input.isOrgAdmin
+    ),
+    canAccessDocuments: canAccessDocuments(
+      input.contactType,
+      input.role,
+      input.isOrgAdmin
+    ),
+    canAccessReports: canAccessDeals({
+      contactType: input.contactType,
+      personalRole: input.role,
+      isOrgAdmin: input.isOrgAdmin,
+    }),
+    canAccessAdminFeatures: canAccessAdminFeatures(input.role),
+  };
+}
+
+function developmentFallback(
+  userId: string,
+  email: string,
+  extras?: { authUserProfileId?: number; isOrgAdmin?: boolean }
+): UserPermissions {
+  return buildPermissions({
+    userId,
+    email,
+    contactType: "Balance Sheet Investor",
+    role: "admin",
+    contactId: 1,
+    authUserProfileId: extras?.authUserProfileId ?? 1,
+    isOrgAdmin: extras?.isOrgAdmin ?? true,
+  });
 }
 
 export async function GET() {
   try {
-    // Try both auth methods
-    const { userId } = await auth();
+    const { userId, orgRole, has } = await auth();
     const user = await currentUser();
 
     console.log("🔍 Auth check - userId:", userId, "currentUser:", user?.id);
@@ -74,210 +123,132 @@ export async function GET() {
         return await client.users.getUser(finalUserId as string);
       })());
 
+    const clerkMemberships = Array.isArray(finalUser.organizationMemberships)
+      ? finalUser.organizationMemberships
+      : [];
+    const clerkIsOrgAdmin =
+      (typeof has === "function" && Boolean(has({ role: "org:admin" }))) ||
+      isClerkOrgAdminRole(orgRole) ||
+      isOrgAdminFromMemberships(clerkMemberships);
+
     console.log("👤 Clerk user:", {
       id: finalUser.id,
       email: finalUser.emailAddresses[0]?.emailAddress,
       metadata: finalUser.publicMetadata,
+      orgRole,
+      clerkIsOrgAdmin,
     });
 
     const supabase = await getSupabaseClient();
 
-    // Get user profile from auth_clerk_users table (includes role)
     const { data: profile, error: profileError } = await supabase
       .from("auth_clerk_users")
-      .select("id, email, clerk_user_id, personal_role")
+      .select("id, email, clerk_user_id, personal_role, contact_id")
       .eq("clerk_user_id", finalUserId as string)
       .single();
 
     console.log("📊 Profile lookup:", { profile, profileError });
 
-    if (profileError) {
+    if (profileError || !profile) {
       console.error("Profile fetch error:", profileError);
 
-      // Development fallback - create a default profile
+      if (clerkIsOrgAdmin) {
+        return NextResponse.json(
+          buildPermissions({
+            userId: finalUserId as string,
+            email: finalUser.emailAddresses[0]?.emailAddress || "",
+            contactType: "Balance Sheet Investor",
+            role: "balance_sheet_investor",
+            contactId: 0,
+            authUserProfileId: 0,
+            isOrgAdmin: true,
+          })
+        );
+      }
+
       if (process.env.NODE_ENV === "development") {
         console.log("🛠️ Creating development fallback permissions");
-        const fallbackPermissions: UserPermissions = {
-          userId: finalUserId as string,
-          email: finalUser.emailAddresses[0]?.emailAddress || "dev@example.com",
-          contactType: "Balance Sheet Investor",
-          role: "admin", // Give admin role in development
-          contactId: 1,
-          authUserProfileId: 1,
-          canAccessDeals: true,
-          canAccessDistributions: true,
-          canAccessDocuments: true,
-          canAccessReports: true,
-          canAccessAdminFeatures: true,
-        };
-        return NextResponse.json(fallbackPermissions);
-      }
-
-      return NextResponse.json(
-        { error: "Failed to fetch user profile", details: profileError },
-        { status: 500 }
-      );
-    }
-
-    if (!profile) {
-      console.log("❌ No profile found for user:", finalUserId);
-
-      // Development fallback
-      if (process.env.NODE_ENV === "development") {
-        console.log(
-          "🛠️ Creating development fallback permissions (no profile)"
+        return NextResponse.json(
+          developmentFallback(
+            finalUserId as string,
+            finalUser.emailAddresses[0]?.emailAddress || "dev@example.com"
+          )
         );
-        const fallbackPermissions: UserPermissions = {
-          userId: finalUserId as string,
-          email: finalUser.emailAddresses[0]?.emailAddress || "dev@example.com",
-          contactType: "Balance Sheet Investor",
-          role: "admin",
-          contactId: 1,
-          authUserProfileId: 1,
-          canAccessDeals: true,
-          canAccessDistributions: true,
-          canAccessDocuments: true,
-          canAccessReports: true,
-          canAccessAdminFeatures: true,
-        };
-        return NextResponse.json(fallbackPermissions);
       }
 
       return NextResponse.json(
-        { error: "User profile not found" },
-        { status: 404 }
+        {
+          error: profile ? "Failed to fetch user profile" : "User profile not found",
+          details: profileError,
+        },
+        { status: profile ? 500 : 404 }
       );
     }
 
-    if (!profile) {
-      return NextResponse.json(
-        { error: "User profile not found" },
-        { status: 404 }
-      );
+    const { data: memberships, error: membershipError } = await supabase
+      .from("auth_clerk_orgs_members")
+      .select("clerk_org_role")
+      .eq("auth_clerk_users_id", profile.id);
+
+    if (membershipError) {
+      console.error("Membership lookup error:", membershipError);
     }
 
-    // Confirm profile exists before using it
-    const confirmedProfileForContact = profile!;
+    const isOrgAdmin =
+      clerkIsOrgAdmin || isOrgAdminFromMemberships(memberships);
 
-    // Get contact info
-    // Note: contact_types is accessed via junction table, but we use a workaround here
-    const { data: contact, error: contactError } = await supabase
-      .from("contact")
-      .select("id")
-      .eq("user_id", confirmedProfileForContact.id)
-      .single();
+    let contactId = profile.contact_id ?? 0;
+    let primaryContactType: ContactType = "Balance Sheet Investor";
 
-    console.log("👥 Contact lookup:", { contact, contactError });
+    const { data: contact, error: contactError } = profile.contact_id
+      ? await supabase
+          .from("contact")
+          .select("id")
+          .eq("id", profile.contact_id)
+          .maybeSingle()
+      : await supabase
+          .from("contact")
+          .select("id")
+          .eq("user_id", profile.id)
+          .maybeSingle();
+
+    console.log("👥 Contact lookup:", { contact, contactError, isOrgAdmin });
 
     if (contactError) {
       console.error("Contact fetch error:", contactError);
-
-      // Development fallback
-      if (process.env.NODE_ENV === "development") {
-        console.log(
-          "🛠️ Creating development fallback permissions (contact error)"
-        );
-        const profileEmail = profile?.email || "";
-        const profileId = profile?.id || 1;
-        const fallbackPermissions: UserPermissions = {
-          userId: finalUserId as string,
-          email: profileEmail,
-          contactType: "Balance Sheet Investor",
-          role: "admin",
-          contactId: 1,
-          authUserProfileId: profileId,
-          canAccessDeals: true,
-          canAccessDistributions: true,
-          canAccessDocuments: true,
-          canAccessReports: true,
-          canAccessAdminFeatures: true,
-        };
-        return NextResponse.json(fallbackPermissions);
-      }
-
-      return NextResponse.json(
-        { error: "Failed to fetch contact info", details: contactError },
-        { status: 500 }
-      );
     }
 
-    if (!contact) {
-      console.log("❌ No contact found for user:", profile?.id);
-
-      // Development fallback
-      if (process.env.NODE_ENV === "development") {
-        console.log(
-          "🛠️ Creating development fallback permissions (no contact)"
-        );
-        const profileEmail = profile?.email || "";
-        const profileId = profile?.id || 1;
-        const fallbackPermissions: UserPermissions = {
-          userId: finalUserId as string,
-          email: profileEmail,
-          contactType: "Balance Sheet Investor",
-          role: "admin",
-          contactId: 1,
-          authUserProfileId: profileId,
-          canAccessDeals: true,
-          canAccessDistributions: true,
-          canAccessDocuments: true,
-          canAccessReports: true,
-          canAccessAdminFeatures: true,
-        };
-        return NextResponse.json(fallbackPermissions);
-      }
-
+    if (contact?.id) {
+      contactId = contact.id;
+    } else if (!isOrgAdmin && process.env.NODE_ENV === "development") {
+      console.log("🛠️ Creating development fallback permissions (contact error)");
+      return NextResponse.json(
+        developmentFallback(finalUserId as string, profile.email || "", {
+          authUserProfileId: profile.id,
+          isOrgAdmin,
+        })
+      );
+    } else if (!contact && !isOrgAdmin && !profile.personal_role) {
       return NextResponse.json(
         { error: "Contact info not found" },
         { status: 404 }
       );
     }
 
-    if (!contact) {
-      return NextResponse.json(
-        { error: "Contact info not found" },
-        { status: 404 }
-      );
-    }
+    const role =
+      (profile.personal_role as UserRole) ||
+      (finalUser.publicMetadata?.role as UserRole) ||
+      "viewer";
 
-    // At this point, both profile and contact are confirmed to exist
-    const confirmedProfile = profile!;
-    const confirmedContact = contact!;
-
-    // Determine primary contact type
-    const contactData = confirmedContact as any;
-    const contactTypes = contactData.contact_types;
-    const primaryContactType =
-      Array.isArray(contactTypes) && contactTypes.length > 0
-        ? (contactTypes[0] as ContactType)
-        : typeof contactTypes === "string"
-          ? (contactTypes as ContactType)
-          : ("Balance Sheet Investor" as ContactType);
-
-    // Also check line 200 for profile.id usage
-    if (!profile) {
-      return NextResponse.json(
-        { error: "Profile unexpectedly null" },
-        { status: 500 }
-      );
-    }
-
-    // Determine role from auth_clerk_users table, fallback to public metadata, then default to viewer
-    const role = (confirmedProfile.personal_role as UserRole) || (finalUser.publicMetadata?.role as UserRole) || "viewer";
-
-    const userPermissions: UserPermissions = {
+    const userPermissions = buildPermissions({
       userId: finalUserId as string,
-      email: confirmedProfile.email || "",
+      email: profile.email || "",
       contactType: primaryContactType,
-      role,
-      contactId: confirmedContact.id,
-      authUserProfileId: confirmedProfile.id,
-      canAccessDeals: canAccessDeals(primaryContactType, role),
-      canAccessDistributions: canAccessDistributions(primaryContactType, role),
-      canAccessDocuments: canAccessDocuments(primaryContactType, role),
-      canAccessReports: canAccessDeals(primaryContactType, role), // Same as deals access
-      canAccessAdminFeatures: canAccessAdminFeatures(primaryContactType, role),
-    };
+      role: role as UserRole,
+      contactId,
+      authUserProfileId: profile.id,
+      isOrgAdmin,
+    });
 
     return NextResponse.json(userPermissions);
   } catch (error) {

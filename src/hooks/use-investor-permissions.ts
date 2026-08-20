@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useSupabase } from "@/hooks/use-supabase";
-import { useUser } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
+import { isClerkOrgAdminRole } from "@/lib/deal-access";
 
 interface InvestorPermissions {
   canViewDeal: (dealId: string) => Promise<boolean>;
@@ -13,6 +14,7 @@ interface InvestorPermissions {
 export function useInvestorPermissions(): InvestorPermissions {
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useUser();
+  const { orgRole } = useAuth();
   const supabase = useSupabase(); // Use the proper Clerk-integrated client
 
   // Cache results to avoid repeated DB calls
@@ -34,13 +36,29 @@ export function useInvestorPermissions(): InvestorPermissions {
       // First check if user is admin - admins can view all deals
       const { data: userProfile, error: profileError } = await supabase
         .from("auth_clerk_users")
-        .select("personal_role")
+        .select("id, personal_role")
         .eq("clerk_user_id", user.id)
         .single();
 
-      if (!profileError && userProfile?.personal_role === "admin") {
+      if (
+        (!profileError && userProfile?.personal_role === "admin") ||
+        isClerkOrgAdminRole(orgRole)
+      ) {
         permissionCache.set(cacheKey, true);
         return true;
+      }
+
+      if (userProfile?.id) {
+        const { data: orgAdminMemberships } = await supabase
+          .from("auth_clerk_orgs_members")
+          .select("clerk_org_id")
+          .eq("auth_clerk_users_id", userProfile.id)
+          .eq("clerk_org_role", "admin");
+
+        if (orgAdminMemberships && orgAdminMemberships.length > 0) {
+          permissionCache.set(cacheKey, true);
+          return true;
+        }
       }
 
       // For non-admin users, check if they have access via bsi_deals_clerk_users
@@ -48,7 +66,7 @@ export function useInvestorPermissions(): InvestorPermissions {
         .from("bsi_deals_clerk_users")
         .select("deal_id")
         .eq("deal_id", Number(dealId))
-        .single();
+        .maybeSingle();
 
       const hasAccess = !error && !!data;
       permissionCache.set(cacheKey, hasAccess);

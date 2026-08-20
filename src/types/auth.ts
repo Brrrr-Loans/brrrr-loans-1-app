@@ -40,6 +40,7 @@ export interface UserPermissions {
   canAccessDocuments: boolean;
   canAccessReports: boolean;
   canAccessAdminFeatures: boolean;
+  isOrgAdmin: boolean;
 }
 
 export class PermissionError extends Error {

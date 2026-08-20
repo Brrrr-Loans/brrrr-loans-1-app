@@ -93,7 +93,9 @@ async function getUserProfileWorkflow(userId: string): Promise<WorkflowResult> {
       canAccessDeals: true, // Calculate based on your business logic
       canAccessDistributions: true,
       canAccessDocuments: true,
+      canAccessReports: true,
       canAccessAdminFeatures: role === "admin",
+      isOrgAdmin: false,
     };
 
     // Step 5: Get recent activity (optional)

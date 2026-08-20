@@ -125,6 +125,18 @@ export const MAIN_NAV_ITEMS = [
   },
 ] as const;
 
+/**
+ * Top-level sidebar items rendered above the Resources section,
+ * not nested under Balance Sheet / Investor Portfolio.
+ */
+export const STANDALONE_NAV_ITEMS: NavSubItem[] = [
+  {
+    name: ROUTE_SEGMENTS.deals.label,
+    url: ROUTES.investorPortfolio.deals,
+    icon: Building,
+  },
+];
+
 export const BALANCE_SHEET_NAV_ITEMS: NavItem[] = [
   {
     name: ROUTE_SEGMENTS.investorPortfolio.label,
@@ -134,11 +146,6 @@ export const BALANCE_SHEET_NAV_ITEMS: NavItem[] = [
         name: ROUTE_SEGMENTS.analytics.label,
         url: ROUTES.investorPortfolio.analytics,
         icon: BarChart3,
-      },
-      {
-        name: ROUTE_SEGMENTS.deals.label,
-        url: ROUTES.investorPortfolio.deals,
-        icon: Building,
       },
     ],
   },
