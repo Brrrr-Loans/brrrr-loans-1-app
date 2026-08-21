@@ -67,10 +67,13 @@ export async function fetchPortalDeals(options: {
   impersonatedUserId?: number | null;
 }): Promise<PortalDeal[]> {
   const params = new URLSearchParams();
+  // When impersonating, show the target user's full deal set. The org switcher
+  // is the admin's Clerk org, not the impersonated user's; sending clerk_org_id
+  // would filter (or return []) against the wrong organization, while Analytics
+  // still shows the full portfolio.
   if (options.impersonatedUserId) {
     params.set("impersonate_user_id", String(options.impersonatedUserId));
-  }
-  if (options.clerkOrgId) {
+  } else if (options.clerkOrgId) {
     params.set("clerk_org_id", options.clerkOrgId);
   }
 
