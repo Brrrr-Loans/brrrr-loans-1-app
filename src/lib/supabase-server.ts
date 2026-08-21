@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { auth } from "@clerk/nextjs/server";
 import type { Database } from "@/types/database.types";
+import { getClerkSupabaseToken } from "@/lib/clerk-supabase-token";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string;
@@ -19,8 +20,7 @@ export async function getSupabaseClient(): Promise<SupabaseClient<Database>> {
 
   const client = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     async accessToken() {
-      // Use 'supabase' JWT template - configured in Clerk Dashboard with Supabase's JWT secret
-      return await getToken({ template: 'supabase' });
+      return getClerkSupabaseToken((options) => getToken(options));
     },
   });
 

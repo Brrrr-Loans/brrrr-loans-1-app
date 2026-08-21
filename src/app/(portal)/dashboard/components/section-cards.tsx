@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { StatCard } from "@/components/once-ui";
 import { useSupabase } from "@/hooks/use-supabase";
+import { useCurrentOrganization } from "@/contexts/organization-context";
+import { useImpersonation } from "@/contexts/impersonation-context";
+import { fetchPortalDeals, type PortalDeal } from "@/lib/deals-api";
 
 interface DashboardMetrics {
   totalDeals: number;
@@ -12,8 +16,32 @@ interface DashboardMetrics {
   previousMonthActiveDeals?: number;
 }
 
+function metricsFromDeals(
+  deals: Array<{
+    deal_stage_2?: string | null;
+    deal_disposition_1?: string | null;
+    loan_amount_total?: number | null;
+  }>
+): DashboardMetrics {
+  const totalDeals = deals.length;
+  const activeDeals = deals.filter(
+    (deal) =>
+      deal.deal_stage_2 === "closed_and_funded" ||
+      deal.deal_stage_2 === "clear_to_close"
+  ).length;
+  const totalVolume = deals.reduce(
+    (sum, deal) => sum + (Number(deal.loan_amount_total) || 0),
+    0
+  );
+
+  return { totalDeals, activeDeals, totalVolume };
+}
+
 export function SectionCards() {
   const supabase = useSupabase();
+  const { isLoaded: authLoaded } = useAuth();
+  const { clerkOrgId, isLoaded: orgLoaded } = useCurrentOrganization();
+  const { impersonatedUserId } = useImpersonation();
   const [metrics, setMetrics] = useState<DashboardMetrics>({
     totalDeals: 0,
     activeDeals: 0,
@@ -23,52 +51,54 @@ export function SectionCards() {
 
   useEffect(() => {
     const fetchMetrics = async () => {
-      if (!supabase) return;
+      if (!authLoaded || !orgLoaded) return;
+
+      const loadFromApi = async () => {
+        const apiDeals: PortalDeal[] = await fetchPortalDeals({
+          clerkOrgId,
+          impersonatedUserId,
+        });
+        setMetrics(metricsFromDeals(apiDeals));
+      };
 
       try {
-        // Fetch all deals
+        if (!supabase) {
+          await loadFromApi();
+          return;
+        }
+
         const { data: deals, error } = await supabase
           .from("deal")
           .select("id, deal_stage_2, deal_disposition_1, loan_amount_total");
 
-        if (error && error.message) {
-          console.error("Error fetching deals metrics:", {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code,
-          });
-          // Continue with empty data rather than returning
+        if (error) {
+          try {
+            await loadFromApi();
+            return;
+          } catch {
+            console.error("Error fetching deals metrics:", {
+              message: error.message,
+              details: error.details,
+              hint: error.hint,
+              code: error.code,
+            });
+          }
         }
 
-        const dealsList = deals || [];
-        const totalDeals = dealsList.length;
-        const activeDeals = dealsList.filter(
-          (deal) =>
-            // Note: deal_disposition_1 doesn't have "active" - check deal_stage_2 instead
-            deal.deal_stage_2 === "closed_and_funded" ||
-            deal.deal_stage_2 === "clear_to_close",
-        ).length;
-
-        const totalVolume = dealsList.reduce(
-          (sum, deal) => sum + (Number(deal.loan_amount_total) || 0),
-          0,
-        );
-
-        setMetrics({
-          totalDeals,
-          activeDeals,
-          totalVolume,
-        });
+        setMetrics(metricsFromDeals(deals || []));
       } catch (error) {
-        console.error("Error calculating metrics:", error);
+        try {
+          await loadFromApi();
+        } catch (apiError) {
+          console.error("Error calculating metrics:", error, apiError);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchMetrics();
-  }, [supabase]);
+  }, [authLoaded, orgLoaded, supabase, clerkOrgId, impersonatedUserId]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {

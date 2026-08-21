@@ -3,7 +3,12 @@
 import * as React from "react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import { useSupabase } from "@/hooks/use-supabase";
+import { useCurrentOrganization } from "@/contexts/organization-context";
+import { useImpersonation } from "@/contexts/impersonation-context";
+import { supabaseErrorMessage } from "@/lib/clerk-supabase-token";
+import { fetchPortalDeals, type PortalDeal } from "@/lib/deals-api";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -93,6 +98,22 @@ interface DealWithRelations {
   property_address: string | null;
   guarantor_name: string | null;
   loan_number: string | null;
+}
+
+function dealFromApi(deal: PortalDeal): DealWithRelations {
+  return {
+    id: deal.id,
+    deal_name: deal.deal_name,
+    deal_stage_2: deal.deal_stage_2,
+    loan_amount_total: deal.loan_amount_total,
+    funding_date: deal.funding_date,
+    project_type: deal.project_type,
+    property_address: deal.property_id
+      ? `Property ID: ${deal.property_id}`
+      : "No property",
+    guarantor_name: "No guarantor",
+    loan_number: deal.loan_number,
+  };
 }
 
 // Draggable Header Component
@@ -434,6 +455,9 @@ export function DealsDataTable() {
 
   const router = useRouter();
   const supabase = useSupabase();
+  const { isLoaded: authLoaded } = useAuth();
+  const { clerkOrgId, isLoaded: orgLoaded } = useCurrentOrganization();
+  const { impersonatedUserId } = useImpersonation();
   const columns = createColumns(router);
 
   // Set up sensors for drag and drop
@@ -453,46 +477,27 @@ export function DealsDataTable() {
   );
 
   useEffect(() => {
+    async function loadFromApi() {
+      const apiDeals = await fetchPortalDeals({
+        clerkOrgId,
+        impersonatedUserId,
+      });
+      setData(apiDeals.map(dealFromApi));
+    }
+
     async function fetchDeals() {
-      if (!supabase) {
-        console.log("Supabase client not ready yet");
-        setLoading(false);
-        return;
-      }
+      if (!authLoaded || !orgLoaded) return;
 
       try {
         setLoading(true);
         setError(null);
 
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:468',message:'H1: Starting deals fetch - testing simple query first',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
-
-        // H1: First try a simple query WITHOUT any joins to test base deal access
-        console.log("Fetching deals - Step 1: Simple query without joins...");
-        const { data: simpleDeals, error: simpleError } = await supabase
-          .from("deal")
-          .select("id, deal_name")
-          .limit(5);
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:478',message:'H1: Simple deal query result',data:{success:!simpleError,error:simpleError?.message,count:simpleDeals?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
-
-        if (simpleError) {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:483',message:'H2: Simple query FAILED - deal_roles policy issue',data:{error:simpleError.message,code:simpleError.code},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H2'})}).catch(()=>{});
-          // #endregion
-          throw simpleError;
+        if (!supabase) {
+          await loadFromApi();
+          return;
         }
 
-        // H3: Now try with deal_guarantors join
-        console.log("Fetching deals - Step 2: With deal_guarantors join...");
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:492',message:'H3: Testing deal_guarantors join',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-        // #endregion
-
-        const { data: deals, error, status, statusText } = await supabase
+        const { data: deals, error } = await supabase
           .from("deal")
           .select(
             `
@@ -512,41 +517,21 @@ export function DealsDataTable() {
           `
           )
           .order("created_at", { ascending: false });
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:516',message:'H3: Full query result',data:{success:!error,error:error?.message,count:deals?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-
-        console.log("Supabase response:", { status, statusText, dataLength: deals?.length, error });
-        // #endregion
 
         if (error) {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:522',message:'H3/H4: Full query FAILED - recursion in join',data:{error:error.message,code:error.code},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'H3'})}).catch(()=>{});
-          // #endregion
-          // More aggressive error logging to capture the actual message
-          console.error("Error fetching deals - raw:", JSON.stringify(error));
-          console.error("Error message:", String(error.message || 'No message'));
-          console.error("Error code:", String(error.code || 'No code'));
-          console.error("Error hint:", String(error.hint || 'No hint'));
-          console.error("Error details:", String(error.details || 'No details'));
-          setError(
-            error.message ||
-              "Unable to load deals. Please check your permissions or try again later."
-          );
-          setData([]);
-          return;
+          try {
+            await loadFromApi();
+            return;
+          } catch (apiError) {
+            console.error("Error fetching deals:", error);
+            setError(supabaseErrorMessage(apiError));
+            setData([]);
+            return;
+          }
         }
-        
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'deals-data-table.tsx:538',message:'SUCCESS: All queries passed',data:{dealCount:deals?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'SUCCESS'})}).catch(()=>{});
-        // #endregion
 
-        console.log("Basic deals data:", deals, "count:", deals?.length, "type:", typeof deals);
-
-        // Now let's try to get property data separately
         const dealIds = deals?.map((deal) => deal.id) || [];
 
-        // Fetch property data for these deals
         let propertyData: Record<number, string> = {};
         if (dealIds.length > 0) {
           const { data: properties, error: propError } = await supabase
@@ -566,15 +551,9 @@ export function DealsDataTable() {
               },
               {}
             );
-            console.log("Property data:", propertyData);
-          } else {
-            console.error("Property fetch error:", propError);
           }
         }
 
-        // Note: Guarantor data is now fetched through the deal_guarantors join above
-
-        // Transform the data to match our interface
         const transformedData: DealWithRelations[] = (deals || []).map(
           (deal: {
             id: number;
@@ -596,18 +575,13 @@ export function DealsDataTable() {
                 `Property ID: ${deal.property_id}`
               : "No property";
 
-            // Find the primary guarantor from deal_guarantors junction table
-            const primaryGuarantor = deal.deal_guarantors?.find(dg => dg.is_primary);
+            const primaryGuarantor = deal.deal_guarantors?.find(
+              (dg) => dg.is_primary
+            );
             const firstGuarantor = deal.deal_guarantors?.[0];
             const guarantorRecord = primaryGuarantor || firstGuarantor;
-            const guarantorName = guarantorRecord?.guarantor?.name || "No guarantor";
-
-            console.log(
-              `Deal ${deal.id}: property_id=${deal.property_id}, address=${propertyAddress}`
-            );
-            console.log(
-              `Deal ${deal.id}: guarantor=${guarantorName}`
-            );
+            const guarantorName =
+              guarantorRecord?.guarantor?.name || "No guarantor";
 
             return {
               id: deal.id,
@@ -623,21 +597,22 @@ export function DealsDataTable() {
           }
         );
 
-        console.log("Final transformed data:", transformedData);
         setData(transformedData);
       } catch (err) {
-        console.error("Unexpected error fetching deals:", err);
-        const errorMessage =
-          err instanceof Error ? err.message : "An unexpected error occurred";
-        setError(errorMessage);
-        setData([]);
+        try {
+          await loadFromApi();
+        } catch (apiError) {
+          console.error("Unexpected error fetching deals:", err);
+          setError(supabaseErrorMessage(apiError));
+          setData([]);
+        }
       } finally {
         setLoading(false);
       }
     }
 
     fetchDeals();
-  }, [supabase]);
+  }, [authLoaded, orgLoaded, supabase, clerkOrgId, impersonatedUserId]);
 
   const table = useReactTable({
     data,

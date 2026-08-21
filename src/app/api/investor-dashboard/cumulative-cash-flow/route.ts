@@ -44,7 +44,12 @@ export async function GET(request: Request) {
         .single();
 
       if (!currentUser) {
-        return NextResponse.json({ error: "User not found" }, { status: 404 });
+        return NextResponse.json({
+          data: [],
+          current_position: 0,
+          total_invested: 0,
+          total_returned: 0,
+        });
       }
 
       targetUserId = currentUser.id;
