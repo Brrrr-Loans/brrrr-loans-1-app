@@ -22,6 +22,12 @@ export function isClerkOrgAdminRole(role?: string | null): boolean {
   return normalizeOrgRole(role) === "admin";
 }
 
+/** Org roles that have investment interest (excludes viewer). */
+export function isInvestmentOrgRole(role?: string | null): boolean {
+  const normalized = normalizeOrgRole(role);
+  return normalized === "admin" || normalized === "member";
+}
+
 export function isOrgAdminFromMemberships(
   memberships?: Array<{ role?: string | null; clerk_org_role?: string | null }> | null
 ): boolean {

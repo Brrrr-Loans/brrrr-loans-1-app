@@ -1,3 +1,8 @@
+export type PortalDealGuarantor = {
+  is_primary: boolean | null;
+  guarantor: { id?: number; name: string | null } | null;
+};
+
 export type PortalDeal = {
   id: number;
   deal_name: string | null;
@@ -8,12 +13,35 @@ export type PortalDeal = {
   project_type: string | null;
   property_id: number | null;
   loan_number: string | null;
+  property?:
+    | { id?: number; address: string | null }
+    | Array<{ id?: number; address: string | null }>
+    | null;
+  deal_guarantors?: PortalDealGuarantor[] | null;
 };
 
 type ApiDealRow = {
   deal_id?: number;
   deal?: PortalDeal | PortalDeal[] | null;
 };
+
+function firstNested<T>(value: T | T[] | null | undefined): T | null {
+  if (!value) return null;
+  return Array.isArray(value) ? value[0] ?? null : value;
+}
+
+export function propertyAddressFromDeal(deal: PortalDeal): string {
+  const nested = firstNested(deal.property);
+  if (nested?.address) return nested.address;
+  if (deal.property_id) return `Property ID: ${deal.property_id}`;
+  return "No property";
+}
+
+export function guarantorNameFromDeal(deal: PortalDeal): string {
+  const list = deal.deal_guarantors || [];
+  const primary = list.find((row) => row.is_primary);
+  return (primary || list[0])?.guarantor?.name || "No guarantor";
+}
 
 export function unwrapApiDeals(payload: unknown): PortalDeal[] {
   if (!Array.isArray(payload)) return [];
@@ -24,7 +52,7 @@ export function unwrapApiDeals(payload: unknown): PortalDeal[] {
   for (const row of payload) {
     if (!row || typeof row !== "object") continue;
     const nested = (row as ApiDealRow).deal;
-    const deal = Array.isArray(nested) ? nested[0] : nested;
+    const deal = firstNested(nested);
     if (deal && typeof deal.id === "number" && !seen.has(deal.id)) {
       seen.add(deal.id);
       deals.push(deal);

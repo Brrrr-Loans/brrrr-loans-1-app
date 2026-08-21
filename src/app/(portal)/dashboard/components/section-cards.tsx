@@ -7,6 +7,7 @@ import { useSupabase } from "@/hooks/use-supabase";
 import { useCurrentOrganization } from "@/contexts/organization-context";
 import { useImpersonation } from "@/contexts/impersonation-context";
 import { fetchPortalDeals, type PortalDeal } from "@/lib/deals-api";
+import { isInvestmentOrgRole } from "@/lib/deal-access";
 
 interface DashboardMetrics {
   totalDeals: number;
@@ -39,7 +40,7 @@ function metricsFromDeals(
 
 export function SectionCards() {
   const supabase = useSupabase();
-  const { isLoaded: authLoaded } = useAuth();
+  const { isLoaded: authLoaded, orgRole } = useAuth();
   const { clerkOrgId, isLoaded: orgLoaded } = useCurrentOrganization();
   const { impersonatedUserId } = useImpersonation();
   const [metrics, setMetrics] = useState<DashboardMetrics>({
@@ -62,7 +63,7 @@ export function SectionCards() {
       };
 
       try {
-        if (!supabase) {
+        if (!supabase || impersonatedUserId) {
           await loadFromApi();
           return;
         }
@@ -85,6 +86,11 @@ export function SectionCards() {
           }
         }
 
+        if ((deals?.length ?? 0) === 0 && isInvestmentOrgRole(orgRole)) {
+          await loadFromApi();
+          return;
+        }
+
         setMetrics(metricsFromDeals(deals || []));
       } catch (error) {
         try {
@@ -98,7 +104,7 @@ export function SectionCards() {
     };
 
     fetchMetrics();
-  }, [authLoaded, orgLoaded, supabase, clerkOrgId, impersonatedUserId]);
+  }, [authLoaded, orgLoaded, supabase, clerkOrgId, impersonatedUserId, orgRole]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {

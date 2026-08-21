@@ -8,7 +8,13 @@ import { useSupabase } from "@/hooks/use-supabase";
 import { useCurrentOrganization } from "@/contexts/organization-context";
 import { useImpersonation } from "@/contexts/impersonation-context";
 import { supabaseErrorMessage } from "@/lib/clerk-supabase-token";
-import { fetchPortalDeals, type PortalDeal } from "@/lib/deals-api";
+import {
+  fetchPortalDeals,
+  guarantorNameFromDeal,
+  propertyAddressFromDeal,
+  type PortalDeal,
+} from "@/lib/deals-api";
+import { isInvestmentOrgRole } from "@/lib/deal-access";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -108,10 +114,8 @@ function dealFromApi(deal: PortalDeal): DealWithRelations {
     loan_amount_total: deal.loan_amount_total,
     funding_date: deal.funding_date,
     project_type: deal.project_type,
-    property_address: deal.property_id
-      ? `Property ID: ${deal.property_id}`
-      : "No property",
-    guarantor_name: "No guarantor",
+    property_address: propertyAddressFromDeal(deal),
+    guarantor_name: guarantorNameFromDeal(deal),
     loan_number: deal.loan_number,
   };
 }
@@ -455,7 +459,7 @@ export function DealsDataTable() {
 
   const router = useRouter();
   const supabase = useSupabase();
-  const { isLoaded: authLoaded } = useAuth();
+  const { isLoaded: authLoaded, orgRole } = useAuth();
   const { clerkOrgId, isLoaded: orgLoaded } = useCurrentOrganization();
   const { impersonatedUserId } = useImpersonation();
   const columns = createColumns(router);
@@ -492,7 +496,7 @@ export function DealsDataTable() {
         setLoading(true);
         setError(null);
 
-        if (!supabase) {
+        if (!supabase || impersonatedUserId) {
           await loadFromApi();
           return;
         }
@@ -528,6 +532,14 @@ export function DealsDataTable() {
             setData([]);
             return;
           }
+        }
+
+        if (
+          (deals?.length ?? 0) === 0 &&
+          isInvestmentOrgRole(orgRole)
+        ) {
+          await loadFromApi();
+          return;
         }
 
         const dealIds = deals?.map((deal) => deal.id) || [];
@@ -612,7 +624,7 @@ export function DealsDataTable() {
     }
 
     fetchDeals();
-  }, [authLoaded, orgLoaded, supabase, clerkOrgId, impersonatedUserId]);
+  }, [authLoaded, orgLoaded, supabase, clerkOrgId, impersonatedUserId, orgRole]);
 
   const table = useReactTable({
     data,
