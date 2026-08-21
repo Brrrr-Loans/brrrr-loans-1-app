@@ -9,11 +9,12 @@ import {
 } from "@/lib/deal-access";
 
 function canAccessDistributions(
-  contactType: ContactType,
+  contactType: ContactType | undefined,
   role: UserRole,
   isOrgAdmin: boolean
 ): boolean {
   if (isOrgAdmin || role === "admin") return true;
+  if (!contactType) return false;
 
   const allowedContactTypes: ContactType[] = [
     "Balance Sheet Investor",
@@ -25,11 +26,12 @@ function canAccessDistributions(
 }
 
 function canAccessDocuments(
-  contactType: ContactType,
+  contactType: ContactType | undefined,
   role: UserRole,
   isOrgAdmin: boolean
 ): boolean {
   if (isOrgAdmin || role === "admin") return true;
+  if (!contactType) return false;
 
   const restrictedContactTypes: ContactType[] = ["Appraisal Administration"];
 
@@ -48,7 +50,10 @@ function buildPermissions(input: {
   contactId: number;
   authUserProfileId: number;
   isOrgAdmin: boolean;
+  contactTypeForAccess?: ContactType;
 }): UserPermissions {
+  const contactTypeForAccess = input.contactTypeForAccess ?? input.contactType;
+
   return {
     userId: input.userId,
     email: input.email,
@@ -58,22 +63,22 @@ function buildPermissions(input: {
     authUserProfileId: input.authUserProfileId,
     isOrgAdmin: input.isOrgAdmin,
     canAccessDeals: canAccessDeals({
-      contactType: input.contactType,
+      contactType: contactTypeForAccess,
       personalRole: input.role,
       isOrgAdmin: input.isOrgAdmin,
     }),
     canAccessDistributions: canAccessDistributions(
-      input.contactType,
+      contactTypeForAccess,
       input.role,
       input.isOrgAdmin
     ),
     canAccessDocuments: canAccessDocuments(
-      input.contactType,
+      contactTypeForAccess,
       input.role,
       input.isOrgAdmin
     ),
     canAccessReports: canAccessDeals({
-      contactType: input.contactType,
+      contactType: contactTypeForAccess,
       personalRole: input.role,
       isOrgAdmin: input.isOrgAdmin,
     }),
@@ -228,7 +233,13 @@ export async function GET() {
           isOrgAdmin,
         })
       );
-    } else if (!contact && !isOrgAdmin && !profile.personal_role) {
+    } else if (
+      !contact &&
+      !canAccessDeals({
+        personalRole: profile.personal_role,
+        isOrgAdmin,
+      })
+    ) {
       return NextResponse.json(
         { error: "Contact info not found" },
         { status: 404 }
@@ -239,15 +250,17 @@ export async function GET() {
       (profile.personal_role as UserRole) ||
       (finalUser.publicMetadata?.role as UserRole) ||
       "viewer";
+    const resolvedContactType = contact?.id ? primaryContactType : undefined;
 
     const userPermissions = buildPermissions({
       userId: finalUserId as string,
       email: profile.email || "",
-      contactType: primaryContactType,
+      contactType: resolvedContactType ?? primaryContactType,
       role: role as UserRole,
       contactId,
       authUserProfileId: profile.id,
       isOrgAdmin,
+      contactTypeForAccess: resolvedContactType,
     });
 
     return NextResponse.json(userPermissions);

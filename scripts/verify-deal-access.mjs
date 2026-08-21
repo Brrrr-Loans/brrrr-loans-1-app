@@ -56,5 +56,19 @@ assert(
   }) === false,
   "unrelated role/contact cannot access deals"
 );
+assert(
+  canAccessDeals({
+    personalRole: "loan_processor",
+    isOrgAdmin: false,
+  }) === false,
+  "missing contact type must not grant deals via an unrelated personal_role"
+);
+assert(
+  canAccessDeals({
+    personalRole: "account_executive",
+    isOrgAdmin: false,
+  }) === false,
+  "profiled non-investor roles cannot access deals without an allowed contact type"
+);
 
 console.log("deal-access checks passed");

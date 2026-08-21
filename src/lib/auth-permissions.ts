@@ -74,43 +74,55 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
     const isOrgAdmin =
       clerkIsOrgAdmin || isOrgAdminFromMemberships(memberships);
 
-    const contactType: ContactType = "Balance Sheet Investor";
+    const displayContactType: ContactType = "Balance Sheet Investor";
     const role = userProfile.personal_role as UserRole;
     const contact = userProfile.contact as {
       id: number;
       email_address: string | null;
     } | null;
 
-    if (!contact && !isOrgAdmin) {
+    if (
+      !contact &&
+      !computeCanAccessDeals({
+        personalRole: role,
+        isOrgAdmin,
+      })
+    ) {
       console.error("Failed to get user contact");
       return null;
     }
 
+    const contactTypeForAccess = contact ? displayContactType : undefined;
+
     const permissions: UserPermissions = {
       userId,
       email: userProfile.email || contact?.email_address || "",
-      contactType,
+      contactType: displayContactType,
       role,
       contactId: contact?.id || userProfile.contact_id || 0,
       authUserProfileId: userProfile.id,
       isOrgAdmin,
       canAccessDeals: computeCanAccessDeals({
-        contactType,
+        contactType: contactTypeForAccess,
         personalRole: role,
         isOrgAdmin,
       }),
       canAccessDistributions: canAccessDistributions(
-        contactType,
+        contactTypeForAccess,
         role,
         isOrgAdmin
       ),
-      canAccessDocuments: canAccessDocuments(contactType, role, isOrgAdmin),
+      canAccessDocuments: canAccessDocuments(
+        contactTypeForAccess,
+        role,
+        isOrgAdmin
+      ),
       canAccessReports: computeCanAccessDeals({
-        contactType,
+        contactType: contactTypeForAccess,
         personalRole: role,
         isOrgAdmin,
       }),
-      canAccessAdminFeatures: canAccessAdminFeatures(contactType, role),
+      canAccessAdminFeatures: canAccessAdminFeatures(displayContactType, role),
     };
 
     return permissions;
@@ -121,11 +133,15 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
 }
 
 function canAccessDistributions(
-  contactType: ContactType,
+  contactType: ContactType | undefined,
   role: UserRole,
   isOrgAdmin = false
 ): boolean {
   if (isOrgAdmin) return true;
+
+  const allowedRoles: UserRole[] = ["admin", "balance_sheet_investor"];
+  if (allowedRoles.includes(role)) return true;
+  if (!contactType) return false;
 
   const allowedContactTypes: ContactType[] = [
     "Balance Sheet Investor",
@@ -133,19 +149,16 @@ function canAccessDistributions(
     "Borrower",
   ];
 
-  const allowedRoles: UserRole[] = ["admin", "balance_sheet_investor"];
-
-  return (
-    allowedContactTypes.includes(contactType) || allowedRoles.includes(role)
-  );
+  return allowedContactTypes.includes(contactType);
 }
 
 function canAccessDocuments(
-  contactType: ContactType,
+  contactType: ContactType | undefined,
   role: UserRole,
   isOrgAdmin = false
 ): boolean {
   if (isOrgAdmin || role === "admin") return true;
+  if (!contactType) return false;
 
   const restrictedContactTypes: ContactType[] = [
     "General Contractor",
