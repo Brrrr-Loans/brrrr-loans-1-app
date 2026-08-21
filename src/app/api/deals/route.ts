@@ -148,6 +148,11 @@ export async function GET(request: Request) {
       });
 
       if (!allowed) {
+        // Impersonation with an org selected: empty set if the target user
+        // is not a member of that org, not a 403 against the admin caller.
+        if (impersonatedUserIdParam) {
+          return NextResponse.json([]);
+        }
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
