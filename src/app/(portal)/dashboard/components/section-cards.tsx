@@ -83,6 +83,8 @@ export function SectionCards() {
               hint: error.hint,
               code: error.code,
             });
+            setMetrics(metricsFromDeals([]));
+            return;
           }
         }
 
