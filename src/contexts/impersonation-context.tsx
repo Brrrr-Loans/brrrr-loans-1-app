@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 
 interface ImpersonationContextType {
   impersonatedUserId: number | null;
@@ -34,17 +34,15 @@ export function ImpersonationProvider({ children }: { children: ReactNode }) {
     setImpersonation(null, null);
   };
 
-  // Restore from sessionStorage on mount
-  useState(() => {
-    if (typeof window !== "undefined") {
-      const storedId = sessionStorage.getItem("impersonated_user_id");
-      const storedName = sessionStorage.getItem("impersonated_user_name");
-      if (storedId) {
-        setImpersonatedUserId(parseInt(storedId));
-        setImpersonatedUserName(storedName);
-      }
-    }
-  });
+  useEffect(() => {
+    const storedId = sessionStorage.getItem("impersonated_user_id");
+    const storedName = sessionStorage.getItem("impersonated_user_name");
+    if (!storedId) return;
+    const parsed = parseInt(storedId, 10);
+    if (Number.isNaN(parsed)) return;
+    setImpersonatedUserId(parsed);
+    setImpersonatedUserName(storedName);
+  }, []);
 
   return (
     <ImpersonationContext.Provider
