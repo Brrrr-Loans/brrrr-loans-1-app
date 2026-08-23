@@ -1,6 +1,11 @@
 import { auth } from "@clerk/nextjs/server";
 import { getSupabaseClient } from "@/lib/supabase-server";
 import type { ContactType, UserRole, UserPermissions } from "@/types/auth";
+import {
+  canAccessDeals as computeCanAccessDeals,
+  isClerkOrgAdminRole,
+  isOrgAdminFromMemberships,
+} from "@/lib/deal-access";
 
 import { PermissionError } from "@/types/auth";
 export { PermissionError } from "@/types/auth";
@@ -11,20 +16,22 @@ export type { ContactType, UserRole, UserPermissions } from "@/types/auth";
  */
 export async function getUserPermissions(): Promise<UserPermissions | null> {
   try {
-    const { userId } = await auth();
+    const { userId, orgRole, has } = await auth();
     if (!userId) return null;
 
     const supabase = await getSupabaseClient();
 
-    // Get user profile with contact info
     const { data: userProfile, error: userError } = await supabase
       .from("auth_clerk_users")
       .select(
         `
         id,
         email,
-        role,
+        personal_role,
         contact_id,
+        auth_clerk_orgs_members (
+          clerk_org_role
+        ),
         contact:contact_id (
           id,
           email_address
@@ -34,29 +41,88 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
       .eq("clerk_user_id", userId)
       .single();
 
-    if (userError || !userProfile || !userProfile.contact) {
+    const clerkIsOrgAdmin =
+      (typeof has === "function" && has({ role: "org:admin" })) ||
+      isClerkOrgAdminRole(orgRole);
+
+    if (userError || !userProfile) {
       console.error("Failed to get user profile:", userError);
+      if (clerkIsOrgAdmin) {
+        return {
+          userId,
+          email: "",
+          contactType: "Balance Sheet Investor",
+          role: "balance_sheet_investor",
+          contactId: 0,
+          authUserProfileId: 0,
+          isOrgAdmin: true,
+          canAccessDeals: true,
+          canAccessDistributions: true,
+          canAccessDocuments: true,
+          canAccessReports: true,
+          canAccessAdminFeatures: false,
+        };
+      }
       return null;
     }
 
-    // Default to Balance Sheet Investor since contact_types is now in a junction table
-    const contactType: ContactType = "Balance Sheet Investor";
-    const role = userProfile.role as UserRole;
-    const contact = userProfile.contact as { id: number; email_address: string | null } | null;
+    const memberships = (
+      userProfile as {
+        auth_clerk_orgs_members?: Array<{ clerk_org_role: string | null }>;
+      }
+    ).auth_clerk_orgs_members;
+    const isOrgAdmin =
+      clerkIsOrgAdmin || isOrgAdminFromMemberships(memberships);
 
-    // Define permission rules based on contact type and role
+    const displayContactType: ContactType = "Balance Sheet Investor";
+    const role = userProfile.personal_role as UserRole;
+    const contact = userProfile.contact as {
+      id: number;
+      email_address: string | null;
+    } | null;
+
+    if (
+      !contact &&
+      !computeCanAccessDeals({
+        personalRole: role,
+        isOrgAdmin,
+      })
+    ) {
+      console.error("Failed to get user contact");
+      return null;
+    }
+
+    const contactTypeForAccess = contact ? displayContactType : undefined;
+
     const permissions: UserPermissions = {
       userId,
       email: userProfile.email || contact?.email_address || "",
-      contactType,
+      contactType: displayContactType,
       role,
-      contactId: contact?.id || 0,
+      contactId: contact?.id || userProfile.contact_id || 0,
       authUserProfileId: userProfile.id,
-      canAccessDeals: canAccessDeals(contactType, role),
-      canAccessDistributions: canAccessDistributions(contactType, role),
-      canAccessDocuments: canAccessDocuments(contactType, role),
-      canAccessReports: canAccessDeals(contactType, role),
-      canAccessAdminFeatures: canAccessAdminFeatures(contactType, role),
+      isOrgAdmin,
+      canAccessDeals: computeCanAccessDeals({
+        contactType: contactTypeForAccess,
+        personalRole: role,
+        isOrgAdmin,
+      }),
+      canAccessDistributions: canAccessDistributions(
+        contactTypeForAccess,
+        role,
+        isOrgAdmin
+      ),
+      canAccessDocuments: canAccessDocuments(
+        contactTypeForAccess,
+        role,
+        isOrgAdmin
+      ),
+      canAccessReports: computeCanAccessDeals({
+        contactType: contactTypeForAccess,
+        personalRole: role,
+        isOrgAdmin,
+      }),
+      canAccessAdminFeatures: canAccessAdminFeatures(displayContactType, role),
     };
 
     return permissions;
@@ -66,61 +132,42 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
   }
 }
 
-/**
- * Check if user can access deals based on contact type and role
- */
-function canAccessDeals(contactType: ContactType, role: UserRole): boolean {
-  const allowedContactTypes: ContactType[] = [
-    "Balance Sheet Investor",
-    "Lender",
-    "Borrower",
-    "Broker",
-    "Point of Contact",
-  ];
-
-  const allowedRoles: UserRole[] = ["admin", "balance_sheet_investor"];
-
-  return (
-    allowedContactTypes.includes(contactType) || allowedRoles.includes(role)
-  );
-}
-
-/**
- * Check if user can access distributions
- */
 function canAccessDistributions(
-  contactType: ContactType,
-  role: UserRole
+  contactType: ContactType | undefined,
+  role: UserRole,
+  isOrgAdmin = false
 ): boolean {
+  if (isOrgAdmin) return true;
+
+  const allowedRoles: UserRole[] = ["admin", "balance_sheet_investor"];
+  if (allowedRoles.includes(role)) return true;
+  if (!contactType) return false;
+
   const allowedContactTypes: ContactType[] = [
     "Balance Sheet Investor",
     "Lender",
     "Borrower",
   ];
 
-  const allowedRoles: UserRole[] = ["admin", "balance_sheet_investor"];
-
-  return (
-    allowedContactTypes.includes(contactType) || allowedRoles.includes(role)
-  );
+  return allowedContactTypes.includes(contactType);
 }
 
-/**
- * Check if user can access documents
- */
-function canAccessDocuments(contactType: ContactType, role: UserRole): boolean {
-  // Most users can access documents related to their deals
+function canAccessDocuments(
+  contactType: ContactType | undefined,
+  role: UserRole,
+  isOrgAdmin = false
+): boolean {
+  if (isOrgAdmin || role === "admin") return true;
+  if (!contactType) return false;
+
   const restrictedContactTypes: ContactType[] = [
     "General Contractor",
     "Insurance",
   ];
 
-  return !restrictedContactTypes.includes(contactType) || role === "admin";
+  return !restrictedContactTypes.includes(contactType);
 }
 
-/**
- * Check if user can access admin features
- */
 function canAccessAdminFeatures(
   contactType: ContactType,
   role: UserRole
@@ -135,16 +182,16 @@ export async function canAccessDeal(dealId: string | number): Promise<boolean> {
   try {
     const permissions = await getUserPermissions();
     if (!permissions || !permissions.canAccessDeals) return false;
+    if (permissions.isOrgAdmin) return true;
 
     const supabase = await getSupabaseClient();
 
-    // Check if user has access to this specific deal through bsi_deals_clerk_users
     const { data, error } = await supabase
       .from("bsi_deals_clerk_users")
       .select("deal_id")
       .eq("deal_id", Number(dealId))
-      .eq("contact_id", permissions.contactId)
-      .single();
+      .eq("clerk_user_id", permissions.authUserProfileId)
+      .maybeSingle();
 
     return !error && !!data;
   } catch (error) {
@@ -165,7 +212,6 @@ export async function canAccessDocument(
 
     const supabase = await getSupabaseClient();
 
-    // Check if document belongs to a deal the user has access to
     const { data, error } = await supabase
       .from("document_files")
       .select(
@@ -199,6 +245,9 @@ export async function requirePermissions(
   }
 
   for (const permission of requiredPermissions) {
+    if (permission === "canAccessDeals" && permissions.isOrgAdmin) {
+      continue;
+    }
     if (!permissions[permission]) {
       throw new PermissionError(
         `Access denied: Missing permission ${permission}`,

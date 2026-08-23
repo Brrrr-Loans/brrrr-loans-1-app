@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useLayoutEffect,
+  useState,
+  ReactNode,
+} from "react";
 
 interface ImpersonationContextType {
   impersonatedUserId: number | null;
@@ -11,6 +17,25 @@ interface ImpersonationContextType {
 }
 
 const ImpersonationContext = createContext<ImpersonationContextType | undefined>(undefined);
+
+function readStoredImpersonation(): {
+  userId: number | null;
+  userName: string | null;
+} {
+  if (typeof window === "undefined") {
+    return { userId: null, userName: null };
+  }
+  const storedId = sessionStorage.getItem("impersonated_user_id");
+  const storedName = sessionStorage.getItem("impersonated_user_name");
+  if (!storedId) {
+    return { userId: null, userName: null };
+  }
+  const parsed = parseInt(storedId, 10);
+  if (Number.isNaN(parsed)) {
+    return { userId: null, userName: null };
+  }
+  return { userId: parsed, userName: storedName };
+}
 
 export function ImpersonationProvider({ children }: { children: ReactNode }) {
   const [impersonatedUserId, setImpersonatedUserId] = useState<number | null>(null);
@@ -34,17 +59,13 @@ export function ImpersonationProvider({ children }: { children: ReactNode }) {
     setImpersonation(null, null);
   };
 
-  // Restore from sessionStorage on mount
-  useState(() => {
-    if (typeof window !== "undefined") {
-      const storedId = sessionStorage.getItem("impersonated_user_id");
-      const storedName = sessionStorage.getItem("impersonated_user_name");
-      if (storedId) {
-        setImpersonatedUserId(parseInt(storedId));
-        setImpersonatedUserName(storedName);
-      }
-    }
-  });
+  // Restore before paint so child useEffect fetches see the stored target
+  // (useEffect restore let the first commit run as the admin).
+  useLayoutEffect(() => {
+    const stored = readStoredImpersonation();
+    setImpersonatedUserId(stored.userId);
+    setImpersonatedUserName(stored.userName);
+  }, []);
 
   return (
     <ImpersonationContext.Provider
@@ -68,4 +89,3 @@ export function useImpersonation() {
   }
   return context;
 }
-

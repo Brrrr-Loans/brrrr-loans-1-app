@@ -97,17 +97,16 @@ export function OrgThemeProvider({ children }: { children: ReactNode }) {
         return;
       }
       
-      // Get internal org ID
+      // Get internal org ID. maybeSingle avoids PostgREST 406 when the
+      // Clerk org is not yet synced into auth_clerk_orgs (0 rows).
       const { data: org, error: orgError } = await supabase
         .from("auth_clerk_orgs")
         .select("id")
         .eq("clerk_org_id", organization.id)
-        .single();
+        .maybeSingle();
 
       if (orgError || !org) {
-        // This is expected for new orgs that haven't been synced yet
-        // Only log if it's an actual error, not just "no rows"
-        if (orgError && orgError.code !== "PGRST116") {
+        if (orgError) {
           console.warn("Could not find internal org ID for", organization.id, orgError);
         }
         setInternalOrgId(null);
@@ -134,7 +133,7 @@ export function OrgThemeProvider({ children }: { children: ReactNode }) {
         .from("auth_clerk_users")
         .select("id")
         .eq("clerk_user_id", clerkUserId)
-        .single();
+        .maybeSingle();
 
       if (internalUser) {
         setInternalUserId(internalUser.id);

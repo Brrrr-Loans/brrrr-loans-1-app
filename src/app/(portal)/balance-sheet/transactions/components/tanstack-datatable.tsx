@@ -118,65 +118,6 @@ export function TransactionsDataTable() {
       }
 
       // Fetch transactions with all related data
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'tx-debug-3',hypothesisId:'H1',location:'tanstack-datatable.tsx:150',message:'H1: Starting transaction diagnostics',data:{},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-
-      // H4: Inspect live policies on document_files and document_files_deals
-      const { data: dfPolicies, error: dfPolicyError } = await supabase
-        .rpc("debug_list_policies", { p_table: "document_files" });
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'tx-debug-3',hypothesisId:'H4',location:'tanstack-datatable.tsx:156',message:'H4: document_files policies',data:{error:dfPolicyError?.message,policies:(dfPolicies||[]).map(p=>({name:p.policyname,cmd:p.cmd,qual:p.qual}))},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-
-      const { data: dfdPolicies, error: dfdPolicyError } = await supabase
-        .rpc("debug_list_policies", { p_table: "document_files_deals" });
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'tx-debug-3',hypothesisId:'H4',location:'tanstack-datatable.tsx:162',message:'H4: document_files_deals policies',data:{error:dfdPolicyError?.message,policies:(dfdPolicies||[]).map(p=>({name:p.policyname,cmd:p.cmd,qual:p.qual}))},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-
-      // H1/H2: Test query WITHOUT document_files join to isolate recursion source
-      const { data: noDocsData, error: noDocsError } = await supabase
-        .from("bsi_transactions")
-        .select(
-          `
-          *,
-          deals:bsi_transactions_deals(id, deal_id),
-          investors:bsi_transactions_investors(id, clerk_user_id, clerk_org_id)
-        `
-        )
-        .order("transaction_date", { ascending: false })
-        .limit(5);
-
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'tx-debug-3',hypothesisId:'H1',location:'tanstack-datatable.tsx:181',message:'H1: No-docs join result',data:{success:!noDocsError,error:noDocsError?.message,count:noDocsData?.length},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-
-      // H2: Test query that ONLY hits document_files join path
-      const { data: docsOnlyData, error: docsOnlyError } = await supabase
-        .from("bsi_transactions_document_files")
-        .select(
-          `
-          id,
-          document_file_id,
-          transaction_id,
-          document_files:document_files!document_file_id(
-            id,
-            document_name,
-            document_category_id,
-            document_categories:document_category_id(name)
-          )
-        `
-        )
-        .limit(5);
-
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'tx-debug-3',hypothesisId:'H2',location:'tanstack-datatable.tsx:202',message:'H2: Docs-only join result',data:{success:!docsOnlyError,error:docsOnlyError?.message,count:docsOnlyData?.length},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'tx-debug-3',hypothesisId:'H2',location:'tanstack-datatable.tsx:214',message:'H2: Starting complex transactions query with document_files join',data:{hasDocumentJoin:true},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
       const { data, error } = await supabase
         .from("bsi_transactions")
         .select(
@@ -232,21 +173,8 @@ export function TransactionsDataTable() {
         .order("transaction_date", { ascending: false });
 
       if (error) {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'tx-debug-1',hypothesisId:'H2',location:'tanstack-datatable.tsx:174',message:'H2: Complex query failed',data:{error:error.message,code:error.code},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
-        // More aggressive error logging to capture the actual message
-        console.error("Error fetching transactions - raw:", JSON.stringify(error));
-        console.error("Error message:", String(error.message || 'No message'));
-        console.error("Error code:", String(error.code || 'No code'));
-        console.error("Error hint:", String(error.hint || 'No hint'));
-        console.error("Error details:", String(error.details || 'No details'));
+        console.error("Error fetching transactions:", error);
 
-        // Try simpler query if complex one fails
-        console.log("Attempting simpler query...");
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'tx-debug-1',hypothesisId:'H3',location:'tanstack-datatable.tsx:183',message:'H3: Starting simple transactions query',data:{limit:10},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         const { data: simpleData, error: simpleError } = await supabase
           .from("bsi_transactions")
           .select("*")
@@ -254,15 +182,9 @@ export function TransactionsDataTable() {
           .limit(10);
 
         if (simpleError) {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'tx-debug-1',hypothesisId:'H3',location:'tanstack-datatable.tsx:191',message:'H3: Simple query failed',data:{error:simpleError.message,code:simpleError.code},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
           console.error("Simple query also failed:", simpleError);
           setError("Unable to load transactions. Please check permissions.");
         } else {
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/1e6b9c17-9ae9-4d73-9c47-7bf63d6f4b57',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'tx-debug-1',hypothesisId:'H3',location:'tanstack-datatable.tsx:194',message:'H3: Simple query succeeded',data:{count:simpleData?.length},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
           console.log("Simple query succeeded, complex query has join issue");
           setError("Complex join error - using simplified view");
           setData(simpleData || []);

@@ -67,12 +67,17 @@ export function RouteProtection({
       }
 
       if (permissions) {
-        // Check contact type requirements
+        const dealAccessGranted =
+          permissions.isOrgAdmin &&
+          requiredPermissions.includes("canAccessDeals");
+
+        // Check contact type requirements (org admins skip this for Deals)
         const contactTypeMatch =
+          dealAccessGranted ||
           requiredContactTypes.length === 0 ||
           requiredContactTypes.includes(permissions.contactType);
 
-        // Check role requirements
+        // Check role requirements — org admin is not an internal admin
         const roleMatch =
           requiredRoles.length === 0 ||
           requiredRoles.includes(permissions.role);
@@ -80,7 +85,12 @@ export function RouteProtection({
         // Check specific permission requirements
         const permissionMatch =
           requiredPermissions.length === 0 ||
-          requiredPermissions.every((perm) => permissions[perm]);
+          requiredPermissions.every((perm) => {
+            if (perm === "canAccessDeals" && permissions.isOrgAdmin) {
+              return true;
+            }
+            return Boolean(permissions[perm]);
+          });
 
         setHasAccess(contactTypeMatch && roleMatch && permissionMatch);
       } else {

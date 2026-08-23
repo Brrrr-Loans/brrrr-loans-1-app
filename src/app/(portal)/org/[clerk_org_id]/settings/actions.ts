@@ -2,6 +2,7 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
+import { getClerkSupabaseToken } from "@/lib/clerk-supabase-token";
 
 export type DealRoleTypeRow = {
   id: number;
@@ -46,8 +47,8 @@ async function requireAuthAndOrg() {
   const { userId, orgId, getToken } = await auth();
   if (!userId) throw new Error("Not authenticated");
   if (!orgId) throw new Error("No active organization selected");
-  const token = await getToken({ template: "supabase" });
-  if (!token) throw new Error("Missing Clerk Supabase token (template: supabase)");
+  const token = await getClerkSupabaseToken((options) => getToken(options));
+  if (!token) throw new Error("Missing Clerk Supabase token");
   return { orgId, token };
 }
 

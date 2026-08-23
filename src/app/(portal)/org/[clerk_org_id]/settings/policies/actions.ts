@@ -28,6 +28,7 @@ import type {
   NamedScopeRow,
   DealRoleTypeRow,
 } from "./constants";
+import { getClerkSupabaseToken } from "@/lib/clerk-supabase-token";
 import {
   FEATURE_RESOURCES,
   LIVEBLOCKS_RESOURCES,
@@ -70,22 +71,9 @@ async function requireAuthAndOrg() {
   if (!userId) throw new Error("Not authenticated");
   if (!orgId) throw new Error("No active organization selected");
 
-  // Always use the supabase template - don't fallback to default
-  let token: string | null = null;
-  try {
-    token = await getToken({ template: "supabase" });
-    console.log("Got token successfully (with supabase template)");
-  } catch (error) {
-    console.error("Error getting Supabase token with template:", error);
-    throw new Error(
-      "Failed to get Supabase authentication token. Please ensure the Supabase JWT template is configured in Clerk Dashboard with name 'supabase'."
-    );
-  }
-
+  const token = await getClerkSupabaseToken((options) => getToken(options));
   if (!token) {
-    throw new Error(
-      "Missing Clerk Supabase token. Please configure the 'supabase' JWT template in your Clerk Dashboard."
-    );
+    throw new Error("Missing Clerk Supabase token");
   }
 
   return { userId, orgId, orgRole, token };
