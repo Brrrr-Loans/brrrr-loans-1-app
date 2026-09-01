@@ -112,13 +112,14 @@ BEGIN
     RETURN;
   END IF;
 
+  -- Policy names are identifiers (%I), not string literals (%L).
   EXECUTE format(
-    'DROP POLICY IF EXISTS %L ON public.%I',
+    'DROP POLICY IF EXISTS %I ON public.%I',
     'Admin can manage contact type junctions',
     target_table
   );
   EXECUTE format(
-    'CREATE POLICY %L ON public.%I TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin())',
+    'CREATE POLICY %I ON public.%I TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin())',
     'Admin can manage contact type junctions',
     target_table
   );
