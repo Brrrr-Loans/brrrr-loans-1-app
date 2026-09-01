@@ -108,6 +108,7 @@ export function useInvestorPermissions(): InvestorPermissions {
             .select("deal_id")
             .eq("deal_id", Number(dealId))
             .in("clerk_org_id", orgIds)
+            .limit(1)
             .maybeSingle();
 
           const hasOrgAccess = !orgLinkError && !!orgLink;

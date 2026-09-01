@@ -95,6 +95,10 @@ export async function GET(request: Request) {
     let deals: DealStatusRow[] = [];
 
     if (clerkOrgIdParam) {
+      if (shouldFallbackToAllDeals({ isInternalAdmin: canUseAllDealsFallback })) {
+        return NextResponse.json(await fetchAllDealStatuses(supabase));
+      }
+
       const { data: dbOrg } = await supabase
         .from("auth_clerk_orgs")
         .select("id")
@@ -122,15 +126,6 @@ export async function GET(request: Request) {
         } else {
           deals = statusesFromJunction(data);
         }
-      }
-
-      if (
-        shouldFallbackToAllDeals({
-          isInternalAdmin: canUseAllDealsFallback,
-          orgLinkedCount: deals.length,
-        })
-      ) {
-        deals = await fetchAllDealStatuses(supabase);
       }
 
       return NextResponse.json(deals);

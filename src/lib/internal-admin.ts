@@ -120,14 +120,12 @@ export function resolveClerkProfileSync(input: {
 }
 
 /**
- * Internal admins should not see an empty Deals table just because
- * bsi_deals_clerk_orgs has no rows for the active Clerk org.
- * `orgLinkedCount` must be the unfiltered junction count so a status/search
- * miss does not expand the result to every deal on the platform.
+ * Platform admins see the full deal book when they are not impersonating.
+ * Linking a newly created deal onto the active org must not collapse that
+ * list to org-junction rows only. Org-scoped users never use this fallback.
  */
 export function shouldFallbackToAllDeals(input: {
   isInternalAdmin: boolean;
-  orgLinkedCount: number;
 }): boolean {
-  return input.isInternalAdmin && input.orgLinkedCount === 0;
+  return input.isInternalAdmin;
 }

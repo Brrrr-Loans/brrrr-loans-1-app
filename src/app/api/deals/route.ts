@@ -207,14 +207,15 @@ export async function GET(request: Request) {
         return NextResponse.json([]);
       }
 
-      const { count: orgLinkedCount, error: countError } = await supabase
-        .from("bsi_deals_clerk_orgs")
-        .select("id", { count: "exact", head: true })
-        .eq("clerk_org_id", dbOrg.id);
-
-      if (countError) {
-        console.error("Error counting org deals:", countError);
-        return NextResponse.json({ error: countError.message }, { status: 500 });
+      if (
+        !impersonatedUserIdParam &&
+        shouldFallbackToAllDeals({ isInternalAdmin })
+      ) {
+        const allDeals = await fetchAllDeals(supabase, filters);
+        if (allDeals.error) {
+          return NextResponse.json({ error: allDeals.error }, { status: 500 });
+        }
+        return NextResponse.json(allDeals.rows);
       }
 
       let query = supabase
@@ -243,20 +244,6 @@ export async function GET(request: Request) {
       if (error) {
         console.error("Error fetching org deals:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-
-      if (
-        !impersonatedUserIdParam &&
-        shouldFallbackToAllDeals({
-          isInternalAdmin,
-          orgLinkedCount: orgLinkedCount ?? 0,
-        })
-      ) {
-        const allDeals = await fetchAllDeals(supabase, filters);
-        if (allDeals.error) {
-          return NextResponse.json({ error: allDeals.error }, { status: 500 });
-        }
-        return NextResponse.json(allDeals.rows);
       }
 
       return NextResponse.json(data || []);

@@ -77,6 +77,7 @@ export default async function DealPage({ params }: PageProps) {
           .select("deal_id")
           .eq("deal_id", dealId)
           .in("clerk_org_id", orgIds)
+          .limit(1)
           .maybeSingle();
         hasDealAccess = Boolean(orgLink);
       }

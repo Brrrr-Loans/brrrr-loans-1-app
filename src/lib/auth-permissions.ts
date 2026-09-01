@@ -221,6 +221,7 @@ export async function canAccessDeal(dealId: string | number): Promise<boolean> {
       .select("deal_id")
       .eq("deal_id", dealIdNum)
       .in("clerk_org_id", orgIds)
+      .limit(1)
       .maybeSingle();
 
     return !orgError && !!orgLink;

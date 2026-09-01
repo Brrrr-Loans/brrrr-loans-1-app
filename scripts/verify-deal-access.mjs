@@ -166,21 +166,12 @@ assert(investorSync.is_internal_yn === false, "external users are not internal")
 assert(
   shouldFallbackToAllDeals({
     isInternalAdmin: true,
-    orgLinkedCount: 0,
   }) === true,
-  "internal admins see all deals when org junction rows are empty"
-);
-assert(
-  shouldFallbackToAllDeals({
-    isInternalAdmin: true,
-    orgLinkedCount: 3,
-  }) === false,
-  "internal admins keep org filter when org-linked deals exist, even if a later status/search filter is empty"
+  "internal admins see all deals even after an org junction row exists"
 );
 assert(
   shouldFallbackToAllDeals({
     isInternalAdmin: false,
-    orgLinkedCount: 0,
   }) === false,
   "non-admins do not get an all-deals fallback"
 );
