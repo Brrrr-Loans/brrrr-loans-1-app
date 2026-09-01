@@ -23,32 +23,55 @@ DROP POLICY IF EXISTS "Users can unlink their documents" ON public.bsi_transacti
 DROP POLICY IF EXISTS "Users can view documents for their transactions" ON public.bsi_transactions_document_files;
 
 -- =============================================================================
--- STEP 2: RENAME auth_clerk_users.role → personal_role
+-- STEP 2-3: Rename role → personal_role and convert enum to text if needed
 -- =============================================================================
+-- Preview may already have personal_role as text from 20260119193448 /
+-- 20260119195349. Do not rename a missing role column or DROP CASCADE an
+-- already-converted text column.
 
-ALTER TABLE public.auth_clerk_users 
-  RENAME COLUMN role TO personal_role;
+DO $$
+DECLARE
+  role_type text;
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'auth_clerk_users'
+      AND column_name = 'role'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'auth_clerk_users'
+      AND column_name = 'personal_role'
+  ) THEN
+    ALTER TABLE public.auth_clerk_users
+      RENAME COLUMN role TO personal_role;
+  END IF;
 
--- =============================================================================
--- STEP 3: CONVERT personal_role FROM ENUM TO TEXT
--- =============================================================================
+  SELECT c.data_type INTO role_type
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'auth_clerk_users'
+    AND c.column_name = 'personal_role';
 
--- Add new text column
-ALTER TABLE public.auth_clerk_users 
-  ADD COLUMN IF NOT EXISTS personal_role_text text;
+  IF role_type IS NULL THEN
+    ALTER TABLE public.auth_clerk_users
+      ADD COLUMN personal_role text;
+  ELSIF role_type IS DISTINCT FROM 'text' THEN
+    ALTER TABLE public.auth_clerk_users
+      ADD COLUMN IF NOT EXISTS personal_role_text text;
 
--- Copy existing enum values to text column
-UPDATE public.auth_clerk_users 
-  SET personal_role_text = personal_role::text
-  WHERE personal_role IS NOT NULL;
+    UPDATE public.auth_clerk_users
+      SET personal_role_text = personal_role::text
+      WHERE personal_role IS NOT NULL;
 
--- Drop the enum column (CASCADE to clean up any remaining dependencies)
-ALTER TABLE public.auth_clerk_users 
-  DROP COLUMN IF EXISTS personal_role CASCADE;
+    ALTER TABLE public.auth_clerk_users
+      DROP COLUMN IF EXISTS personal_role CASCADE;
 
--- Rename text column to personal_role
-ALTER TABLE public.auth_clerk_users 
-  RENAME COLUMN personal_role_text TO personal_role;
+    ALTER TABLE public.auth_clerk_users
+      RENAME COLUMN personal_role_text TO personal_role;
+  END IF;
+END $$;
 
 COMMENT ON COLUMN public.auth_clerk_users.personal_role IS 
   'User role when NOT in an org context (personal scope). Example values: admin, account_executive, loan_processor, balance_sheet_investor, loan_opener, borrower, broker';
@@ -173,6 +196,7 @@ $$;
 -- =============================================================================
 
 -- bsi_statements policies
+DROP POLICY IF EXISTS "Balance sheet investors can insert their own statements" ON public.bsi_statements;
 CREATE POLICY "Balance sheet investors can insert their own statements" 
 ON public.bsi_statements 
 FOR INSERT TO authenticated 
@@ -185,6 +209,7 @@ WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "Balance sheet investors can select their statements" ON public.bsi_statements;
 CREATE POLICY "Balance sheet investors can select their statements" 
 ON public.bsi_statements 
 FOR SELECT TO authenticated 
@@ -203,6 +228,7 @@ USING (
 );
 
 -- bsi_transactions_deals policy
+DROP POLICY IF EXISTS "Users can view transaction deal allocations" ON public.bsi_transactions_deals;
 CREATE POLICY "Users can view transaction deal allocations" 
 ON public.bsi_transactions_deals 
 FOR SELECT TO authenticated 
@@ -222,6 +248,7 @@ USING (
 );
 
 -- bsi_transactions_instruments policy
+DROP POLICY IF EXISTS "Users can view transaction instrument allocations" ON public.bsi_transactions_instruments;
 CREATE POLICY "Users can view transaction instrument allocations" 
 ON public.bsi_transactions_instruments 
 FOR SELECT TO authenticated 
@@ -241,6 +268,7 @@ USING (
 );
 
 -- bsi_transactions_document_files policies
+DROP POLICY IF EXISTS "Users can link documents to their transactions" ON public.bsi_transactions_document_files;
 CREATE POLICY "Users can link documents to their transactions" 
 ON public.bsi_transactions_document_files 
 FOR INSERT TO authenticated 
@@ -254,6 +282,7 @@ WITH CHECK (
   )
 );
 
+DROP POLICY IF EXISTS "Users can unlink their documents" ON public.bsi_transactions_document_files;
 CREATE POLICY "Users can unlink their documents" 
 ON public.bsi_transactions_document_files 
 FOR DELETE TO authenticated 
@@ -267,6 +296,7 @@ USING (
   )
 );
 
+DROP POLICY IF EXISTS "Users can view documents for their transactions" ON public.bsi_transactions_document_files;
 CREATE POLICY "Users can view documents for their transactions" 
 ON public.bsi_transactions_document_files 
 FOR SELECT TO authenticated 

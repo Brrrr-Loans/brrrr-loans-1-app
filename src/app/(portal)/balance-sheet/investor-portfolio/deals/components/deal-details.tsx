@@ -99,15 +99,15 @@ const distributions = [
 
 interface DealDetailsProps {
   deal: {
-    name?: string;
-    location?: string;
-    type?: string;
-    status?: string;
-    amount?: string;
-    roi?: string;
-    date?: string;
-    investors?: string;
-    // Add more fields as needed
+    name?: string | null;
+    location?: string | null;
+    type?: string | null;
+    status?: string | null;
+    amount?: string | null;
+    roi?: string | null;
+    date?: string | null;
+    investors?: string | null;
+    loanNumber?: string | null;
   };
 }
 
@@ -117,9 +117,9 @@ export function DealDetails({ deal }: DealDetailsProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-2xl">{deal.name}</CardTitle>
+            <CardTitle className="text-2xl">{deal.name || "Untitled deal"}</CardTitle>
             <CardDescription className="flex items-center">
-              <MapPin className="h-4 w-4 mr-1" /> {deal.location}
+              <MapPin className="h-4 w-4 mr-1" /> {deal.location || "No property"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -128,15 +128,19 @@ export function DealDetails({ deal }: DealDetailsProps) {
                 <p className="text-sm text-muted-foreground">Deal Type</p>
                 <div className="flex items-center">
                   <Building className="h-4 w-4 mr-1" />
-                  <p className="font-medium">{deal.type}</p>
+                  <p className="font-medium">{deal.type || "—"}</p>
                 </div>
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Status</p>
                 <Badge
-                  variant={deal.status === "Active" ? "default" : "secondary"}
+                  variant={
+                    deal.status === "active" || deal.status === "Active"
+                      ? "default"
+                      : "secondary"
+                  }
                 >
-                  {deal.status}
+                  {deal.status || "Unknown"}
                 </Badge>
               </div>
               <div className="space-y-1">
@@ -145,12 +149,12 @@ export function DealDetails({ deal }: DealDetailsProps) {
                 </p>
                 <div className="flex items-center">
                   <DollarSign className="h-4 w-4 mr-1" />
-                  <p className="font-medium">{deal.amount}</p>
+                  <p className="font-medium">{deal.amount || "—"}</p>
                 </div>
               </div>
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">ROI</p>
-                <p className="font-medium">{deal.roi}</p>
+                <p className="text-sm text-muted-foreground">Loan Number</p>
+                <p className="font-medium">{deal.loanNumber || deal.roi || "—"}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Start Date</p>
@@ -165,7 +169,7 @@ export function DealDetails({ deal }: DealDetailsProps) {
                 <p className="text-sm text-muted-foreground">Investors</p>
                 <div className="flex items-center">
                   <Users className="h-4 w-4 mr-1" />
-                  <p className="font-medium">{deal.investors}</p>
+                  <p className="font-medium">{deal.investors || "—"}</p>
                 </div>
               </div>
             </div>

@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui";
+import { DEAL_LIST_PATH, dealRecordPath } from "@/config/deal-routes";
 
 interface DealRecord {
   id: number;
@@ -234,12 +235,12 @@ export function InvestorDealsWidget() {
   );
 
   const handleViewAll = useCallback(() => {
-    router.push("/balance-sheet/investor-portfolio/deals");
+    router.push(DEAL_LIST_PATH);
   }, [router]);
 
   const handleRowClick = useCallback(
     (dealId: number) => {
-      router.push(`/balance-sheet/investor-portfolio/deals/${dealId}`);
+      router.push(dealRecordPath(dealId));
     },
     [router]
   );

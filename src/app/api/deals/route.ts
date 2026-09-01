@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient } from "@/lib/supabase-server";
 import {
@@ -7,27 +7,61 @@ import {
   getUserInvestmentOrgs,
 } from "@/lib/auth-helpers";
 import { isInvestmentOrgRole } from "@/lib/deal-access";
+import {
+  isPlatformAdminIdentity,
+  shouldFallbackToAllDeals,
+} from "@/lib/internal-admin";
+import { wrapDealsForApi, type PortalDeal } from "@/lib/deals-api";
 import type { Database } from "@/types/database.types";
 
-const DEAL_EMBED = `
-  deal:deal_id(
-    id,
-    deal_name,
-    deal_stage_2,
-    deal_disposition_1,
-    loan_amount_total,
-    funding_date,
-    project_type,
-    property_id,
-    loan_number,
-    property:property_id(id, address),
-    deal_guarantors(
-      guarantor_id,
-      is_primary,
-      guarantor:guarantor_id(id, name)
-    )
+const DEAL_FIELDS = `
+  id,
+  deal_name,
+  deal_stage_2,
+  deal_disposition_1,
+  loan_amount_total,
+  funding_date,
+  project_type,
+  property_id,
+  loan_number,
+  property:property_id(id, address),
+  deal_guarantors(
+    guarantor_id,
+    is_primary,
+    guarantor:guarantor_id(id, name)
   )
 `;
+
+const DEAL_EMBED = `deal:deal_id(${DEAL_FIELDS})`;
+
+type DealDisposition = "on_hold" | "active" | "dead";
+
+async function fetchAllDeals(
+  supabase: SupabaseClient<Database>,
+  filters: { status: string | null; search: string | null }
+) {
+  let query = supabase.from("deal").select(DEAL_FIELDS);
+
+  if (filters.status) {
+    query = query.eq("deal_disposition_1", filters.status as DealDisposition);
+  }
+  if (filters.search) {
+    query = query.or(
+      `deal_name.ilike.%${filters.search}%,loan_number.ilike.%${filters.search}%`
+    );
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("Error fetching all deals:", error);
+    return { error: error.message, rows: [] as ReturnType<typeof wrapDealsForApi> };
+  }
+
+  return {
+    error: null,
+    rows: wrapDealsForApi((data || []) as unknown as PortalDeal[]),
+  };
+}
 
 async function userCanViewOrgDeals(
   supabase: SupabaseClient<Database>,
@@ -60,8 +94,6 @@ async function userCanViewOrgDeals(
     return isInvestmentOrgRole(membership?.clerk_org_role);
   }
 
-  // No auth_clerk_users row: only the active Clerk org, matching RLS
-  // (admin/member, not viewer).
   return (
     options.sessionOrgId === options.requestedClerkOrgId &&
     isInvestmentOrgRole(options.sessionOrgRole)
@@ -82,14 +114,22 @@ export async function GET(request: Request) {
     let clerkOrgIdParam = url.searchParams.get("clerk_org_id");
     const status = url.searchParams.get("status");
     const search = url.searchParams.get("search");
+    const filters = { status, search };
 
+    const clerk = await currentUser();
     const { data: caller } = await supabase
       .from("auth_clerk_users")
-      .select("id, personal_role")
+      .select("id, personal_role, is_internal_yn, email")
       .eq("clerk_user_id", clerkUserId)
       .maybeSingle();
 
-    const isInternalAdmin = caller?.personal_role === "admin";
+    const isInternalAdmin = isPlatformAdminIdentity({
+      clerkUserId,
+      email:
+        caller?.email || clerk?.emailAddresses?.[0]?.emailAddress || null,
+      personalRole: caller?.personal_role,
+      isInternalYn: caller?.is_internal_yn,
+    });
 
     let targetUserId: number | null = null;
 
@@ -121,12 +161,10 @@ export async function GET(request: Request) {
 
       targetUserId = impersonatedUser.id;
     } else {
-      const currentUser = await getCurrentUserData();
-      targetUserId = currentUser?.id ?? caller?.id ?? null;
+      const current = await getCurrentUserData();
+      targetUserId = current?.id ?? caller?.id ?? null;
     }
 
-    // Org admins can open Deals before an auth_clerk_users row exists.
-    // Use the active Clerk org so they still receive org-linked deals.
     if (
       !impersonatedUserIdParam &&
       targetUserId === null &&
@@ -139,17 +177,13 @@ export async function GET(request: Request) {
     if (clerkOrgIdParam) {
       const allowed = await userCanViewOrgDeals(supabase, {
         requestedClerkOrgId: clerkOrgIdParam,
-        sessionOrgId: orgId,
-        sessionOrgRole: orgRole,
+        sessionOrgId: orgId ?? null,
+        sessionOrgRole: orgRole ?? null,
         authClerkUsersId: targetUserId,
-        // Impersonation must follow the target user's membership, not the
-        // platform admin's global access.
         isInternalAdmin: impersonatedUserIdParam ? false : isInternalAdmin,
       });
 
       if (!allowed) {
-        // Impersonation with an org selected: empty set if the target user
-        // is not a member of that org, not a 403 against the admin caller.
         if (impersonatedUserIdParam) {
           return NextResponse.json([]);
         }
@@ -163,7 +197,25 @@ export async function GET(request: Request) {
         .maybeSingle();
 
       if (!dbOrg) {
+        if (!impersonatedUserIdParam && isInternalAdmin) {
+          const allDeals = await fetchAllDeals(supabase, filters);
+          if (allDeals.error) {
+            return NextResponse.json({ error: allDeals.error }, { status: 500 });
+          }
+          return NextResponse.json(allDeals.rows);
+        }
         return NextResponse.json([]);
+      }
+
+      if (
+        !impersonatedUserIdParam &&
+        shouldFallbackToAllDeals({ isInternalAdmin })
+      ) {
+        const allDeals = await fetchAllDeals(supabase, filters);
+        if (allDeals.error) {
+          return NextResponse.json({ error: allDeals.error }, { status: 500 });
+        }
+        return NextResponse.json(allDeals.rows);
       }
 
       let query = supabase
@@ -179,10 +231,7 @@ export async function GET(request: Request) {
         .eq("clerk_org_id", dbOrg.id);
 
       if (status) {
-        query = query.eq(
-          "deal.deal_disposition_1",
-          status as "on_hold" | "active" | "dead"
-        );
+        query = query.eq("deal.deal_disposition_1", status as DealDisposition);
       }
       if (search) {
         query = query.or(
@@ -198,6 +247,14 @@ export async function GET(request: Request) {
       }
 
       return NextResponse.json(data || []);
+    }
+
+    if (!impersonatedUserIdParam && isInternalAdmin) {
+      const allDeals = await fetchAllDeals(supabase, filters);
+      if (allDeals.error) {
+        return NextResponse.json({ error: allDeals.error }, { status: 500 });
+      }
+      return NextResponse.json(allDeals.rows);
     }
 
     if (targetUserId === null) {
@@ -221,7 +278,7 @@ export async function GET(request: Request) {
     if (status) {
       userQuery = userQuery.eq(
         "deal.deal_disposition_1",
-        status as "on_hold" | "active" | "dead"
+        status as DealDisposition
       );
     }
     if (search) {
@@ -261,7 +318,7 @@ export async function GET(request: Request) {
       if (status) {
         orgQuery = orgQuery.eq(
           "deal.deal_disposition_1",
-          status as "on_hold" | "active" | "dead"
+          status as DealDisposition
         );
       }
       if (search) {

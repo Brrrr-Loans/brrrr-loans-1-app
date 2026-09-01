@@ -4,6 +4,7 @@ import type { WebhookEvent } from "@clerk/nextjs/server";
 import type { NextRequest } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-server";
 import type { Database } from "@/types/supabase";
+import { resolveClerkProfileSync } from "@/lib/internal-admin";
 
 // Debug logging for service role key
 console.log(
@@ -117,7 +118,7 @@ async function handleUserCreated(
     public_metadata,
     image_url,
     has_image,
-  } = data as WebhookEvent["data"] & {
+  } = data as ClerkUser & {
     image_url?: string;
     has_image?: boolean;
   };
@@ -143,26 +144,11 @@ async function handleUserCreated(
     supabase
   );
 
-  // Map Clerk roles to valid database enum values
-  const customRole = public_metadata?.role as string;
-
-  let dbRole: string;
-
-  // Map Clerk's built-in and custom roles to database enum
-  if (customRole === "admin" || customRole === "Admin") {
-    dbRole = "admin";
-  } else if (customRole === "account_executive") {
-    dbRole = "account_executive";
-  } else if (customRole === "loan_processor") {
-    dbRole = "loan_processor";
-  } else if (customRole === "loan_opener") {
-    dbRole = "loan_opener";
-  } else if (customRole === "balance_sheet_investor") {
-    dbRole = "balance_sheet_investor";
-  } else {
-    // Default for external users (including users with no custom role set)
-    dbRole = "balance_sheet_investor";
-  }
+  const sync = resolveClerkProfileSync({
+    clerkUserId: clerkId,
+    email: primaryEmail,
+    publicMetadata: public_metadata,
+  });
 
   // Test service role access
   const { data: testAccess, error: testError } = await supabase
@@ -185,8 +171,8 @@ async function handleUserCreated(
       first_name: first_name || null,
       last_name: last_name || null,
       phone_number: primaryPhone,
-      role: dbRole as Database["public"]["Enums"]["user_role_internal"],
-      is_internal_yn: false,
+      personal_role: sync.personal_role as Database["public"]["Enums"]["user_role_internal"],
+      is_internal_yn: sync.is_internal_yn,
       is_active_yn: true,
       image_url: image_url || null,
       has_image: has_image || false,
@@ -230,27 +216,19 @@ async function handleUserUpdated(
     supabase
   );
 
-  // Map Clerk roles to valid database enum values
-  // Handle both built-in roles and custom roles
-  const customRole = public_metadata?.role as string;
+  const { data: existing } = await supabase
+    .from("auth_clerk_users")
+    .select("personal_role, is_internal_yn")
+    .eq("clerk_user_id", clerkId)
+    .maybeSingle();
 
-  let dbRole: string;
-
-  // Check custom roles from metadata
-  if (customRole === "admin") {
-    dbRole = "admin";
-  } else if (customRole === "account_executive") {
-    dbRole = "account_executive";
-  } else if (customRole === "loan_processor") {
-    dbRole = "loan_processor";
-  } else if (customRole === "loan_opener") {
-    dbRole = "loan_opener";
-  } else if (customRole === "balance_sheet_investor") {
-    dbRole = "balance_sheet_investor";
-  } else {
-    // Default for external users
-    dbRole = "balance_sheet_investor";
-  }
+  const sync = resolveClerkProfileSync({
+    clerkUserId: clerkId,
+    email: primaryEmail,
+    publicMetadata: public_metadata,
+    existingPersonalRole: existing?.personal_role,
+    existingIsInternalYn: existing?.is_internal_yn,
+  });
 
   const { error } = await supabase
     .from("auth_clerk_users")
@@ -260,7 +238,8 @@ async function handleUserUpdated(
       first_name: first_name || null,
       last_name: last_name || null,
       phone_number: primaryPhone,
-      role: dbRole as Database["public"]["Enums"]["user_role_internal"],
+      personal_role: sync.personal_role as Database["public"]["Enums"]["user_role_internal"],
+      is_internal_yn: sync.is_internal_yn,
       image_url: image_url || null,
       has_image: has_image || false,
       updated_at: new Date().toISOString(),
@@ -332,20 +311,11 @@ async function handleSessionCreated(
           supabase
         );
 
-        // Map role from metadata
-        const customRole = clerkUser.publicMetadata?.role as string;
-        let dbRole: string = "balance_sheet_investor";
-        if (customRole === "admin" || customRole === "Admin") {
-          dbRole = "admin";
-        } else if (customRole === "account_executive") {
-          dbRole = "account_executive";
-        } else if (customRole === "loan_processor") {
-          dbRole = "loan_processor";
-        } else if (customRole === "loan_opener") {
-          dbRole = "loan_opener";
-        } else if (customRole === "balance_sheet_investor") {
-          dbRole = "balance_sheet_investor";
-        }
+        const sync = resolveClerkProfileSync({
+          clerkUserId: user_id,
+          email: primaryEmail,
+          publicMetadata: clerkUser.publicMetadata as { role?: string | null },
+        });
 
         // Create the user
         const { error: insertError } = await supabase
@@ -357,8 +327,8 @@ async function handleSessionCreated(
             first_name: clerkUser.firstName || null,
             last_name: clerkUser.lastName || null,
             phone_number: primaryPhone,
-            role: dbRole as Database["public"]["Enums"]["user_role_internal"],
-            is_internal_yn: false,
+            personal_role: sync.personal_role as Database["public"]["Enums"]["user_role_internal"],
+            is_internal_yn: sync.is_internal_yn,
             is_active_yn: true,
             image_url: clerkUser.imageUrl || null,
             has_image: clerkUser.hasImage || false,
@@ -595,7 +565,6 @@ async function handleOrganizationMembershipUpdated(
     .from("auth_clerk_orgs_members")
     .update({
       clerk_org_role: orgRole,
-      updated_at: new Date().toISOString(),
     })
     .eq("auth_clerk_users_id", user.id)
     .eq("clerk_org_id", org.id);

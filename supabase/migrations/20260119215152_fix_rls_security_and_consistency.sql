@@ -43,24 +43,43 @@ DROP POLICY IF EXISTS "deal_roles_update_authenticated" ON public.deal_roles;
 DROP POLICY IF EXISTS "deal_roles_select_authenticated" ON public.deal_roles;
 
 -- Create proper policies with "{Subject} can {action}" naming
+DROP POLICY IF EXISTS "Internal users can manage deal roles" ON public.deal_roles;
 CREATE POLICY "Internal users can manage deal roles"
 ON public.deal_roles
 FOR ALL TO authenticated
 USING (public.is_admin())
 WITH CHECK (public.is_admin());
 
--- Users can view deal roles for deals they're assigned to
-CREATE POLICY "Users can view their deal roles"
-ON public.deal_roles
-FOR SELECT TO authenticated
-USING (
-  auth_clerk_users_id = public.get_current_user_id()
-  OR EXISTS (
-    SELECT 1 FROM public.deal_roles dr2
-    WHERE dr2.deal_id = deal_roles.deal_id
-    AND dr2.auth_clerk_users_id = public.get_current_user_id()
-  )
-);
+-- Users can view deal roles for deals they're assigned to.
+-- Do not DROP/replace this name: later migrations install a non-recursive
+-- SELECT policy under a different name (Users view own deal_roles,
+-- deal_roles_select_own, …). Recreating this USING clause on a current
+-- schema ORs with those policies and restores infinite recursion.
+-- Skip whenever any SELECT policy remains after the legacy *_authenticated
+-- drops above (FOR ALL admin policies use cmd '*', so they do not match).
+DO $$
+BEGIN
+  -- Any remaining SELECT policy is a later non-recursive successor
+  -- (Users view own deal_roles, deal_roles_select_own, etc.).
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'deal_roles'
+      AND cmd = 'SELECT'
+  ) THEN
+    CREATE POLICY "Users can view their deal roles"
+    ON public.deal_roles
+    FOR SELECT TO authenticated
+    USING (
+      auth_clerk_users_id = public.get_current_user_id()
+      OR EXISTS (
+        SELECT 1 FROM public.deal_roles dr2
+        WHERE dr2.deal_id = deal_roles.deal_id
+        AND dr2.auth_clerk_users_id = public.get_current_user_id()
+      )
+    );
+  END IF;
+END $$;
 
 -- =============================================================================
 -- PRIORITY 1: Fix wide-open deal_guarantors policies
@@ -71,23 +90,36 @@ DROP POLICY IF EXISTS "deal_guarantors_insert_authenticated" ON public.deal_guar
 DROP POLICY IF EXISTS "deal_guarantors_update_authenticated" ON public.deal_guarantors;
 DROP POLICY IF EXISTS "deal_guarantors_select_authenticated" ON public.deal_guarantors;
 
+DROP POLICY IF EXISTS "Internal users can manage deal guarantors" ON public.deal_guarantors;
 CREATE POLICY "Internal users can manage deal guarantors"
 ON public.deal_guarantors
 FOR ALL TO authenticated
 USING (public.is_admin())
 WITH CHECK (public.is_admin());
 
--- Users can view guarantors for deals they're assigned to
-CREATE POLICY "Users can view deal guarantors for their deals"
-ON public.deal_guarantors
-FOR SELECT TO authenticated
-USING (
-  EXISTS (
-    SELECT 1 FROM public.deal_roles dr
-    WHERE dr.deal_id = deal_guarantors.deal_id
-    AND dr.auth_clerk_users_id = public.get_current_user_id()
-  )
-);
+-- Users can view guarantors for deals they're assigned to.
+-- Same replay rule: do not restore the recursive deal_roles subquery if a
+-- later non-recursive policy already exists.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'deal_guarantors'
+      AND cmd = 'SELECT'
+  ) THEN
+    CREATE POLICY "Users can view deal guarantors for their deals"
+    ON public.deal_guarantors
+    FOR SELECT TO authenticated
+    USING (
+      EXISTS (
+        SELECT 1 FROM public.deal_roles dr
+        WHERE dr.deal_id = deal_guarantors.deal_id
+        AND dr.auth_clerk_users_id = public.get_current_user_id()
+      )
+    );
+  END IF;
+END $$;
 
 -- =============================================================================
 -- PRIORITY 1: Fix wide-open contact_contact_types policies
@@ -308,24 +340,28 @@ GRANT EXECUTE ON FUNCTION public.can_access_guarantor_document TO authenticated;
 -- =============================================================================
 
 -- document_files_borrowers: View if linked to borrower via deal
+DROP POLICY IF EXISTS "Users can view borrower documents for their deals" ON public.document_files_borrowers;
 CREATE POLICY "Users can view borrower documents for their deals"
 ON public.document_files_borrowers
 FOR SELECT TO authenticated
 USING (public.can_access_borrower_document(borrower_id));
 
 -- document_files_companies: View if linked to company
+DROP POLICY IF EXISTS "Users can view company documents for their deals" ON public.document_files_companies;
 CREATE POLICY "Users can view company documents for their deals"
 ON public.document_files_companies
 FOR SELECT TO authenticated
 USING (public.can_access_company_document(company_id));
 
 -- document_files_properties: View if linked to property via deal
+DROP POLICY IF EXISTS "Users can view property documents for their deals" ON public.document_files_properties;
 CREATE POLICY "Users can view property documents for their deals"
 ON public.document_files_properties
 FOR SELECT TO authenticated
 USING (public.can_access_property_document(property_id));
 
 -- document_files_guarantors: View if linked to guarantor via deal
+DROP POLICY IF EXISTS "Users can view guarantor documents for their deals" ON public.document_files_guarantors;
 CREATE POLICY "Users can view guarantor documents for their deals"
 ON public.document_files_guarantors
 FOR SELECT TO authenticated
@@ -336,6 +372,7 @@ USING (public.can_access_guarantor_document(guarantor_id));
 -- =============================================================================
 
 -- Org admins can manage their own org's members
+DROP POLICY IF EXISTS "Org admins can manage own members" ON public.auth_clerk_orgs_members;
 CREATE POLICY "Org admins can manage own members"
 ON public.auth_clerk_orgs_members
 FOR ALL TO authenticated
@@ -343,6 +380,7 @@ USING (public.is_org_admin(clerk_org_id))
 WITH CHECK (public.is_org_admin(clerk_org_id));
 
 -- Org admins can update their own org's details
+DROP POLICY IF EXISTS "Org admins can update own org" ON public.auth_clerk_orgs;
 CREATE POLICY "Org admins can update own org"
 ON public.auth_clerk_orgs
 FOR UPDATE TO authenticated

@@ -177,6 +177,7 @@ GRANT EXECUTE ON FUNCTION public.has_permission TO anon;
 -- These ADD new policies (don't replace existing admin-only policies)
 
 -- document_files_clerk_orgs: Org admins can manage their org's links
+DROP POLICY IF EXISTS "Org admins manage own org document links" ON public.document_files_clerk_orgs;
 CREATE POLICY "Org admins manage own org document links" 
 ON public.document_files_clerk_orgs 
 FOR ALL TO authenticated 
@@ -184,6 +185,7 @@ USING (public.is_org_admin(clerk_org_id))
 WITH CHECK (public.is_org_admin(clerk_org_id));
 
 -- bsi_deals_clerk_orgs: Org admins can view their org's deal links
+DROP POLICY IF EXISTS "Org admins view own deal links" ON public.bsi_deals_clerk_orgs;
 CREATE POLICY "Org admins view own deal links" 
 ON public.bsi_deals_clerk_orgs 
 FOR SELECT TO authenticated 
@@ -194,6 +196,7 @@ USING (public.is_org_admin(clerk_org_id));
 -- =============================================================================
 
 -- Users can view documents if they have deal role permissions
+DROP POLICY IF EXISTS "Users view documents via deal permissions" ON public.document_files;
 CREATE POLICY "Users view documents via deal permissions" 
 ON public.document_files 
 FOR SELECT TO authenticated 
@@ -207,6 +210,7 @@ USING (
 );
 
 -- Users can view document_files_deals links via deal permissions
+DROP POLICY IF EXISTS "Users view document deal links via permissions" ON public.document_files_deals;
 CREATE POLICY "Users view document deal links via permissions" 
 ON public.document_files_deals 
 FOR SELECT TO authenticated 
@@ -217,6 +221,7 @@ USING (
 );
 
 -- Users can insert document_files_deals links via deal permissions
+DROP POLICY IF EXISTS "Users insert document deal links via permissions" ON public.document_files_deals;
 CREATE POLICY "Users insert document deal links via permissions" 
 ON public.document_files_deals 
 FOR INSERT TO authenticated 
@@ -231,6 +236,7 @@ WITH CHECK (
 -- =============================================================================
 
 -- Org admins can view all permissions (needed for UI configuration)
+DROP POLICY IF EXISTS "Org admins view document_access_permissions" ON public.document_access_permissions;
 CREATE POLICY "Org admins view document_access_permissions" 
 ON public.document_access_permissions 
 FOR SELECT TO authenticated 
@@ -246,6 +252,7 @@ DROP POLICY IF EXISTS "investors_update_admin_only" ON storage.objects;
 DROP POLICY IF EXISTS "investors_delete_admin_only" ON storage.objects;
 
 -- Consolidated admin policy for investors bucket (uses is_internal_admin)
+DROP POLICY IF EXISTS "investors_admin_full_access" ON storage.objects;
 CREATE POLICY "investors_admin_full_access" ON storage.objects
 FOR ALL TO public
 USING (

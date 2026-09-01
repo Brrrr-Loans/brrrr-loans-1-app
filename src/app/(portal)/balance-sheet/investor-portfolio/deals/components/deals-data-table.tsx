@@ -14,7 +14,8 @@ import {
   propertyAddressFromDeal,
   type PortalDeal,
 } from "@/lib/deals-api";
-import { isInvestmentOrgRole } from "@/lib/deal-access";
+import { DEAL_NEW_PATH, dealRecordPath } from "@/config/deal-routes";
+import { deleteDeal } from "@/app/actions/deals";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -172,9 +173,12 @@ const DraggableTableHeader = ({ header }: { header: any; table?: any }) => {
   );
 };
 
-const createColumns = (router: {
-  push: (path: string) => void;
-}): ColumnDef<DealWithRelations>[] => [
+const createColumns = (
+  router: {
+    push: (path: string) => void;
+  },
+  onDelete: (deal: DealWithRelations) => void
+): ColumnDef<DealWithRelations>[] => [
   {
     id: "select",
     header: ({ table }) => (
@@ -394,7 +398,7 @@ const createColumns = (router: {
           <DropdownMenuContent align="end">
             <DropdownMenuGroup>
               <DropdownMenuItem
-                onClick={() => router.push(`/balance-sheet/investor-portfolio/deals/${deal.id}`)}
+                onClick={() => router.push(dealRecordPath(deal.id))}
               >
                 <FolderOpenIcon
                   size={16}
@@ -404,7 +408,7 @@ const createColumns = (router: {
                 Open
               </DropdownMenuItem>
               <DropdownMenuItem
-                onClick={() => router.push(`/balance-sheet/investor-portfolio/deals/${deal.id}`)}
+                onClick={() => router.push(dealRecordPath(deal.id))}
               >
                 <BoltIcon size={16} className="opacity-60" aria-hidden="true" />
                 Edit
@@ -425,7 +429,10 @@ const createColumns = (router: {
                 />
                 Copy ID
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-red-600">
+              <DropdownMenuItem
+                className="text-red-600"
+                onClick={() => onDelete(deal)}
+              >
                 <TrashIcon size={16} aria-hidden="true" />
                 Delete
               </DropdownMenuItem>
@@ -459,10 +466,24 @@ export function DealsDataTable() {
 
   const router = useRouter();
   const supabase = useSupabase();
-  const { isLoaded: authLoaded, orgRole } = useAuth();
+  const { isLoaded: authLoaded } = useAuth();
   const { clerkOrgId, isLoaded: orgLoaded } = useCurrentOrganization();
   const { impersonatedUserId } = useImpersonation();
-  const columns = createColumns(router);
+
+  const handleDeleteDeal = React.useCallback(async (deal: DealWithRelations) => {
+    const label = deal.deal_name || deal.loan_number || `deal ${deal.id}`;
+    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) {
+      return;
+    }
+    try {
+      await deleteDeal(String(deal.id));
+      setData((prev) => prev.filter((row) => row.id !== deal.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete deal");
+    }
+  }, []);
+
+  const columns = createColumns(router, handleDeleteDeal);
 
   // Set up sensors for drag and drop
   const sensors = useSensors(
@@ -522,24 +543,16 @@ export function DealsDataTable() {
           )
           .order("created_at", { ascending: false });
 
-        if (error) {
+        if (error || (deals?.length ?? 0) === 0) {
           try {
             await loadFromApi();
             return;
           } catch (apiError) {
-            console.error("Error fetching deals:", error);
+            console.error("Error fetching deals:", error || apiError);
             setError(supabaseErrorMessage(apiError));
             setData([]);
             return;
           }
-        }
-
-        if (
-          (deals?.length ?? 0) === 0 &&
-          isInvestmentOrgRole(orgRole)
-        ) {
-          await loadFromApi();
-          return;
         }
 
         const dealIds = deals?.map((deal) => deal.id) || [];
@@ -624,7 +637,7 @@ export function DealsDataTable() {
     }
 
     fetchDeals();
-  }, [authLoaded, orgLoaded, supabase, clerkOrgId, impersonatedUserId, orgRole]);
+  }, [authLoaded, orgLoaded, supabase, clerkOrgId, impersonatedUserId]);
 
   const table = useReactTable({
     data,
@@ -843,7 +856,7 @@ export function DealsDataTable() {
             <Button
               size="sm"
               className="h-8"
-              onClick={() => router.push("/balance-sheet/investor-portfolio/deals/new")}
+              onClick={() => router.push(DEAL_NEW_PATH)}
             >
               <Plus className="mr-2 h-4 w-4" />
               Add Deal
@@ -905,7 +918,7 @@ export function DealsDataTable() {
                         Get started by creating your first investment deal to
                         track performance and manage your portfolio.
                       </p>
-                      <Button onClick={() => router.push("/balance-sheet/investor-portfolio/deals/new")}>
+                      <Button onClick={() => router.push(DEAL_NEW_PATH)}>
                         <Plus className="mr-2 h-4 w-4" />
                         Create Deal
                       </Button>

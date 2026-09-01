@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { getSupabaseClient } from "@/lib/supabase-server";
+import { createServiceRoleClient } from "@/lib/supabase-server";
 import type { ContactType, UserRole, UserPermissions } from "@/types/auth";
 import {
   canAccessDeals,
   isClerkOrgAdminRole,
   isOrgAdminFromMemberships,
 } from "@/lib/deal-access";
+import { isPlatformAdminIdentity } from "@/lib/internal-admin";
 
 function canAccessDistributions(
   contactType: ContactType | undefined,
@@ -38,8 +39,11 @@ function canAccessDocuments(
   return !restrictedContactTypes.includes(contactType);
 }
 
-function canAccessAdminFeatures(role: UserRole): boolean {
-  return role === "admin";
+function canAccessAdminFeatures(
+  role: UserRole,
+  isPlatformAdmin = false
+): boolean {
+  return isPlatformAdmin || role === "admin";
 }
 
 function buildPermissions(input: {
@@ -51,38 +55,42 @@ function buildPermissions(input: {
   authUserProfileId: number;
   isOrgAdmin: boolean;
   contactTypeForAccess?: ContactType;
+  isPlatformAdmin?: boolean;
 }): UserPermissions {
   const contactTypeForAccess = input.contactTypeForAccess ?? input.contactType;
+  const isPlatformAdmin = input.isPlatformAdmin ?? false;
+  const role = isPlatformAdmin ? "admin" : input.role;
+  const isOrgAdmin = input.isOrgAdmin || isPlatformAdmin;
 
   return {
     userId: input.userId,
     email: input.email,
     contactType: input.contactType,
-    role: input.role,
+    role,
     contactId: input.contactId,
     authUserProfileId: input.authUserProfileId,
-    isOrgAdmin: input.isOrgAdmin,
+    isOrgAdmin,
     canAccessDeals: canAccessDeals({
       contactType: contactTypeForAccess,
-      personalRole: input.role,
-      isOrgAdmin: input.isOrgAdmin,
+      personalRole: role,
+      isOrgAdmin,
     }),
     canAccessDistributions: canAccessDistributions(
       contactTypeForAccess,
-      input.role,
-      input.isOrgAdmin
+      role,
+      isOrgAdmin
     ),
     canAccessDocuments: canAccessDocuments(
       contactTypeForAccess,
-      input.role,
-      input.isOrgAdmin
+      role,
+      isOrgAdmin
     ),
     canAccessReports: canAccessDeals({
       contactType: contactTypeForAccess,
-      personalRole: input.role,
-      isOrgAdmin: input.isOrgAdmin,
+      personalRole: role,
+      isOrgAdmin,
     }),
-    canAccessAdminFeatures: canAccessAdminFeatures(input.role),
+    canAccessAdminFeatures: canAccessAdminFeatures(role, isPlatformAdmin),
   };
 }
 
@@ -128,13 +136,9 @@ export async function GET() {
         return await client.users.getUser(finalUserId as string);
       })());
 
-    const clerkMemberships = Array.isArray(finalUser.organizationMemberships)
-      ? finalUser.organizationMemberships
-      : [];
     const clerkIsOrgAdmin =
       (typeof has === "function" && Boolean(has({ role: "org:admin" }))) ||
-      isClerkOrgAdminRole(orgRole) ||
-      isOrgAdminFromMemberships(clerkMemberships);
+      isClerkOrgAdminRole(orgRole);
 
     console.log("👤 Clerk user:", {
       id: finalUser.id,
@@ -144,29 +148,39 @@ export async function GET() {
       clerkIsOrgAdmin,
     });
 
-    const supabase = await getSupabaseClient();
+    const supabase = createServiceRoleClient();
 
     const { data: profile, error: profileError } = await supabase
       .from("auth_clerk_users")
-      .select("id, email, clerk_user_id, personal_role, contact_id")
+      .select("id, email, clerk_user_id, personal_role, is_internal_yn, contact_id")
       .eq("clerk_user_id", finalUserId as string)
-      .single();
+      .maybeSingle();
 
-    console.log("📊 Profile lookup:", { profile, profileError });
+    const clerkEmail = finalUser.emailAddresses[0]?.emailAddress || "";
+    const isPlatformAdmin = isPlatformAdminIdentity({
+      clerkUserId: finalUserId as string,
+      email: profile?.email || clerkEmail,
+      personalRole: profile?.personal_role,
+      isInternalYn: profile?.is_internal_yn,
+      publicMetadata: finalUser.publicMetadata as { role?: string | null },
+    });
+
+    console.log("📊 Profile lookup:", { profile, profileError, isPlatformAdmin });
 
     if (profileError || !profile) {
       console.error("Profile fetch error:", profileError);
 
-      if (clerkIsOrgAdmin) {
+      if (isPlatformAdmin || clerkIsOrgAdmin) {
         return NextResponse.json(
           buildPermissions({
             userId: finalUserId as string,
-            email: finalUser.emailAddresses[0]?.emailAddress || "",
+            email: clerkEmail,
             contactType: "Balance Sheet Investor",
-            role: "balance_sheet_investor",
+            role: isPlatformAdmin ? "admin" : "balance_sheet_investor",
             contactId: 0,
             authUserProfileId: 0,
             isOrgAdmin: true,
+            isPlatformAdmin,
           })
         );
       }
@@ -200,7 +214,7 @@ export async function GET() {
     }
 
     const isOrgAdmin =
-      clerkIsOrgAdmin || isOrgAdminFromMemberships(memberships);
+      clerkIsOrgAdmin || isOrgAdminFromMemberships(memberships) || isPlatformAdmin;
 
     let contactId = profile.contact_id ?? 0;
     let primaryContactType: ContactType = "Balance Sheet Investor";
@@ -235,6 +249,7 @@ export async function GET() {
       );
     } else if (
       !contact &&
+      !isPlatformAdmin &&
       !canAccessDeals({
         personalRole: profile.personal_role,
         isOrgAdmin,
@@ -247,20 +262,21 @@ export async function GET() {
     }
 
     const role =
-      (profile.personal_role as UserRole) ||
+      (isPlatformAdmin ? "admin" : profile.personal_role) as UserRole ||
       (finalUser.publicMetadata?.role as UserRole) ||
       "viewer";
     const resolvedContactType = contact?.id ? primaryContactType : undefined;
 
     const userPermissions = buildPermissions({
       userId: finalUserId as string,
-      email: profile.email || "",
+      email: profile.email || clerkEmail,
       contactType: resolvedContactType ?? primaryContactType,
       role: role as UserRole,
       contactId,
       authUserProfileId: profile.id,
       isOrgAdmin,
       contactTypeForAccess: resolvedContactType,
+      isPlatformAdmin,
     });
 
     return NextResponse.json(userPermissions);

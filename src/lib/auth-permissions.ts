@@ -1,5 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
-import { getSupabaseClient } from "@/lib/supabase-server";
+import { createServiceRoleClient } from "@/lib/supabase-server";
+import { getUserInvestmentOrgs } from "@/lib/auth-helpers";
+import { getUserInvestmentOrgs } from "@/lib/auth-helpers";
 import type { ContactType, UserRole, UserPermissions } from "@/types/auth";
 import {
   canAccessDeals as computeCanAccessDeals,
@@ -7,6 +9,7 @@ import {
   isOrgAdminFromMemberships,
 } from "@/lib/deal-access";
 
+import { isPlatformAdminIdentity } from "@/lib/internal-admin";
 import { PermissionError } from "@/types/auth";
 export { PermissionError } from "@/types/auth";
 export type { ContactType, UserRole, UserPermissions } from "@/types/auth";
@@ -19,7 +22,7 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
     const { userId, orgRole, has } = await auth();
     if (!userId) return null;
 
-    const supabase = await getSupabaseClient();
+    const supabase = createServiceRoleClient();
 
     const { data: userProfile, error: userError } = await supabase
       .from("auth_clerk_users")
@@ -28,6 +31,7 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
         id,
         email,
         personal_role,
+        is_internal_yn,
         contact_id,
         auth_clerk_orgs_members (
           clerk_org_role
@@ -47,12 +51,13 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
 
     if (userError || !userProfile) {
       console.error("Failed to get user profile:", userError);
-      if (clerkIsOrgAdmin) {
+      const isPlatformAdmin = isPlatformAdminIdentity({ clerkUserId: userId });
+      if (isPlatformAdmin || clerkIsOrgAdmin) {
         return {
           userId,
           email: "",
           contactType: "Balance Sheet Investor",
-          role: "balance_sheet_investor",
+          role: isPlatformAdmin ? "admin" : "balance_sheet_investor",
           contactId: 0,
           authUserProfileId: 0,
           isOrgAdmin: true,
@@ -60,7 +65,7 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
           canAccessDistributions: true,
           canAccessDocuments: true,
           canAccessReports: true,
-          canAccessAdminFeatures: false,
+          canAccessAdminFeatures: isPlatformAdmin,
         };
       }
       return null;
@@ -75,7 +80,15 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
       clerkIsOrgAdmin || isOrgAdminFromMemberships(memberships);
 
     const displayContactType: ContactType = "Balance Sheet Investor";
-    const role = userProfile.personal_role as UserRole;
+    const isPlatformAdmin = isPlatformAdminIdentity({
+      clerkUserId: userId,
+      email: userProfile.email,
+      personalRole: userProfile.personal_role,
+      isInternalYn: (
+        userProfile as { is_internal_yn?: boolean | null }
+      ).is_internal_yn,
+    });
+    const role = (isPlatformAdmin ? "admin" : userProfile.personal_role) as UserRole;
     const contact = userProfile.contact as {
       id: number;
       email_address: string | null;
@@ -83,6 +96,7 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
 
     if (
       !contact &&
+      !isPlatformAdmin &&
       !computeCanAccessDeals({
         personalRole: role,
         isOrgAdmin,
@@ -101,28 +115,29 @@ export async function getUserPermissions(): Promise<UserPermissions | null> {
       role,
       contactId: contact?.id || userProfile.contact_id || 0,
       authUserProfileId: userProfile.id,
-      isOrgAdmin,
+      isOrgAdmin: isOrgAdmin || isPlatformAdmin,
       canAccessDeals: computeCanAccessDeals({
         contactType: contactTypeForAccess,
         personalRole: role,
-        isOrgAdmin,
+        isOrgAdmin: isOrgAdmin || isPlatformAdmin,
       }),
       canAccessDistributions: canAccessDistributions(
         contactTypeForAccess,
         role,
-        isOrgAdmin
+        isOrgAdmin || isPlatformAdmin
       ),
       canAccessDocuments: canAccessDocuments(
         contactTypeForAccess,
         role,
-        isOrgAdmin
+        isOrgAdmin || isPlatformAdmin
       ),
       canAccessReports: computeCanAccessDeals({
         contactType: contactTypeForAccess,
         personalRole: role,
-        isOrgAdmin,
+        isOrgAdmin: isOrgAdmin || isPlatformAdmin,
       }),
-      canAccessAdminFeatures: canAccessAdminFeatures(displayContactType, role),
+      canAccessAdminFeatures:
+        isPlatformAdmin || canAccessAdminFeatures(displayContactType, role),
     };
 
     return permissions;
@@ -182,18 +197,34 @@ export async function canAccessDeal(dealId: string | number): Promise<boolean> {
   try {
     const permissions = await getUserPermissions();
     if (!permissions || !permissions.canAccessDeals) return false;
-    if (permissions.isOrgAdmin) return true;
+    if (permissions.canAccessAdminFeatures) return true;
 
-    const supabase = await getSupabaseClient();
+    const supabase = createServiceRoleClient();
+    const dealIdNum = Number(dealId);
 
     const { data, error } = await supabase
       .from("bsi_deals_clerk_users")
       .select("deal_id")
-      .eq("deal_id", Number(dealId))
+      .eq("deal_id", dealIdNum)
       .eq("clerk_user_id", permissions.authUserProfileId)
       .maybeSingle();
 
-    return !error && !!data;
+    if (!error && data) return true;
+
+    if (!permissions.authUserProfileId) return false;
+
+    const orgIds = await getUserInvestmentOrgs(permissions.authUserProfileId);
+    if (orgIds.length === 0) return false;
+
+    const { data: orgLink, error: orgError } = await supabase
+      .from("bsi_deals_clerk_orgs")
+      .select("deal_id")
+      .eq("deal_id", dealIdNum)
+      .in("clerk_org_id", orgIds)
+      .limit(1)
+      .maybeSingle();
+
+    return !orgError && !!orgLink;
   } catch (error) {
     console.error("Error checking deal access:", error);
     return false;
@@ -209,8 +240,9 @@ export async function canAccessDocument(
   try {
     const permissions = await getUserPermissions();
     if (!permissions || !permissions.canAccessDocuments) return false;
+    if (permissions.canAccessAdminFeatures) return true;
 
-    const supabase = await getSupabaseClient();
+    const supabase = createServiceRoleClient();
 
     const { data, error } = await supabase
       .from("document_files")
@@ -223,7 +255,7 @@ export async function canAccessDocument(
       )
       .eq("id", Number(documentId))
       .eq("bsi_deals_clerk_users.contact_id", permissions.contactId)
-      .single();
+      .maybeSingle();
 
     return !error && !!data;
   } catch (error) {
