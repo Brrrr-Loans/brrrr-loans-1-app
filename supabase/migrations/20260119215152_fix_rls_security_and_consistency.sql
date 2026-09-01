@@ -52,19 +52,20 @@ WITH CHECK (public.is_admin());
 
 -- Users can view deal roles for deals they're assigned to.
 -- Do not DROP/replace this name: later migrations install a non-recursive
--- policy (or a successor with a different name). Recreating this USING
--- clause on a current schema restores infinite recursion.
+-- SELECT policy under a different name (Users view own deal_roles,
+-- deal_roles_select_own, …). Recreating this USING clause on a current
+-- schema ORs with those policies and restores infinite recursion.
+-- Skip whenever any SELECT policy remains after the legacy *_authenticated
+-- drops above (FOR ALL admin policies use cmd '*', so they do not match).
 DO $$
 BEGIN
+  -- Any remaining SELECT policy is a later non-recursive successor
+  -- (Users view own deal_roles, deal_roles_select_own, etc.).
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'deal_roles'
-      AND policyname IN (
-        'Users can view their deal roles',
-        'Users can view their own deal roles',
-        'Users view own deal_roles'
-      )
+      AND cmd = 'SELECT'
   ) THEN
     CREATE POLICY "Users can view their deal roles"
     ON public.deal_roles
@@ -105,10 +106,7 @@ BEGIN
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'deal_guarantors'
-      AND policyname IN (
-        'Users can view deal guarantors for their deals',
-        'Users view deal_guarantors via role'
-      )
+      AND cmd = 'SELECT'
   ) THEN
     CREATE POLICY "Users can view deal guarantors for their deals"
     ON public.deal_guarantors
