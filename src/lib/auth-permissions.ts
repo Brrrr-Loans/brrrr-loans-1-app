@@ -1,5 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { createServiceRoleClient } from "@/lib/supabase-server";
+import { getUserInvestmentOrgs } from "@/lib/auth-helpers";
+import { getUserInvestmentOrgs } from "@/lib/auth-helpers";
 import type { ContactType, UserRole, UserPermissions } from "@/types/auth";
 import {
   canAccessDeals as computeCanAccessDeals,
@@ -195,20 +197,33 @@ export async function canAccessDeal(dealId: string | number): Promise<boolean> {
   try {
     const permissions = await getUserPermissions();
     if (!permissions || !permissions.canAccessDeals) return false;
-    if (permissions.isOrgAdmin) return true;
-
     if (permissions.canAccessAdminFeatures) return true;
 
     const supabase = createServiceRoleClient();
+    const dealIdNum = Number(dealId);
 
     const { data, error } = await supabase
       .from("bsi_deals_clerk_users")
       .select("deal_id")
-      .eq("deal_id", Number(dealId))
+      .eq("deal_id", dealIdNum)
       .eq("clerk_user_id", permissions.authUserProfileId)
       .maybeSingle();
 
-    return !error && !!data;
+    if (!error && data) return true;
+
+    if (!permissions.authUserProfileId) return false;
+
+    const orgIds = await getUserInvestmentOrgs(permissions.authUserProfileId);
+    if (orgIds.length === 0) return false;
+
+    const { data: orgLink, error: orgError } = await supabase
+      .from("bsi_deals_clerk_orgs")
+      .select("deal_id")
+      .eq("deal_id", dealIdNum)
+      .in("clerk_org_id", orgIds)
+      .maybeSingle();
+
+    return !orgError && !!orgLink;
   } catch (error) {
     console.error("Error checking deal access:", error);
     return false;

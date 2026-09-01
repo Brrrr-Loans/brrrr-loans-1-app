@@ -175,7 +175,7 @@ assert(
     isInternalAdmin: true,
     orgLinkedCount: 3,
   }) === false,
-  "internal admins keep org filter when org-linked deals exist"
+  "internal admins keep org filter when org-linked deals exist, even if a later status/search filter is empty"
 );
 assert(
   shouldFallbackToAllDeals({

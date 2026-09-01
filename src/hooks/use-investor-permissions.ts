@@ -48,7 +48,7 @@ export function useInvestorPermissions(): InvestorPermissions {
       return false;
     }
 
-    if (platformAdminFromClerkUser(user) || isClerkOrgAdminRole(orgRole)) {
+    if (platformAdminFromClerkUser(user)) {
       permissionCache.set(cacheKey, true);
       return true;
     }
@@ -80,27 +80,40 @@ export function useInvestorPermissions(): InvestorPermissions {
       }
 
       if (userProfile?.id) {
-        const { data: orgAdminMemberships } = await supabase
-          .from("auth_clerk_orgs_members")
-          .select("clerk_org_id")
-          .eq("auth_clerk_users_id", userProfile.id)
-          .eq("clerk_org_role", "admin");
-
-        if (orgAdminMemberships && orgAdminMemberships.length > 0) {
-          permissionCache.set(cacheKey, true);
-          return true;
-        }
-
-        const { data, error } = await supabase
+        const { data: userLink, error: userLinkError } = await supabase
           .from("bsi_deals_clerk_users")
           .select("deal_id")
           .eq("deal_id", Number(dealId))
           .eq("clerk_user_id", userProfile.id)
           .maybeSingle();
 
-        const hasAccess = !error && !!data;
-        permissionCache.set(cacheKey, hasAccess);
-        return hasAccess;
+        if (!userLinkError && userLink) {
+          permissionCache.set(cacheKey, true);
+          return true;
+        }
+
+        const { data: memberships } = await supabase
+          .from("auth_clerk_orgs_members")
+          .select("clerk_org_id")
+          .eq("auth_clerk_users_id", userProfile.id)
+          .in("clerk_org_role", ["admin", "member"]);
+
+        const orgIds = (memberships || [])
+          .map((row) => row.clerk_org_id)
+          .filter((id): id is number => id !== null);
+
+        if (orgIds.length > 0) {
+          const { data: orgLink, error: orgLinkError } = await supabase
+            .from("bsi_deals_clerk_orgs")
+            .select("deal_id")
+            .eq("deal_id", Number(dealId))
+            .in("clerk_org_id", orgIds)
+            .maybeSingle();
+
+          const hasOrgAccess = !orgLinkError && !!orgLink;
+          permissionCache.set(cacheKey, hasOrgAccess);
+          return hasOrgAccess;
+        }
       }
 
       permissionCache.set(cacheKey, false);

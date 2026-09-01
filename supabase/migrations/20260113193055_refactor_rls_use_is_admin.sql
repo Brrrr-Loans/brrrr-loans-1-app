@@ -95,12 +95,34 @@ CREATE POLICY "Admin can manage contact types" ON "public"."contact_types"
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
 
--- contacts_contact_types
-DROP POLICY IF EXISTS "Admin can manage contact type junctions" ON "public"."contacts_contact_types";
-CREATE POLICY "Admin can manage contact type junctions" ON "public"."contacts_contact_types"
-  TO "authenticated"
-  USING (public.is_admin())
-  WITH CHECK (public.is_admin());
+-- contacts_contact_types was renamed to contact_contact_types in
+-- 20251223115803 (and again defensively in 20260128000001). DROP POLICY
+-- on a missing relation still errors, which breaks preview branches that
+-- replay this file after the rename.
+DO $$
+DECLARE
+  target_table text;
+BEGIN
+  IF to_regclass('public.contacts_contact_types') IS NOT NULL THEN
+    target_table := 'contacts_contact_types';
+  ELSIF to_regclass('public.contact_contact_types') IS NOT NULL THEN
+    target_table := 'contact_contact_types';
+  ELSE
+    RAISE NOTICE 'Skipping contact type junction admin policy; table not found';
+    RETURN;
+  END IF;
+
+  EXECUTE format(
+    'DROP POLICY IF EXISTS %L ON public.%I',
+    'Admin can manage contact type junctions',
+    target_table
+  );
+  EXECUTE format(
+    'CREATE POLICY %L ON public.%I TO authenticated USING (public.is_admin()) WITH CHECK (public.is_admin())',
+    'Admin can manage contact type junctions',
+    target_table
+  );
+END $$;
 
 -- custom_loan_fees
 DROP POLICY IF EXISTS "Admin can manage custom loan fees" ON "public"."custom_loan_fees";

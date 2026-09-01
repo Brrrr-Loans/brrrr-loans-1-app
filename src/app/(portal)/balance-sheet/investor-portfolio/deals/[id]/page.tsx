@@ -4,7 +4,6 @@ import { auth } from "@clerk/nextjs/server";
 import { notFound, redirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase-server";
 import { getCurrentUserData, getUserInvestmentOrgs } from "@/lib/auth-helpers";
-import { isOrgAdminFromMemberships } from "@/lib/deal-access";
 import { isPlatformAdminIdentity } from "@/lib/internal-admin";
 import { DealDetailsWrapper } from "../components/deal-details-protected";
 import { DocumentsListWrapper } from "../components/list-protected-documents";
@@ -58,11 +57,7 @@ export default async function DealPage({ params }: PageProps) {
     personalRole: userData?.personal_role,
     isInternalYn: userData?.is_internal_yn,
   });
-  const isOrgAdmin = isOrgAdminFromMemberships(
-    userData?.auth_clerk_orgs_members
-  );
-
-  let hasDealAccess = isPlatformAdmin || isOrgAdmin;
+  let hasDealAccess = isPlatformAdmin;
 
   if (!hasDealAccess && userData?.id) {
     const { data: userLink } = await supabase

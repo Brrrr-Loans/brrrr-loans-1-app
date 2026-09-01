@@ -53,7 +53,7 @@ function mapProjectType(type: unknown): ProjectType | null {
 }
 
 async function requireDealAdmin() {
-  const { userId } = await auth();
+  const { userId, orgId } = await auth();
   if (!userId) {
     throw new Error("Unauthorized");
   }
@@ -63,6 +63,7 @@ async function requireDealAdmin() {
 
   return {
     userId,
+    orgId,
     caller: await getCurrentUserData(),
     supabase: createServiceRoleClient(),
   };
@@ -71,32 +72,50 @@ async function requireDealAdmin() {
 async function attachCreatorToDeal(
   supabase: ReturnType<typeof createServiceRoleClient>,
   dealId: number,
-  callerId: number | null | undefined
+  callerId: number | null | undefined,
+  clerkOrgId: string | null | undefined
 ) {
-  if (!callerId) return;
+  if (callerId) {
+    const { error: userLinkError } = await supabase
+      .from("bsi_deals_clerk_users")
+      .insert({ deal_id: dealId, clerk_user_id: callerId });
+    if (userLinkError) {
+      console.error("Error linking user to deal:", userLinkError);
+    }
 
-  const { error: userLinkError } = await supabase
-    .from("bsi_deals_clerk_users")
-    .insert({ deal_id: dealId, clerk_user_id: callerId });
-  if (userLinkError) {
-    console.error("Error linking user to deal:", userLinkError);
+    const { data: roleType } = await supabase
+      .from("deal_role_types")
+      .select("id")
+      .eq("code", "point_of_contact")
+      .maybeSingle();
+
+    if (roleType) {
+      const { error: roleError } = await supabase.from("deal_roles").insert({
+        deal_id: dealId,
+        auth_clerk_users_id: callerId,
+        deal_role_types_id: roleType.id,
+      });
+      if (roleError) {
+        console.error("Error adding deal role:", roleError);
+      }
+    }
   }
 
-  const { data: roleType } = await supabase
-    .from("deal_role_types")
+  if (!clerkOrgId) return;
+
+  const { data: dbOrg } = await supabase
+    .from("auth_clerk_orgs")
     .select("id")
-    .eq("code", "point_of_contact")
+    .eq("clerk_org_id", clerkOrgId)
     .maybeSingle();
 
-  if (!roleType) return;
+  if (!dbOrg) return;
 
-  const { error: roleError } = await supabase.from("deal_roles").insert({
-    deal_id: dealId,
-    auth_clerk_users_id: callerId,
-    deal_role_types_id: roleType.id,
-  });
-  if (roleError) {
-    console.error("Error adding deal role:", roleError);
+  const { error: orgLinkError } = await supabase
+    .from("bsi_deals_clerk_orgs")
+    .insert({ deal_id: dealId, clerk_org_id: dbOrg.id });
+  if (orgLinkError) {
+    console.error("Error linking org to deal:", orgLinkError);
   }
 }
 
@@ -135,7 +154,7 @@ export async function createDeal(formData: FormData) {
   }
 
   try {
-    const { caller, supabase } = await requireDealAdmin();
+    const { caller, orgId, supabase } = await requireDealAdmin();
     const projectType = mapProjectType(type);
 
     const { data: dealData, error: dealError } = await supabase
@@ -160,7 +179,7 @@ export async function createDeal(formData: FormData) {
       );
     }
 
-    await attachCreatorToDeal(supabase, dealData.id, caller?.id);
+    await attachCreatorToDeal(supabase, dealData.id, caller?.id, orgId);
 
     revalidateDealPaths();
     return { success: true, dealId: dealData.id };
