@@ -10,8 +10,23 @@
 -- 1. RENAME member_role → clerk_member_role
 -- =============================================================================
 
-ALTER TABLE public.auth_clerk_orgs_members 
-  RENAME COLUMN member_role TO clerk_member_role;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'auth_clerk_orgs_members'
+      AND column_name = 'member_role'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'auth_clerk_orgs_members'
+      AND column_name = 'clerk_member_role'
+  ) THEN
+    ALTER TABLE public.auth_clerk_orgs_members
+      RENAME COLUMN member_role TO clerk_member_role;
+  END IF;
+END $$;
 
 -- Update comment
 COMMENT ON COLUMN public.auth_clerk_orgs_members.clerk_member_role IS 
@@ -38,22 +53,34 @@ DROP POLICY IF EXISTS "Users can view documents for their transactions" ON publi
 -- 3. CHANGE personal_role from enum to text
 -- =============================================================================
 
--- Add new text column
-ALTER TABLE public.auth_clerk_users 
-  ADD COLUMN IF NOT EXISTS personal_role_text text;
+DO $$
+DECLARE
+  role_type text;
+BEGIN
+  SELECT c.data_type INTO role_type
+  FROM information_schema.columns c
+  WHERE c.table_schema = 'public'
+    AND c.table_name = 'auth_clerk_users'
+    AND c.column_name = 'personal_role';
 
--- Copy existing enum values to text column
-UPDATE public.auth_clerk_users 
-  SET personal_role_text = personal_role::text
-  WHERE personal_role IS NOT NULL;
+  IF role_type IS DISTINCT FROM 'text' AND role_type IS NOT NULL THEN
+    ALTER TABLE public.auth_clerk_users
+      ADD COLUMN IF NOT EXISTS personal_role_text text;
 
--- Drop the enum column (CASCADE to drop any remaining dependencies)
-ALTER TABLE public.auth_clerk_users 
-  DROP COLUMN IF EXISTS personal_role CASCADE;
+    UPDATE public.auth_clerk_users
+      SET personal_role_text = personal_role::text
+      WHERE personal_role IS NOT NULL;
 
--- Rename text column to personal_role
-ALTER TABLE public.auth_clerk_users 
-  RENAME COLUMN personal_role_text TO personal_role;
+    ALTER TABLE public.auth_clerk_users
+      DROP COLUMN IF EXISTS personal_role CASCADE;
+
+    ALTER TABLE public.auth_clerk_users
+      RENAME COLUMN personal_role_text TO personal_role;
+  ELSIF role_type IS NULL THEN
+    ALTER TABLE public.auth_clerk_users
+      ADD COLUMN personal_role text;
+  END IF;
+END $$;
 
 -- Update comment
 COMMENT ON COLUMN public.auth_clerk_users.personal_role IS 
