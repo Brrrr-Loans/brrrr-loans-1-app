@@ -14,9 +14,24 @@
 -- 1. RENAME auth_clerk_users.role → personal_role
 -- =============================================================================
 
--- Rename the column
-ALTER TABLE public.auth_clerk_users 
-  RENAME COLUMN role TO personal_role;
+-- Rename the column if the old name is still present.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'auth_clerk_users'
+      AND column_name = 'role'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'auth_clerk_users'
+      AND column_name = 'personal_role'
+  ) THEN
+    ALTER TABLE public.auth_clerk_users
+      RENAME COLUMN role TO personal_role;
+  END IF;
+END $$;
 
 -- Update the comment
 COMMENT ON COLUMN public.auth_clerk_users.personal_role IS 

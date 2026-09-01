@@ -3,14 +3,14 @@
 -- Enable RLS on document_tags
 ALTER TABLE public.document_tags ENABLE ROW LEVEL SECURITY;
 
--- Admin can manage all tags
+DROP POLICY IF EXISTS "Admin can manage document_tags" ON public.document_tags;
 CREATE POLICY "Admin can manage document_tags"
 ON public.document_tags
 TO authenticated
 USING (public.is_admin())
 WITH CHECK (public.is_admin());
 
--- All authenticated users can read tags (for auto-complete)
+DROP POLICY IF EXISTS "Authenticated users can read document_tags" ON public.document_tags;
 CREATE POLICY "Authenticated users can read document_tags"
 ON public.document_tags
 FOR SELECT
@@ -20,15 +20,14 @@ USING (true);
 -- Enable RLS on document_files_tags
 ALTER TABLE public.document_files_tags ENABLE ROW LEVEL SECURITY;
 
--- Admin can manage all tag assignments
+DROP POLICY IF EXISTS "Admin can manage document_files_tags" ON public.document_files_tags;
 CREATE POLICY "Admin can manage document_files_tags"
 ON public.document_files_tags
 TO authenticated
 USING (public.is_admin())
 WITH CHECK (public.is_admin());
 
--- Users can read tag assignments for documents they have access to
--- (This follows the same access pattern as document_files)
+DROP POLICY IF EXISTS "Users can read document_files_tags" ON public.document_files_tags;
 CREATE POLICY "Users can read document_files_tags"
 ON public.document_files_tags
 FOR SELECT

@@ -8,9 +8,18 @@ DROP INDEX IF EXISTS public.idx_document_files_storage_location;
 
 -- Create a proper unique constraint on storage_bucket and storage_path
 -- This allows upsert operations with ON CONFLICT
-ALTER TABLE public.document_files
-ADD CONSTRAINT document_files_storage_bucket_storage_path_key 
-UNIQUE (storage_bucket, storage_path);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'document_files_storage_bucket_storage_path_key'
+  ) THEN
+    ALTER TABLE public.document_files
+    ADD CONSTRAINT document_files_storage_bucket_storage_path_key
+    UNIQUE (storage_bucket, storage_path);
+  END IF;
+END $$;
 
 -- Create a regular index for efficient lookups (non-unique, for query performance)
 CREATE INDEX IF NOT EXISTS idx_document_files_storage_location 
