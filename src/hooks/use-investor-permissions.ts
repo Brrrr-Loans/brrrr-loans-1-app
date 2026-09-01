@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useSupabase } from "@/hooks/use-supabase";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { isClerkOrgAdminRole } from "@/lib/deal-access";
+import { isPlatformAdminIdentity } from "@/lib/internal-admin";
 
 interface InvestorPermissions {
   canViewDeal: (dealId: string) => Promise<boolean>;
@@ -11,13 +12,28 @@ interface InvestorPermissions {
   isLoading: boolean;
 }
 
+function platformAdminFromClerkUser(user: {
+  id: string;
+  primaryEmailAddress?: { emailAddress?: string | null } | null;
+  emailAddresses?: Array<{ emailAddress?: string | null }>;
+  publicMetadata?: Record<string, unknown> | null;
+} | null | undefined): boolean {
+  if (!user) return false;
+  return isPlatformAdminIdentity({
+    clerkUserId: user.id,
+    email:
+      user.primaryEmailAddress?.emailAddress ||
+      user.emailAddresses?.[0]?.emailAddress,
+    publicMetadata: user.publicMetadata as { role?: string | null },
+  });
+}
+
 export function useInvestorPermissions(): InvestorPermissions {
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useUser();
   const { orgRole } = useAuth();
-  const supabase = useSupabase(); // Use the proper Clerk-integrated client
+  const supabase = useSupabase();
 
-  // Cache results to avoid repeated DB calls
   const permissionCacheRef = useRef(new Map<string, boolean>());
   const permissionCache = permissionCacheRef.current;
 
@@ -27,22 +43,37 @@ export function useInvestorPermissions(): InvestorPermissions {
       return permissionCache.get(cacheKey)!;
     }
 
-    if (!user || !supabase) {
+    if (!user) {
+      permissionCache.set(cacheKey, false);
+      return false;
+    }
+
+    if (platformAdminFromClerkUser(user) || isClerkOrgAdminRole(orgRole)) {
+      permissionCache.set(cacheKey, true);
+      return true;
+    }
+
+    if (!supabase) {
       permissionCache.set(cacheKey, false);
       return false;
     }
 
     try {
-      // First check if user is admin - admins can view all deals
-      const { data: userProfile, error: profileError } = await supabase
+      const { data: userProfile } = await supabase
         .from("auth_clerk_users")
-        .select("id, personal_role")
+        .select("id, personal_role, is_internal_yn")
         .eq("clerk_user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (
-        (!profileError && userProfile?.personal_role === "admin") ||
-        isClerkOrgAdminRole(orgRole)
+        isPlatformAdminIdentity({
+          clerkUserId: user.id,
+          email:
+            user.primaryEmailAddress?.emailAddress ||
+            user.emailAddresses?.[0]?.emailAddress,
+          personalRole: userProfile?.personal_role,
+          isInternalYn: userProfile?.is_internal_yn,
+        })
       ) {
         permissionCache.set(cacheKey, true);
         return true;
@@ -59,18 +90,21 @@ export function useInvestorPermissions(): InvestorPermissions {
           permissionCache.set(cacheKey, true);
           return true;
         }
+
+        const { data, error } = await supabase
+          .from("bsi_deals_clerk_users")
+          .select("deal_id")
+          .eq("deal_id", Number(dealId))
+          .eq("clerk_user_id", userProfile.id)
+          .maybeSingle();
+
+        const hasAccess = !error && !!data;
+        permissionCache.set(cacheKey, hasAccess);
+        return hasAccess;
       }
 
-      // For non-admin users, check if they have access via bsi_deals_clerk_users
-      const { data, error } = await supabase
-        .from("bsi_deals_clerk_users")
-        .select("deal_id")
-        .eq("deal_id", Number(dealId))
-        .maybeSingle();
-
-      const hasAccess = !error && !!data;
-      permissionCache.set(cacheKey, hasAccess);
-      return hasAccess;
+      permissionCache.set(cacheKey, false);
+      return false;
     } catch (error) {
       console.error("Error checking deal permissions:", error);
       permissionCache.set(cacheKey, false);
@@ -84,7 +118,17 @@ export function useInvestorPermissions(): InvestorPermissions {
       return permissionCache.get(cacheKey)!;
     }
 
-    if (!user || !supabase) {
+    if (!user) {
+      permissionCache.set(cacheKey, false);
+      return false;
+    }
+
+    if (platformAdminFromClerkUser(user) || isClerkOrgAdminRole(orgRole)) {
+      permissionCache.set(cacheKey, true);
+      return true;
+    }
+
+    if (!supabase) {
       permissionCache.set(cacheKey, false);
       return false;
     }
@@ -96,24 +140,31 @@ export function useInvestorPermissions(): InvestorPermissions {
     }
 
     try {
-      // First check if user is admin - admins can view all documents
-      const { data: userProfile, error: profileError } = await supabase
+      const { data: userProfile } = await supabase
         .from("auth_clerk_users")
-        .select("personal_role")
+        .select("personal_role, is_internal_yn")
         .eq("clerk_user_id", user.id)
-        .single();
+        .maybeSingle();
 
-      if (!profileError && userProfile?.personal_role === "admin") {
+      if (
+        isPlatformAdminIdentity({
+          clerkUserId: user.id,
+          email:
+            user.primaryEmailAddress?.emailAddress ||
+            user.emailAddresses?.[0]?.emailAddress,
+          personalRole: userProfile?.personal_role,
+          isInternalYn: userProfile?.is_internal_yn,
+        })
+      ) {
         permissionCache.set(cacheKey, true);
         return true;
       }
 
-      // For non-admin users, check if they have access via document ownership or deal access
       const { data, error } = await supabase
         .from("document_files")
         .select("id")
         .eq("id", idNum)
-        .single();
+        .maybeSingle();
 
       const hasAccess = !error && !!data;
       permissionCache.set(cacheKey, hasAccess);
@@ -133,6 +184,11 @@ export function useInvestorPermissions(): InvestorPermissions {
       return permissionCache.get(cacheKey)!;
     }
 
+    if (platformAdminFromClerkUser(user)) {
+      permissionCache.set(cacheKey, true);
+      return true;
+    }
+
     if (!supabase) {
       permissionCache.set(cacheKey, false);
       return false;
@@ -144,7 +200,7 @@ export function useInvestorPermissions(): InvestorPermissions {
         .select("id, ledger_entry_type")
         .eq("id", Number(contributionId))
         .eq("ledger_entry_type", "contribution")
-        .single();
+        .maybeSingle();
 
       const hasAccess = !error && data?.ledger_entry_type === "contribution";
       permissionCache.set(cacheKey, hasAccess);
@@ -164,12 +220,16 @@ export function useInvestorPermissions(): InvestorPermissions {
       return permissionCache.get(cacheKey)!;
     }
 
+    if (platformAdminFromClerkUser(user)) {
+      permissionCache.set(cacheKey, true);
+      return true;
+    }
+
     if (!supabase) {
       permissionCache.set(cacheKey, false);
       return false;
     }
 
-    // For "all" distributions, check if user is logged in and has investor role
     if (distributionId === "all") {
       if (!user) {
         permissionCache.set(cacheKey, false);
@@ -177,17 +237,15 @@ export function useInvestorPermissions(): InvestorPermissions {
       }
 
       try {
-        const { data: userProfile, error: profileError } = await supabase
+        const { data: userProfile } = await supabase
           .from("auth_clerk_users")
           .select("personal_role")
           .eq("clerk_user_id", user.id)
-          .single();
+          .maybeSingle();
 
-        // Allow admins and balance sheet investors to view all their distributions
         const hasAccess =
-          !profileError &&
-          (userProfile?.personal_role === "admin" ||
-            userProfile?.personal_role === "balance_sheet_investor");
+          userProfile?.personal_role === "admin" ||
+          userProfile?.personal_role === "balance_sheet_investor";
         permissionCache.set(cacheKey, hasAccess);
         return hasAccess;
       } catch (error) {
@@ -203,7 +261,7 @@ export function useInvestorPermissions(): InvestorPermissions {
         .select("id, ledger_entry_type")
         .eq("id", Number(distributionId))
         .eq("ledger_entry_type", "distribution")
-        .single();
+        .maybeSingle();
 
       const hasAccess = !error && data?.ledger_entry_type === "distribution";
       permissionCache.set(cacheKey, hasAccess);
@@ -217,7 +275,6 @@ export function useInvestorPermissions(): InvestorPermissions {
 
   useEffect(() => {
     setIsLoading(false);
-    // Capture the current cache reference to avoid stale closure warning
     const currentCache = permissionCacheRef.current;
     return () => {
       currentCache.clear();

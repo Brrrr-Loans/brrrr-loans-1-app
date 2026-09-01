@@ -17,6 +17,7 @@ import { CalendarIcon } from "lucide-react"
 import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { DEAL_LIST_PATH } from "@/config/deal-routes"
 
 // Define the form schema with validation
 const formSchema = z.object({
@@ -80,7 +81,7 @@ export function CreateDealForm({ onSuccess }: { onSuccess?: () => void }) {
         if (onSuccess) {
           onSuccess()
         } else {
-          router.push(`/balance-sheet/investor-portfolio/deals`)
+          router.push(DEAL_LIST_PATH)
         }
       }
     } catch (error) {

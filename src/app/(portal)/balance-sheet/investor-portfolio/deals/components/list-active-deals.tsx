@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSupabase } from "@/hooks/use-supabase";
-import { useAuth } from "@/hooks/use-clerk-auth";
-import { useImpersonation } from "@/contexts/impersonation-context";
+import { useRouter } from "next/navigation";
 import { useCurrentOrganization } from "@/contexts/organization-context";
+import { useImpersonation } from "@/contexts/impersonation-context";
+import {
+  fetchPortalDeals,
+  propertyAddressFromDeal,
+  type PortalDeal,
+} from "@/lib/deals-api";
+import { dealRecordPath } from "@/config/deal-routes";
 import {
   Card,
   CardContent,
@@ -23,158 +28,52 @@ import {
 import { Eye, DollarSign, Calendar } from "lucide-react";
 import { format } from "date-fns";
 
-// Status badge variant helper (matching distributions table)
 const getStatusBadgeVariant = (
-  status: string | null,
+  status: string | null
 ): "default" | "secondary" | "destructive" | "outline" => {
   switch (status?.toLowerCase()) {
     case "active":
-      return "default"; // Green for success/active
+      return "default";
     case "on_hold":
     case "pending":
-      return "secondary"; // Yellow for warning
+      return "secondary";
     case "dead":
     case "closed":
-      return "destructive"; // Red for danger
+      return "destructive";
     default:
       return "secondary";
   }
 };
-
-interface ActiveDeal {
-  id: number;
-  deal_name: string;
-  loan_number: string;
-  loan_amount_total: number;
-  note_rate: number;
-  loan_term: string;
-  note_date: string;
-  deal_disposition_1: string;
-  property?: {
-    address_street: string;
-    address_city: string;
-    address_state: string;
-  };
-}
 
 interface ActiveDealsListProps {
   className?: string;
 }
 
 export function ActiveDealsList({ className }: ActiveDealsListProps) {
-  const supabase = useSupabase();
-  const { userId } = useAuth();
-  const { impersonatedUserId, isImpersonating } = useImpersonation();
-  const { clerkOrgId } = useCurrentOrganization();
-  const [deals, setDeals] = useState<ActiveDeal[]>([]);
+  const router = useRouter();
+  const { impersonatedUserId } = useImpersonation();
+  const { clerkOrgId, isLoaded: orgLoaded } = useCurrentOrganization();
+  const [deals, setDeals] = useState<PortalDeal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchActiveDeals = async () => {
-      if (!supabase || !userId) return;
+    if (!orgLoaded) return;
 
+    const fetchActiveDeals = async () => {
       try {
         setLoading(true);
         setError(null);
-
-        // Determine target user ID (impersonated user or current user)
-        const targetUserId =
-          isImpersonating && impersonatedUserId
-            ? typeof impersonatedUserId === "string"
-              ? parseInt(impersonatedUserId)
-              : impersonatedUserId
-            : null;
-
-        // Fetch all active deals first
-        const { data: allDeals, error: dealsError } = await (supabase as any)
-          .from("deal")
-          .select(
-            `
-            id,
-            deal_name,
-            loan_number,
-            loan_amount_total,
-            note_rate,
-            loan_term,
-            note_date,
-            deal_disposition_1,
-            property:property_id(
-              address_street,
-              address_city,
-              address_state
-            )
-          `,
+        const rows = await fetchPortalDeals({
+          clerkOrgId,
+          impersonatedUserId,
+        });
+        setDeals(
+          rows.filter(
+            (deal) =>
+              !deal.deal_disposition_1 || deal.deal_disposition_1 === "active"
           )
-          .eq("deal_disposition_1", "active")
-          .order("note_date", { ascending: false });
-
-        if (dealsError) throw dealsError;
-
-        if (targetUserId) {
-          // Impersonating - show ALL deals for impersonated user (direct + org)
-          // Get user's org memberships where they have INVESTMENT interest (not just viewer/employee)
-          const { data: orgMemberships } = await supabase
-            .from("auth_clerk_orgs_members")
-            .select("clerk_org_id, clerk_org_role")
-            .eq("auth_clerk_users_id", targetUserId)
-            .neq("clerk_org_role", "viewer"); // Exclude viewer role (employees with no investment interest)
-
-          const userOrgIds = (orgMemberships || [])
-            .map((m) => m.clerk_org_id)
-            .filter((id): id is number => id !== null);
-
-          // Get user's direct deals
-          const { data: userDeals } = await supabase
-            .from("bsi_deals_clerk_users")
-            .select("deal_id")
-            .eq("clerk_user_id", targetUserId);
-
-          const userDealIds = new Set((userDeals || []).map((d) => d.deal_id));
-
-          // Get org deals
-          let orgDealIds = new Set<number>();
-          if (userOrgIds.length > 0) {
-            const { data: orgDeals } = await supabase
-              .from("bsi_deals_clerk_orgs")
-              .select("deal_id")
-              .in("clerk_org_id", userOrgIds);
-
-            orgDealIds = new Set((orgDeals || []).map((d) => d.deal_id));
-          }
-
-          // Filter to all deals the user has access to
-          const filteredDeals = (allDeals || []).filter(
-            (deal: ActiveDeal) =>
-              userDealIds.has(deal.id) || orgDealIds.has(deal.id),
-          );
-          setDeals(filteredDeals);
-        } else if (clerkOrgId) {
-          // Not impersonating, has org selected - only show deals for that org
-          const { data: dbOrg } = await supabase
-            .from("auth_clerk_orgs")
-            .select("id")
-            .eq("clerk_org_id", clerkOrgId)
-            .single();
-
-          if (dbOrg) {
-            const { data: orgDeals } = await supabase
-              .from("bsi_deals_clerk_orgs")
-              .select("deal_id")
-              .eq("clerk_org_id", dbOrg.id);
-
-            const orgDealIds = new Set((orgDeals || []).map((d) => d.deal_id));
-            const filteredDeals = (allDeals || []).filter((deal: ActiveDeal) =>
-              orgDealIds.has(deal.id),
-            );
-            setDeals(filteredDeals);
-          } else {
-            setDeals([]);
-          }
-        } else {
-          // No org, not impersonating - admin view, show all
-          setDeals((allDeals as any) || []);
-        }
+        );
       } catch (err) {
         console.error("Error fetching active deals:", err);
         setError(err instanceof Error ? err.message : "Failed to load deals");
@@ -183,8 +82,8 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
       }
     };
 
-    fetchActiveDeals();
-  }, [supabase, userId, isImpersonating, impersonatedUserId, clerkOrgId]);
+    void fetchActiveDeals();
+  }, [orgLoaded, impersonatedUserId, clerkOrgId]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -193,25 +92,6 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
-  };
-
-  // Helper to format property address
-  const formatPropertyAddress = (deal: ActiveDeal) => {
-    if (!deal.property) return "-";
-    const { address_street, address_city, address_state } = deal.property;
-    const parts = [address_street, address_city, address_state].filter(Boolean);
-    return parts.join(", ") || "-";
-  };
-
-  // Helper to format loan term
-  const formatLoanTerm = (term: string) => {
-    const months = parseInt(term, 10);
-    if (isNaN(months)) return term;
-    const years = Math.floor(months / 12);
-    const remainingMonths = months % 12;
-    if (years === 0) return `${remainingMonths}m`;
-    if (remainingMonths === 0) return `${years}y`;
-    return `${years}y ${remainingMonths}m`;
   };
 
   if (loading) {
@@ -270,7 +150,6 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
                 <TableHead>Deal Name</TableHead>
                 <TableHead>Property</TableHead>
                 <TableHead>Loan Amount</TableHead>
-                <TableHead>Rate/Term</TableHead>
                 <TableHead>Closing Date</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
@@ -288,7 +167,7 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
                     </div>
                   </TableCell>
                   <TableCell className="max-w-[200px] truncate">
-                    {formatPropertyAddress(deal)}
+                    {propertyAddressFromDeal(deal)}
                   </TableCell>
                   <TableCell className="font-medium">
                     {deal.loan_amount_total
@@ -296,18 +175,10 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
                       : "-"}
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm">
-                      <div>{deal.note_rate ? `${deal.note_rate}%` : "-"}</div>
-                      <div className="text-muted-foreground">
-                        {deal.loan_term ? formatLoanTerm(deal.loan_term) : "-"}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {deal.note_date ? (
+                    {deal.funding_date ? (
                       <div className="flex items-center gap-1 text-sm">
                         <Calendar className="h-3 w-3" />
-                        {format(new Date(deal.note_date), "MMM d, yyyy")}
+                        {format(new Date(deal.funding_date), "MMM d, yyyy")}
                       </div>
                     ) : (
                       <span className="text-muted-foreground">-</span>
@@ -317,12 +188,18 @@ export function ActiveDealsList({ className }: ActiveDealsListProps) {
                     <Badge
                       variant={getStatusBadgeVariant(deal.deal_disposition_1)}
                     >
-                      {deal.deal_disposition_1 || "Unknown"}
+                      {deal.deal_disposition_1 || deal.deal_stage_2 || "Unknown"}
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => router.push(dealRecordPath(deal.id))}
+                    >
                       <Eye className="h-4 w-4" />
+                      <span className="sr-only">View deal</span>
                     </Button>
                   </TableCell>
                 </TableRow>

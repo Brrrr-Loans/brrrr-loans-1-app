@@ -17,6 +17,12 @@ import {
   BarChart3,
   type LucideIcon,
 } from "lucide-react";
+import {
+  DEAL_LIST_PATH,
+  DEAL_NEW_PATH,
+  DEAL_PIPELINE_PATH,
+  dealRecordPath,
+} from "./deal-routes";
 
 // ============================================================================
 // ROUTE SEGMENTS - Define URL segments and their display labels
@@ -36,6 +42,7 @@ export const ROUTE_SEGMENTS = {
   transactions: { path: "transactions", label: "Transactions" },
   documents: { path: "documents", label: "Documents" },
   deals: { path: "deals", label: "Deals" },
+  pipeline: { path: "pipeline", label: "Pipeline" },
 
   // Investor Portfolio pages
   analytics: { path: "analytics", label: "Analytics" },
@@ -70,7 +77,10 @@ export const ROUTES = {
   // Balance Sheet - Investor Portfolio
   investorPortfolio: {
     analytics: `/${ROUTE_SEGMENTS.balanceSheet.path}/${ROUTE_SEGMENTS.investorPortfolio.path}/${ROUTE_SEGMENTS.analytics.path}`,
-    deals: `/${ROUTE_SEGMENTS.balanceSheet.path}/${ROUTE_SEGMENTS.investorPortfolio.path}/${ROUTE_SEGMENTS.deals.path}`,
+    deals: DEAL_LIST_PATH,
+    pipeline: DEAL_PIPELINE_PATH,
+    new: DEAL_NEW_PATH,
+    deal: dealRecordPath,
   },
 
   // Balance Sheet - Transactions
@@ -134,6 +144,11 @@ export const STANDALONE_NAV_ITEMS: NavSubItem[] = [
     name: ROUTE_SEGMENTS.deals.label,
     url: ROUTES.investorPortfolio.deals,
     icon: Building,
+  },
+  {
+    name: ROUTE_SEGMENTS.pipeline.label,
+    url: ROUTES.investorPortfolio.pipeline,
+    icon: ListTree,
   },
 ];
 
@@ -247,10 +262,34 @@ export function getBreadcrumbSegments(
     ];
   }
 
+  // Deal pipeline
+  if (path === ROUTES.investorPortfolio.pipeline) {
+    return [
+      {
+        label: ROUTE_SEGMENTS.deals.label,
+        href: ROUTES.investorPortfolio.deals,
+      },
+      { label: ROUTE_SEGMENTS.pipeline.label },
+    ];
+  }
+
+  // New deal
+  if (path === ROUTES.investorPortfolio.new) {
+    return [
+      {
+        label: ROUTE_SEGMENTS.deals.label,
+        href: ROUTES.investorPortfolio.deals,
+      },
+      { label: "New Deal" },
+    ];
+  }
+
   // Balance Sheet - Investor Portfolio - Deal Details (dynamic route)
   if (
     path.startsWith(ROUTES.investorPortfolio.deals + "/") &&
-    path !== ROUTES.investorPortfolio.deals
+    path !== ROUTES.investorPortfolio.deals &&
+    path !== ROUTES.investorPortfolio.pipeline &&
+    path !== ROUTES.investorPortfolio.new
   ) {
     return [
       {

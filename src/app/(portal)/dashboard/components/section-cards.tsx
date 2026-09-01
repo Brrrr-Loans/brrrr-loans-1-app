@@ -7,7 +7,6 @@ import { useSupabase } from "@/hooks/use-supabase";
 import { useCurrentOrganization } from "@/contexts/organization-context";
 import { useImpersonation } from "@/contexts/impersonation-context";
 import { fetchPortalDeals, type PortalDeal } from "@/lib/deals-api";
-import { isInvestmentOrgRole } from "@/lib/deal-access";
 
 interface DashboardMetrics {
   totalDeals: number;
@@ -40,7 +39,7 @@ function metricsFromDeals(
 
 export function SectionCards() {
   const supabase = useSupabase();
-  const { isLoaded: authLoaded, orgRole } = useAuth();
+  const { isLoaded: authLoaded } = useAuth();
   const { clerkOrgId, isLoaded: orgLoaded } = useCurrentOrganization();
   const { impersonatedUserId } = useImpersonation();
   const [metrics, setMetrics] = useState<DashboardMetrics>({
@@ -72,25 +71,20 @@ export function SectionCards() {
           .from("deal")
           .select("id, deal_stage_2, deal_disposition_1, loan_amount_total");
 
-        if (error) {
+        if (error || (deals?.length ?? 0) === 0) {
           try {
             await loadFromApi();
             return;
           } catch {
             console.error("Error fetching deals metrics:", {
-              message: error.message,
-              details: error.details,
-              hint: error.hint,
-              code: error.code,
+              message: error?.message,
+              details: error?.details,
+              hint: error?.hint,
+              code: error?.code,
             });
             setMetrics(metricsFromDeals([]));
             return;
           }
-        }
-
-        if ((deals?.length ?? 0) === 0 && isInvestmentOrgRole(orgRole)) {
-          await loadFromApi();
-          return;
         }
 
         setMetrics(metricsFromDeals(deals || []));
@@ -106,7 +100,7 @@ export function SectionCards() {
     };
 
     fetchMetrics();
-  }, [authLoaded, orgLoaded, supabase, clerkOrgId, impersonatedUserId, orgRole]);
+  }, [authLoaded, orgLoaded, supabase, clerkOrgId, impersonatedUserId]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {

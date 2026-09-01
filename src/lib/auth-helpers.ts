@@ -1,9 +1,10 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   createServiceRoleClient,
   getSupabaseClient,
 } from "@/lib/supabase-server";
+import { isPlatformAdminIdentity } from "@/lib/internal-admin";
 import type { Database } from "@/types/supabase";
 
 /**
@@ -38,6 +39,7 @@ export async function getCurrentUserData() {
       `
       id,
       clerk_user_id,
+      email,
       personal_role,
       is_internal_yn,
       auth_clerk_orgs_members(
@@ -48,7 +50,7 @@ export async function getCurrentUserData() {
     `
     )
     .eq("clerk_user_id", clerkUserId)
-    .single();
+    .maybeSingle();
 
   return user;
 }
@@ -74,6 +76,27 @@ export async function getUserInvestmentOrgs(
 }
 
 /**
+ * True when the signed-in Clerk user is a platform/internal admin.
+ * Known principals (Chris, Aaron) qualify even if Clerk metadata is empty
+ * or `personal_role` was never written.
+ */
+export async function isCurrentUserPlatformAdmin(): Promise<boolean> {
+  const { userId } = await auth();
+  if (!userId) return false;
+
+  const userData = await getCurrentUserData();
+  const clerk = await currentUser();
+
+  return isPlatformAdminIdentity({
+    clerkUserId: userId,
+    email:
+      userData?.email || clerk?.emailAddresses?.[0]?.emailAddress || null,
+    personalRole: userData?.personal_role,
+    isInternalYn: userData?.is_internal_yn,
+  });
+}
+
+/**
  * Get Service Role client for admin operations
  * Only call after verifying user is admin
  * @throws Error if user is not authenticated or not an admin
@@ -84,8 +107,7 @@ export async function getAdminSupabase(): Promise<SupabaseClient<Database>> {
     throw new Error("Unauthorized");
   }
 
-  const userData = await getCurrentUserData();
-  if (!userData || userData.personal_role !== "admin") {
+  if (!(await isCurrentUserPlatformAdmin())) {
     throw new Error("Forbidden: Admin access required");
   }
 
@@ -98,8 +120,13 @@ export async function getAdminSupabase(): Promise<SupabaseClient<Database>> {
  * @returns User data if user is admin
  */
 export async function requireAdmin() {
+  const { userId } = await auth();
+  if (!userId) {
+    throw new Error("Unauthorized");
+  }
+
   const userData = await getCurrentUserData();
-  if (!userData || userData.personal_role !== "admin") {
+  if (!(await isCurrentUserPlatformAdmin())) {
     throw new Error("Forbidden: Admin access required");
   }
   return userData;

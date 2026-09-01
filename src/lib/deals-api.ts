@@ -30,6 +30,11 @@ function firstNested<T>(value: T | T[] | null | undefined): T | null {
   return Array.isArray(value) ? value[0] ?? null : value;
 }
 
+function isPortalDeal(value: unknown): value is PortalDeal {
+  if (!value || typeof value !== "object") return false;
+  return typeof (value as PortalDeal).id === "number";
+}
+
 export function propertyAddressFromDeal(deal: PortalDeal): string {
   const nested = firstNested(deal.property);
   if (nested?.address) return nested.address;
@@ -52,7 +57,7 @@ export function unwrapApiDeals(payload: unknown): PortalDeal[] {
   for (const row of payload) {
     if (!row || typeof row !== "object") continue;
     const nested = (row as ApiDealRow).deal;
-    const deal = firstNested(nested);
+    const deal = firstNested(nested) ?? (isPortalDeal(row) ? row : null);
     if (deal && typeof deal.id === "number" && !seen.has(deal.id)) {
       seen.add(deal.id);
       deals.push(deal);
@@ -60,6 +65,12 @@ export function unwrapApiDeals(payload: unknown): PortalDeal[] {
   }
 
   return deals;
+}
+
+export function wrapDealsForApi(
+  deals: PortalDeal[]
+): Array<{ deal_id: number; deal: PortalDeal }> {
+  return deals.map((deal) => ({ deal_id: deal.id, deal }));
 }
 
 export async function fetchPortalDeals(options: {

@@ -26,6 +26,7 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/shadcn/command";
+import { DEAL_LIST_PATH, DEAL_NEW_PATH } from "@/config/deal-routes";
 
 interface AppCommandDialogProps {
   open: boolean;
@@ -65,7 +66,7 @@ export function AppCommandDialog({
           <CommandItem
             onSelect={() =>
               runCommand(() =>
-                router.push("/balance-sheet/investor-portfolio/deals"),
+                router.push(DEAL_LIST_PATH),
               )
             }
           >
@@ -151,7 +152,7 @@ export function AppCommandDialog({
           <CommandItem
             onSelect={() =>
               runCommand(() =>
-                router.push("/balance-sheet/investor-portfolio/deals/new"),
+                router.push(DEAL_NEW_PATH),
               )
             }
           >

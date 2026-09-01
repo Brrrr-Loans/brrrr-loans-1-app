@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui";
 import { ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { DEAL_LIST_PATH, dealRecordPath } from "@/config/deal-routes";
 
 interface DealNotice {
   id: number;
@@ -268,7 +269,7 @@ export function DealNoticesWidget() {
   }, [fetchDealNotices]);
 
   const handleDealClick = (dealId: number) => {
-    router.push(`/balance-sheet/investor-portfolio/deals/${dealId}`);
+    router.push(dealRecordPath(dealId));
   };
 
   return (
@@ -282,7 +283,7 @@ export function DealNoticesWidget() {
           variant="ghost"
           size="sm"
           className="h-auto p-0"
-          onClick={() => router.push("/balance-sheet/investor-portfolio/deals")}
+          onClick={() => router.push(DEAL_LIST_PATH)}
         >
           <span className="text-sm font-semibold">View all</span>
           <ChevronRight className="ml-1 h-3 w-3" />
