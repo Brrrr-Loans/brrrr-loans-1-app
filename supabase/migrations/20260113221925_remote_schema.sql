@@ -1,27 +1,26 @@
-drop policy "org_themes_admin_all" on "public"."auth_clerk_orgs_themes";
+-- Stale `db pull` dump. Preview replays this after 20260113193056 already
+-- created the junction policies with is_admin(), so CREATE POLICY without
+-- DROP fails. auth_clerk_users.role also no longer exists.
+-- Theme policy drops are IF EXISTS because 20251216155918 may already
+-- have replaced them.
 
-drop policy "org_themes_member_read" on "public"."auth_clerk_orgs_themes";
+DROP POLICY IF EXISTS "org_themes_admin_all" ON "public"."auth_clerk_orgs_themes";
+DROP POLICY IF EXISTS "org_themes_member_read" ON "public"."auth_clerk_orgs_themes";
 
+DROP POLICY IF EXISTS "Admins can manage bsi_distributions_transactions" ON "public"."bsi_distributions_transactions";
+CREATE POLICY "Admins can manage bsi_distributions_transactions"
+  ON "public"."bsi_distributions_transactions"
+  AS PERMISSIVE
+  FOR ALL
+  TO authenticated
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
-  create policy "Admins can manage bsi_distributions_transactions"
-  on "public"."bsi_distributions_transactions"
-  as permissive
-  for all
-  to public
-using ((EXISTS ( SELECT 1
-   FROM public.auth_clerk_users
-  WHERE ((auth_clerk_users.clerk_user_id = ( SELECT (auth.jwt() ->> 'sub'::text))) AND (auth_clerk_users.role = 'admin'::public.user_role_internal)))));
-
-
-
-  create policy "Admins can manage bsi_statements_transactions"
-  on "public"."bsi_statements_transactions"
-  as permissive
-  for all
-  to public
-using ((EXISTS ( SELECT 1
-   FROM public.auth_clerk_users
-  WHERE ((auth_clerk_users.clerk_user_id = ( SELECT (auth.jwt() ->> 'sub'::text))) AND (auth_clerk_users.role = 'admin'::public.user_role_internal)))));
-
-
-
+DROP POLICY IF EXISTS "Admins can manage bsi_statements_transactions" ON "public"."bsi_statements_transactions";
+CREATE POLICY "Admins can manage bsi_statements_transactions"
+  ON "public"."bsi_statements_transactions"
+  AS PERMISSIVE
+  FOR ALL
+  TO authenticated
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
