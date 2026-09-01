@@ -50,19 +50,35 @@ FOR ALL TO authenticated
 USING (public.is_admin())
 WITH CHECK (public.is_admin());
 
--- Users can view deal roles for deals they're assigned to
-DROP POLICY IF EXISTS "Users can view their deal roles" ON public.deal_roles;
-CREATE POLICY "Users can view their deal roles"
-ON public.deal_roles
-FOR SELECT TO authenticated
-USING (
-  auth_clerk_users_id = public.get_current_user_id()
-  OR EXISTS (
-    SELECT 1 FROM public.deal_roles dr2
-    WHERE dr2.deal_id = deal_roles.deal_id
-    AND dr2.auth_clerk_users_id = public.get_current_user_id()
-  )
-);
+-- Users can view deal roles for deals they're assigned to.
+-- Do not DROP/replace this name: later migrations install a non-recursive
+-- policy (or a successor with a different name). Recreating this USING
+-- clause on a current schema restores infinite recursion.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'deal_roles'
+      AND policyname IN (
+        'Users can view their deal roles',
+        'Users can view their own deal roles',
+        'Users view own deal_roles'
+      )
+  ) THEN
+    CREATE POLICY "Users can view their deal roles"
+    ON public.deal_roles
+    FOR SELECT TO authenticated
+    USING (
+      auth_clerk_users_id = public.get_current_user_id()
+      OR EXISTS (
+        SELECT 1 FROM public.deal_roles dr2
+        WHERE dr2.deal_id = deal_roles.deal_id
+        AND dr2.auth_clerk_users_id = public.get_current_user_id()
+      )
+    );
+  END IF;
+END $$;
 
 -- =============================================================================
 -- PRIORITY 1: Fix wide-open deal_guarantors policies
@@ -80,18 +96,32 @@ FOR ALL TO authenticated
 USING (public.is_admin())
 WITH CHECK (public.is_admin());
 
--- Users can view guarantors for deals they're assigned to
-DROP POLICY IF EXISTS "Users can view deal guarantors for their deals" ON public.deal_guarantors;
-CREATE POLICY "Users can view deal guarantors for their deals"
-ON public.deal_guarantors
-FOR SELECT TO authenticated
-USING (
-  EXISTS (
-    SELECT 1 FROM public.deal_roles dr
-    WHERE dr.deal_id = deal_guarantors.deal_id
-    AND dr.auth_clerk_users_id = public.get_current_user_id()
-  )
-);
+-- Users can view guarantors for deals they're assigned to.
+-- Same replay rule: do not restore the recursive deal_roles subquery if a
+-- later non-recursive policy already exists.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'deal_guarantors'
+      AND policyname IN (
+        'Users can view deal guarantors for their deals',
+        'Users view deal_guarantors via role'
+      )
+  ) THEN
+    CREATE POLICY "Users can view deal guarantors for their deals"
+    ON public.deal_guarantors
+    FOR SELECT TO authenticated
+    USING (
+      EXISTS (
+        SELECT 1 FROM public.deal_roles dr
+        WHERE dr.deal_id = deal_guarantors.deal_id
+        AND dr.auth_clerk_users_id = public.get_current_user_id()
+      )
+    );
+  END IF;
+END $$;
 
 -- =============================================================================
 -- PRIORITY 1: Fix wide-open contact_contact_types policies

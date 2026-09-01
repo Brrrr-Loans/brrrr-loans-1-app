@@ -18,21 +18,47 @@
 -- Note: PostgreSQL 15+ required for security_invoker option (we have 17.6)
 -- =============================================================================
 
--- Add security_invoker = true to all 4 flagged views
-ALTER VIEW public.view_transaction_documents SET (security_invoker = true);
-ALTER VIEW public.view_rbac_permissions_summary SET (security_invoker = true);
-ALTER VIEW public.view_storage_objects SET (security_invoker = true);
-ALTER VIEW public.view_document_categories_user_order SET (security_invoker = true);
+-- Add security_invoker = true to flagged views when they exist. Preview
+-- clones may not have every view from this era.
 
--- Add comments documenting the security model
-COMMENT ON VIEW public.view_transaction_documents IS 
-  'Joins transaction document files with document metadata. SECURITY INVOKER ensures RLS is enforced for the calling user.';
+DO $$
+DECLARE
+  view_name text;
+BEGIN
+  FOREACH view_name IN ARRAY ARRAY[
+    'view_transaction_documents',
+    'view_rbac_permissions_summary',
+    'view_storage_objects',
+    'view_document_categories_user_order'
+  ]
+  LOOP
+    IF to_regclass('public.' || view_name) IS NOT NULL THEN
+      EXECUTE format(
+        'ALTER VIEW public.%I SET (security_invoker = true)',
+        view_name
+      );
+    ELSE
+      RAISE NOTICE 'Skipping security_invoker on missing view %', view_name;
+    END IF;
+  END LOOP;
+END $$;
 
-COMMENT ON VIEW public.view_rbac_permissions_summary IS 
-  'Aggregated view of permissions by role and resource type for auditing. SECURITY INVOKER respects underlying RLS.';
-
-COMMENT ON VIEW public.view_storage_objects IS 
-  'Admin-only view of storage objects. Access controlled by is_internal_admin() function. SECURITY INVOKER enforced.';
-
-COMMENT ON VIEW public.view_document_categories_user_order IS 
-  'Document categories with user-specific display order (falls back to system default). SECURITY INVOKER enforced.';
+DO $$
+BEGIN
+  IF to_regclass('public.view_transaction_documents') IS NOT NULL THEN
+    COMMENT ON VIEW public.view_transaction_documents IS
+      'Joins transaction document files with document metadata. SECURITY INVOKER ensures RLS is enforced for the calling user.';
+  END IF;
+  IF to_regclass('public.view_rbac_permissions_summary') IS NOT NULL THEN
+    COMMENT ON VIEW public.view_rbac_permissions_summary IS
+      'Aggregated view of permissions by role and resource type for auditing. SECURITY INVOKER respects underlying RLS.';
+  END IF;
+  IF to_regclass('public.view_storage_objects') IS NOT NULL THEN
+    COMMENT ON VIEW public.view_storage_objects IS
+      'Admin-only view of storage objects. Access controlled by is_internal_admin() function. SECURITY INVOKER enforced.';
+  END IF;
+  IF to_regclass('public.view_document_categories_user_order') IS NOT NULL THEN
+    COMMENT ON VIEW public.view_document_categories_user_order IS
+      'Document categories with user-specific display order (falls back to system default). SECURITY INVOKER enforced.';
+  END IF;
+END $$;
