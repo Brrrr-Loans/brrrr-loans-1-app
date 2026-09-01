@@ -46,19 +46,19 @@ END $$;
 DO $$
 BEGIN
   IF to_regclass('public.view_transaction_documents') IS NOT NULL THEN
-    COMMENT ON VIEW public.view_transaction_documents IS
-      'Joins transaction document files with document metadata. SECURITY INVOKER ensures RLS is enforced for the calling user.';
+    EXECUTE $c$COMMENT ON VIEW public.view_transaction_documents IS
+      'Joins transaction document files with document metadata. SECURITY INVOKER ensures RLS is enforced for the calling user.'$c$;
   END IF;
   IF to_regclass('public.view_rbac_permissions_summary') IS NOT NULL THEN
-    COMMENT ON VIEW public.view_rbac_permissions_summary IS
-      'Aggregated view of permissions by role and resource type for auditing. SECURITY INVOKER respects underlying RLS.';
+    EXECUTE $c$COMMENT ON VIEW public.view_rbac_permissions_summary IS
+      'Aggregated view of permissions by role and resource type for auditing. SECURITY INVOKER respects underlying RLS.'$c$;
   END IF;
   IF to_regclass('public.view_storage_objects') IS NOT NULL THEN
-    COMMENT ON VIEW public.view_storage_objects IS
-      'Admin-only view of storage objects. Access controlled by is_internal_admin() function. SECURITY INVOKER enforced.';
+    EXECUTE $c$COMMENT ON VIEW public.view_storage_objects IS
+      'Admin-only view of storage objects. Access controlled by is_internal_admin() function. SECURITY INVOKER enforced.'$c$;
   END IF;
   IF to_regclass('public.view_document_categories_user_order') IS NOT NULL THEN
-    COMMENT ON VIEW public.view_document_categories_user_order IS
-      'Document categories with user-specific display order (falls back to system default). SECURITY INVOKER enforced.';
+    EXECUTE $c$COMMENT ON VIEW public.view_document_categories_user_order IS
+      'Document categories with user-specific display order (falls back to system default). SECURITY INVOKER enforced.'$c$;
   END IF;
 END $$;
