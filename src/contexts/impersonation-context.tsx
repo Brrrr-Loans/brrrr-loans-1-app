@@ -2,76 +2,135 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
-  useLayoutEffect,
+  useEffect,
   useState,
-  ReactNode,
+  type ReactNode,
 } from "react";
+
+type ImpersonationApiView = {
+  canImpersonate?: boolean;
+  impersonatedUserId?: number | null;
+  impersonatedUserName?: string | null;
+};
 
 interface ImpersonationContextType {
   impersonatedUserId: number | null;
   impersonatedUserName: string | null;
-  setImpersonation: (userId: number | null, userName: string | null) => void;
-  clearImpersonation: () => void;
+  canImpersonate: boolean;
+  isLoaded: boolean;
+  setImpersonation: (userId: number | null, userName: string | null) => Promise<void>;
+  clearImpersonation: () => Promise<void>;
   isImpersonating: boolean;
 }
 
-const ImpersonationContext = createContext<ImpersonationContextType | undefined>(undefined);
+type ImpersonationProviderProps = {
+  children: ReactNode;
+};
 
-function readStoredImpersonation(): {
-  userId: number | null;
-  userName: string | null;
-} {
-  if (typeof window === "undefined") {
-    return { userId: null, userName: null };
-  }
-  const storedId = sessionStorage.getItem("impersonated_user_id");
-  const storedName = sessionStorage.getItem("impersonated_user_name");
-  if (!storedId) {
-    return { userId: null, userName: null };
-  }
-  const parsed = parseInt(storedId, 10);
-  if (Number.isNaN(parsed)) {
-    return { userId: null, userName: null };
-  }
-  return { userId: parsed, userName: storedName };
+const ImpersonationContext = createContext<ImpersonationContextType | undefined>(
+  undefined
+);
+
+function clearLegacyClientStorage(): void {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem("impersonated_user_id");
+  sessionStorage.removeItem("impersonated_user_name");
 }
 
-export function ImpersonationProvider({ children }: { children: ReactNode }) {
-  const [impersonatedUserId, setImpersonatedUserId] = useState<number | null>(null);
-  const [impersonatedUserName, setImpersonatedUserName] = useState<string | null>(null);
+function requestImpersonationApi(init?: RequestInit): Promise<Response> {
+  return fetch("/api/impersonation", {
+    credentials: "same-origin",
+    ...init,
+  });
+}
 
-  const setImpersonation = (userId: number | null, userName: string | null) => {
-    setImpersonatedUserId(userId);
-    setImpersonatedUserName(userName);
-    
-    // Store in sessionStorage for persistence across page reloads
-    if (userId) {
-      sessionStorage.setItem("impersonated_user_id", userId.toString());
-      sessionStorage.setItem("impersonated_user_name", userName || "");
-    } else {
-      sessionStorage.removeItem("impersonated_user_id");
-      sessionStorage.removeItem("impersonated_user_name");
+export function ImpersonationProvider({ children }: ImpersonationProviderProps) {
+  const [impersonatedUserId, setImpersonatedUserId] = useState<number | null>(
+    null
+  );
+  const [impersonatedUserName, setImpersonatedUserName] = useState<string | null>(
+    null
+  );
+  const [canImpersonate, setCanImpersonate] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    clearLegacyClientStorage();
+
+    let cancelled = false;
+
+    function applyIdleView(): void {
+      setCanImpersonate(false);
+      setImpersonatedUserId(null);
+      setImpersonatedUserName(null);
     }
-  };
 
-  const clearImpersonation = () => {
-    setImpersonation(null, null);
-  };
+    async function load(): Promise<void> {
+      try {
+        const response = await requestImpersonationApi();
+        if (!response.ok) {
+          if (!cancelled) applyIdleView();
+          return;
+        }
+        const data = (await response.json()) as ImpersonationApiView;
+        if (!cancelled) {
+          setCanImpersonate(Boolean(data.canImpersonate));
+          setImpersonatedUserId(data.impersonatedUserId ?? null);
+          setImpersonatedUserName(data.impersonatedUserName ?? null);
+        }
+      } catch {
+        if (!cancelled) applyIdleView();
+      } finally {
+        if (!cancelled) setIsLoaded(true);
+      }
+    }
 
-  // Restore before paint so child useEffect fetches see the stored target
-  // (useEffect restore let the first commit run as the admin).
-  useLayoutEffect(() => {
-    const stored = readStoredImpersonation();
-    setImpersonatedUserId(stored.userId);
-    setImpersonatedUserName(stored.userName);
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const setImpersonation = useCallback(async function setImpersonation(
+    userId: number | null,
+    userName: string | null
+  ): Promise<void> {
+    if (!userId) {
+      const response = await requestImpersonationApi({ method: "DELETE" });
+      if (!response.ok) {
+        throw new Error("Failed to stop impersonation");
+      }
+      setImpersonatedUserId(null);
+      setImpersonatedUserName(null);
+      return;
+    }
+
+    const response = await requestImpersonationApi({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, userName }),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to start impersonation");
+    }
+    const data = (await response.json()) as ImpersonationApiView;
+    setImpersonatedUserId(data.impersonatedUserId ?? userId);
+    setImpersonatedUserName(data.impersonatedUserName ?? userName);
+  }, []);
+
+  const clearImpersonation = useCallback(async function clearImpersonation(): Promise<void> {
+    await setImpersonation(null, null);
+  }, [setImpersonation]);
 
   return (
     <ImpersonationContext.Provider
       value={{
         impersonatedUserId,
         impersonatedUserName,
+        canImpersonate,
+        isLoaded,
         setImpersonation,
         clearImpersonation,
         isImpersonating: impersonatedUserId !== null,
@@ -82,7 +141,7 @@ export function ImpersonationProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useImpersonation() {
+export function useImpersonation(): ImpersonationContextType {
   const context = useContext(ImpersonationContext);
   if (context === undefined) {
     throw new Error("useImpersonation must be used within ImpersonationProvider");
