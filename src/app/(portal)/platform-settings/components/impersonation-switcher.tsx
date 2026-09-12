@@ -44,9 +44,10 @@ export function ImpersonationSwitcher() {
 
   useEffect(() => {
     if (!supabase || !open || !canImpersonate) return;
+    const client = supabase;
 
     async function loadUsers(): Promise<void> {
-      const { data } = await supabase
+      const { data } = await client
         .from("auth_clerk_users")
         .select("id, full_name, email")
         .order("full_name");
