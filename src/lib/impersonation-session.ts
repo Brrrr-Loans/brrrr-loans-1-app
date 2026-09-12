@@ -2,12 +2,14 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { isPlatformAdminIdentity } from "./internal-admin.ts";
 
 export const IMPERSONATION_COOKIE_NAME = "portal_impersonation";
+export const DEFAULT_IMPERSONATION_SESSION_TTL_SECONDS = 30 * 60;
 
 export type ImpersonationSessionPayload = {
   actorClerkUserId: string;
   targetUserId: number;
   targetUserName: string;
   iat: number;
+  exp: number;
 };
 
 export type CallerIdentity = {
@@ -48,6 +50,51 @@ export function getImpersonationSecret(explicit?: string): string {
   return secret;
 }
 
+export function getImpersonationSessionTtlSeconds(
+  envValue = process.env.IMPERSONATION_SESSION_TTL_SECONDS
+): number {
+  const parsed = envValue ? Number.parseInt(envValue, 10) : Number.NaN;
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return DEFAULT_IMPERSONATION_SESSION_TTL_SECONDS;
+}
+
+export function impersonationCookieOptions(): {
+  httpOnly: true;
+  secure: boolean;
+  sameSite: "lax";
+  path: string;
+  maxAge: number;
+} {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: getImpersonationSessionTtlSeconds(),
+  };
+}
+
+export function buildImpersonationSessionPayload(input: {
+  actorClerkUserId: string;
+  targetUserId: number;
+  targetUserName: string;
+  now?: number;
+  ttlSeconds?: number;
+}): ImpersonationSessionPayload {
+  const iat = input.now ?? Date.now();
+  const ttlSeconds =
+    input.ttlSeconds ?? getImpersonationSessionTtlSeconds();
+  return {
+    actorClerkUserId: input.actorClerkUserId,
+    targetUserId: input.targetUserId,
+    targetUserName: input.targetUserName,
+    iat,
+    exp: iat + ttlSeconds * 1000,
+  };
+}
+
 function toBase64Url(value: Buffer | string): string {
   const buffer = typeof value === "string" ? Buffer.from(value) : value;
   return buffer.toString("base64url");
@@ -74,13 +121,16 @@ function isSessionPayload(value: unknown): value is ImpersonationSessionPayload 
     typeof parsed.targetUserId === "number" &&
     Number.isFinite(parsed.targetUserId) &&
     typeof parsed.targetUserName === "string" &&
-    typeof parsed.iat === "number"
+    typeof parsed.iat === "number" &&
+    typeof parsed.exp === "number" &&
+    Number.isFinite(parsed.exp)
   );
 }
 
 export function verifyImpersonationSession(
   cookieValue: string | null | undefined,
-  secret: string
+  secret: string,
+  options?: { now?: number }
 ): ImpersonationSessionPayload | null {
   if (!cookieValue) return null;
   const [body, signature] = cookieValue.split(".");
@@ -96,11 +146,14 @@ export function verifyImpersonationSession(
       Buffer.from(body, "base64url").toString("utf8")
     );
     if (!isSessionPayload(parsed)) return null;
+    const now = options?.now ?? Date.now();
+    if (parsed.exp <= now) return null;
     return {
       actorClerkUserId: parsed.actorClerkUserId,
       targetUserId: parsed.targetUserId,
       targetUserName: parsed.targetUserName,
       iat: parsed.iat,
+      exp: parsed.exp,
     };
   } catch {
     return null;
@@ -182,6 +235,7 @@ export function resolveImpersonationTarget(input: {
   searchParams?: URLSearchParams | null;
   body?: unknown;
   secret: string;
+  now?: number;
 }): ResolvedImpersonation {
   const ignoredClientTarget = extractClientSuppliedTarget(input) != null;
   const actorClerkUserId = input.caller.clerkUserId ?? null;
@@ -196,7 +250,9 @@ export function resolveImpersonationTarget(input: {
     return inactiveSession(actorClerkUserId, ignoredClientTarget, false);
   }
 
-  const session = verifyImpersonationSession(input.cookieValue, input.secret);
+  const session = verifyImpersonationSession(input.cookieValue, input.secret, {
+    now: input.now,
+  });
   if (!session) {
     return inactiveSession(
       actorClerkUserId,

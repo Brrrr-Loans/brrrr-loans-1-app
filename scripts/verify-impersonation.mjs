@@ -5,9 +5,13 @@ import {
 } from "../src/lib/internal-admin.ts";
 import { buildPortalQuery } from "../src/lib/deals-api.ts";
 import {
+  DEFAULT_IMPERSONATION_SESSION_TTL_SECONDS,
   authorizeImpersonationStart,
+  buildImpersonationSessionPayload,
   canControlImpersonation,
   extractClientSuppliedTarget,
+  getImpersonationSessionTtlSeconds,
+  impersonationCookieOptions,
   resolveImpersonationTarget,
   signImpersonationSession,
   verifyImpersonationSession,
@@ -93,25 +97,82 @@ assert(
   "platform admin can start impersonation for a numeric target"
 );
 
+assert(
+  DEFAULT_IMPERSONATION_SESSION_TTL_SECONDS === 30 * 60,
+  "default impersonation TTL is 30 minutes"
+);
+assert(
+  getImpersonationSessionTtlSeconds(undefined) === 30 * 60,
+  "missing TTL env falls back to 30 minutes"
+);
+assert(
+  getImpersonationSessionTtlSeconds("900") === 900,
+  "IMPERSONATION_SESSION_TTL_SECONDS is honored"
+);
+assert(
+  getImpersonationSessionTtlSeconds("0") === 30 * 60,
+  "non-positive TTL env is ignored"
+);
+assert(
+  impersonationCookieOptions().maxAge === getImpersonationSessionTtlSeconds(),
+  "httpOnly cookie maxAge matches the session TTL"
+);
+
+const now = 1_700_000_000_000;
 const cookie = signImpersonationSession(
-  {
+  buildImpersonationSessionPayload({
     actorClerkUserId: platformAdmin.clerkUserId,
     targetUserId: 42,
     targetUserName: "Jane Investor",
-    iat: 1,
-  },
+    now,
+    ttlSeconds: 1800,
+  }),
   SECRET
 );
 
-const verified = verifyImpersonationSession(cookie, SECRET);
+const verified = verifyImpersonationSession(cookie, SECRET, { now });
 assert(verified?.targetUserId === 42, "signed session round-trips");
+assert(verified?.exp === now + 1800 * 1000, "signed session carries exp");
 assert(
-  verifyImpersonationSession(cookie, "wrong-secret") === null,
+  verifyImpersonationSession(cookie, "wrong-secret", { now }) === null,
   "tampered secret is rejected"
 );
 assert(
-  verifyImpersonationSession(`${cookie}x`, SECRET) === null,
+  verifyImpersonationSession(`${cookie}x`, SECRET, { now }) === null,
   "tampered cookie is rejected"
+);
+
+const expiredCookie = signImpersonationSession(
+  buildImpersonationSessionPayload({
+    actorClerkUserId: platformAdmin.clerkUserId,
+    targetUserId: 42,
+    targetUserName: "Jane Investor",
+    now,
+    ttlSeconds: 60,
+  }),
+  SECRET
+);
+assert(
+  verifyImpersonationSession(expiredCookie, SECRET, {
+    now: now + 60 * 1000,
+  }) === null,
+  "expired session is rejected at the cookie"
+);
+assert(
+  verifyImpersonationSession(
+    signImpersonationSession(
+      {
+        actorClerkUserId: platformAdmin.clerkUserId,
+        targetUserId: 42,
+        targetUserName: "Jane Investor",
+        iat: now,
+      },
+      SECRET
+    ),
+    SECRET,
+    { now }
+  ) === null,
+  "cookies without exp are invalid"
 );
 
 const investorViaQuery = resolveImpersonationTarget({
@@ -169,6 +230,7 @@ const adminViaSession = resolveImpersonationTarget({
   searchParams: new URLSearchParams("impersonate_user_id=99"),
   body: { impersonate_user_id: 99 },
   secret: SECRET,
+  now,
 });
 assert(adminViaSession.isImpersonating === true, "admin can impersonate via signed session");
 assert(
@@ -181,10 +243,24 @@ assert(
   "query-param style is still flagged as ignored when a session exists"
 );
 
+const expiredForAdmin = resolveImpersonationTarget({
+  caller: platformAdmin,
+  cookieValue: expiredCookie,
+  secret: SECRET,
+  now: now + 60 * 1000,
+});
+assert(
+  expiredForAdmin.isImpersonating === false &&
+    expiredForAdmin.targetUserId === null &&
+    expiredForAdmin.rejected === "invalid_session",
+  "expired session is ignored even for a platform admin"
+);
+
 const otherAdmin = resolveImpersonationTarget({
   caller: flaggedInternalAdmin,
   cookieValue: cookie,
   secret: SECRET,
+  now,
 });
 assert(
   otherAdmin.isImpersonating === false && otherAdmin.rejected === "actor_mismatch",

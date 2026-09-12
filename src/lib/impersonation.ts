@@ -5,8 +5,10 @@ import { getCurrentUserData } from "@/lib/auth-helpers";
 import {
   IMPERSONATION_COOKIE_NAME,
   authorizeImpersonationStart,
+  buildImpersonationSessionPayload,
   canControlImpersonation,
   getImpersonationSecret,
+  impersonationCookieOptions,
   resolveImpersonationTarget,
   signImpersonationSession,
   type CallerIdentity,
@@ -32,13 +34,6 @@ export type ImpersonationView = {
 export type ImpersonationCommandResult =
   | { ok: true; impersonatedUserId: number; impersonatedUserName: string }
   | { ok: false; status: 401 | 403 | 400 | 404; error: string };
-
-const COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
-  path: "/",
-};
 
 const EMPTY_SCOPE: ImpersonationScope = {
   clerkUserId: null,
@@ -86,12 +81,19 @@ export async function resolveRequestImpersonation(): Promise<ImpersonationScope>
     return { ...EMPTY_SCOPE };
   }
 
+  const cookieStore = await cookies();
   const resolved = resolveImpersonationTarget({
     caller: identity,
-    cookieValue:
-      (await cookies()).get(IMPERSONATION_COOKIE_NAME)?.value ?? null,
+    cookieValue: cookieStore.get(IMPERSONATION_COOKIE_NAME)?.value ?? null,
     secret: getImpersonationSecret(),
   });
+
+  if (resolved.rejected === "invalid_session") {
+    cookieStore.set(IMPERSONATION_COOKIE_NAME, "", {
+      ...impersonationCookieOptions(),
+      maxAge: 0,
+    });
+  }
 
   return {
     clerkUserId,
@@ -155,15 +157,14 @@ export async function startImpersonationSession(
   cookieStore.set(
     IMPERSONATION_COOKIE_NAME,
     signImpersonationSession(
-      {
+      buildImpersonationSessionPayload({
         actorClerkUserId: clerkUserId,
         targetUserId: target.id,
         targetUserName,
-        iat: Date.now(),
-      },
+      }),
       getImpersonationSecret()
     ),
-    COOKIE_OPTIONS
+    impersonationCookieOptions()
   );
 
   console.info("[impersonation] start", {
@@ -183,7 +184,7 @@ export async function stopImpersonationSession(): Promise<void> {
   const { clerkUserId } = await loadCallerIdentity();
   const cookieStore = await cookies();
   cookieStore.set(IMPERSONATION_COOKIE_NAME, "", {
-    ...COOKIE_OPTIONS,
+    ...impersonationCookieOptions(),
     maxAge: 0,
   });
 
