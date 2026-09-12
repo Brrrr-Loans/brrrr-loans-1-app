@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient } from "@/lib/supabase-server";
-import {
-  isPlatformAdminIdentity,
-  shouldFallbackToAllDeals,
-} from "@/lib/internal-admin";
+import { resolveRequestImpersonation } from "@/lib/impersonation";
+import { shouldFallbackToAllDeals } from "@/lib/internal-admin";
 import type { Database } from "@/types/database.types";
 
 type DealStatusRow = { status: string };
@@ -40,58 +37,20 @@ async function fetchAllDealStatuses(
 export async function GET(request: Request) {
   try {
     const supabase = createServiceRoleClient();
-    const { userId: clerkUserId } = await auth();
+    const scope = await resolveRequestImpersonation();
 
-    if (!clerkUserId) {
+    if (!scope.clerkUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const url = new URL(request.url);
-    const impersonatedUserIdParam = url.searchParams.get("impersonate_user_id");
-    const clerkOrgIdParam = url.searchParams.get("clerk_org_id");
+    const clerkOrgIdParam = scope.isImpersonating
+      ? null
+      : url.searchParams.get("clerk_org_id");
 
-    const { data: caller } = await supabase
-      .from("auth_clerk_users")
-      .select("id, email, personal_role, is_internal_yn")
-      .eq("clerk_user_id", clerkUserId)
-      .maybeSingle();
-
-    const isCallerAdmin = isPlatformAdminIdentity({
-      clerkUserId,
-      email: caller?.email,
-      personalRole: caller?.personal_role,
-      isInternalYn: caller?.is_internal_yn,
-    });
-
-    let targetUserId: number | null = caller?.id ?? null;
-
-    if (impersonatedUserIdParam) {
-      if (!isCallerAdmin) {
-        return NextResponse.json(
-          { error: "Forbidden - admin only" },
-          { status: 403 }
-        );
-      }
-
-      const parsed = parseInt(impersonatedUserIdParam, 10);
-      if (Number.isNaN(parsed)) {
-        return NextResponse.json([]);
-      }
-
-      const { data: impersonatedUser } = await supabase
-        .from("auth_clerk_users")
-        .select("id")
-        .eq("id", parsed)
-        .maybeSingle();
-
-      if (!impersonatedUser) {
-        return NextResponse.json([]);
-      }
-
-      targetUserId = impersonatedUser.id;
-    }
-
-    const canUseAllDealsFallback = isCallerAdmin && !impersonatedUserIdParam;
+    const isCallerAdmin = scope.isPlatformAdmin;
+    const targetUserId = scope.targetUserId;
+    const canUseAllDealsFallback = isCallerAdmin && !scope.isImpersonating;
     let deals: DealStatusRow[] = [];
 
     if (clerkOrgIdParam) {

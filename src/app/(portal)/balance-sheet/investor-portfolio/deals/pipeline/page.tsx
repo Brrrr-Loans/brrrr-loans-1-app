@@ -43,7 +43,7 @@ function DealPipelineBoard() {
         setError(null);
         const rows = await fetchPortalDeals({
           clerkOrgId,
-          impersonatedUserId,
+          isImpersonating: Boolean(impersonatedUserId),
         });
         setDeals(rows);
       } catch (err) {

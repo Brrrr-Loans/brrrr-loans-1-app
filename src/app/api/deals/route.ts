@@ -1,16 +1,11 @@
 import { NextResponse } from "next/server";
-import { auth, currentUser } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient } from "@/lib/supabase-server";
-import {
-  getCurrentUserData,
-  getUserInvestmentOrgs,
-} from "@/lib/auth-helpers";
+import { getUserInvestmentOrgs } from "@/lib/auth-helpers";
+import { resolveRequestImpersonation } from "@/lib/impersonation";
 import { isInvestmentOrgRole } from "@/lib/deal-access";
-import {
-  isPlatformAdminIdentity,
-  shouldFallbackToAllDeals,
-} from "@/lib/internal-admin";
+import { shouldFallbackToAllDeals } from "@/lib/internal-admin";
 import { wrapDealsForApi, type PortalDeal } from "@/lib/deals-api";
 import type { Database } from "@/types/database.types";
 
@@ -103,70 +98,27 @@ async function userCanViewOrgDeals(
 export async function GET(request: Request) {
   try {
     const supabase = createServiceRoleClient();
-    const { userId: clerkUserId, orgId, orgRole } = await auth();
+    const { orgId, orgRole } = await auth();
+    const scope = await resolveRequestImpersonation();
 
-    if (!clerkUserId) {
+    if (!scope.clerkUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const url = new URL(request.url);
-    const impersonatedUserIdParam = url.searchParams.get("impersonate_user_id");
-    let clerkOrgIdParam = url.searchParams.get("clerk_org_id");
+    let clerkOrgIdParam = scope.isImpersonating
+      ? null
+      : url.searchParams.get("clerk_org_id");
     const status = url.searchParams.get("status");
     const search = url.searchParams.get("search");
     const filters = { status, search };
 
-    const clerk = await currentUser();
-    const { data: caller } = await supabase
-      .from("auth_clerk_users")
-      .select("id, personal_role, is_internal_yn, email")
-      .eq("clerk_user_id", clerkUserId)
-      .maybeSingle();
-
-    const isInternalAdmin = isPlatformAdminIdentity({
-      clerkUserId,
-      email:
-        caller?.email || clerk?.emailAddresses?.[0]?.emailAddress || null,
-      personalRole: caller?.personal_role,
-      isInternalYn: caller?.is_internal_yn,
-    });
-
-    let targetUserId: number | null = null;
-
-    if (impersonatedUserIdParam) {
-      if (!isInternalAdmin) {
-        return NextResponse.json(
-          { error: "Forbidden - admin only" },
-          { status: 403 }
-        );
-      }
-
-      const parsed = parseInt(impersonatedUserIdParam, 10);
-      if (Number.isNaN(parsed)) {
-        return NextResponse.json([]);
-      }
-
-      const { data: impersonatedUser } = await supabase
-        .from("auth_clerk_users")
-        .select("id")
-        .eq("id", parsed)
-        .maybeSingle();
-
-      if (!impersonatedUser) {
-        return NextResponse.json(
-          { error: "Impersonated user not found" },
-          { status: 404 }
-        );
-      }
-
-      targetUserId = impersonatedUser.id;
-    } else {
-      const current = await getCurrentUserData();
-      targetUserId = current?.id ?? caller?.id ?? null;
-    }
+    const isInternalAdmin = scope.isPlatformAdmin;
+    const targetUserId = scope.targetUserId;
+    const isImpersonating = scope.isImpersonating;
 
     if (
-      !impersonatedUserIdParam &&
+      !isImpersonating &&
       targetUserId === null &&
       !clerkOrgIdParam &&
       orgId
@@ -180,11 +132,11 @@ export async function GET(request: Request) {
         sessionOrgId: orgId ?? null,
         sessionOrgRole: orgRole ?? null,
         authClerkUsersId: targetUserId,
-        isInternalAdmin: impersonatedUserIdParam ? false : isInternalAdmin,
+        isInternalAdmin: isImpersonating ? false : isInternalAdmin,
       });
 
       if (!allowed) {
-        if (impersonatedUserIdParam) {
+        if (isImpersonating) {
           return NextResponse.json([]);
         }
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -197,7 +149,7 @@ export async function GET(request: Request) {
         .maybeSingle();
 
       if (!dbOrg) {
-        if (!impersonatedUserIdParam && isInternalAdmin) {
+        if (!isImpersonating && isInternalAdmin) {
           const allDeals = await fetchAllDeals(supabase, filters);
           if (allDeals.error) {
             return NextResponse.json({ error: allDeals.error }, { status: 500 });
@@ -208,7 +160,7 @@ export async function GET(request: Request) {
       }
 
       if (
-        !impersonatedUserIdParam &&
+        !isImpersonating &&
         shouldFallbackToAllDeals({ isInternalAdmin })
       ) {
         const allDeals = await fetchAllDeals(supabase, filters);
@@ -249,7 +201,7 @@ export async function GET(request: Request) {
       return NextResponse.json(data || []);
     }
 
-    if (!impersonatedUserIdParam && isInternalAdmin) {
+    if (!isImpersonating && isInternalAdmin) {
       const allDeals = await fetchAllDeals(supabase, filters);
       if (allDeals.error) {
         return NextResponse.json({ error: allDeals.error }, { status: 500 });
