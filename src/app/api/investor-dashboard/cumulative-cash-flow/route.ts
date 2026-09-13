@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-server";
-import { auth } from "@clerk/nextjs/server";
+import { resolveRequestImpersonation } from "@/lib/impersonation";
 
 /**
  * Get cumulative cash flow data for investor dashboard
@@ -9,53 +9,30 @@ import { auth } from "@clerk/nextjs/server";
 export async function GET(request: Request) {
   try {
     const supabase = createServiceRoleClient();
-    
-    // Get current user
-    const { userId: clerkUserId } = await auth();
-    if (!clerkUserId) {
+    const scope = await resolveRequestImpersonation();
+
+    if (!scope.clerkUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const url = new URL(request.url);
-    const impersonatedUserIdParam = url.searchParams.get("impersonate_user_id");
-    const clerkOrgIdParam = url.searchParams.get("clerk_org_id");
-    
-    let targetUserId: number;
+    const clerkOrgIdParam = scope.isImpersonating
+      ? null
+      : url.searchParams.get("clerk_org_id");
 
-    if (impersonatedUserIdParam) {
-      // Admin is impersonating - verify they're admin first
-      const { data: adminUser } = await supabase
-        .from("auth_clerk_users")
-        .select("id, personal_role")
-        .eq("clerk_user_id", clerkUserId)
-        .single();
-
-      if (!adminUser || adminUser.personal_role !== "admin") {
-        return NextResponse.json({ error: "Forbidden - admin only" }, { status: 403 });
-      }
-
-      targetUserId = parseInt(impersonatedUserIdParam);
-    } else {
-      // Normal flow - use current user
-      const { data: currentUser } = await supabase
-        .from("auth_clerk_users")
-        .select("id")
-        .eq("clerk_user_id", clerkUserId)
-        .single();
-
-      if (!currentUser) {
-        return NextResponse.json({
-          data: [],
-          current_position: 0,
-          total_invested: 0,
-          total_returned: 0,
-        });
-      }
-
-      targetUserId = currentUser.id;
+    const targetUserId = scope.targetUserId;
+    if (targetUserId == null) {
+      return NextResponse.json({
+        data: [],
+        current_position: 0,
+        total_invested: 0,
+        total_returned: 0,
+      });
     }
 
-    console.log(`📊 Fetching cumulative cash flow for user ${targetUserId}, org: ${clerkOrgIdParam || 'none'}, impersonating: ${!!impersonatedUserIdParam}...`);
+    console.log(
+      `📊 Fetching cumulative cash flow for user ${targetUserId}, org: ${clerkOrgIdParam || "none"}, impersonating: ${scope.isImpersonating}, actor: ${scope.actorClerkUserId}...`
+    );
 
     let transactions: Array<{
       id: number;

@@ -9,7 +9,7 @@ import { SlashIcon, Settings, ChevronDown } from "lucide-react";
 import { Separator } from "@/components/ui";
 import { SidebarTrigger } from "@/components/ui";
 import { TeamSwitcherV2 } from "@/components/layout/team-switcher-v2";
-import { useUser } from "@clerk/nextjs";
+import { useImpersonation } from "@/contexts/impersonation-context";
 import {
   getBreadcrumbSegments,
   ROUTES,
@@ -288,18 +288,13 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
   const searchParams = useSearchParams();
   const [showTeamSwitcher, setShowTeamSwitcher] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
-  const { user } = useUser();
+  const { canImpersonate, isLoaded: impersonationLoaded } = useImpersonation();
 
   // Ensure breadcrumbs only render on client to prevent hydration mismatch
   // useSearchParams() can return different values during SSR vs client hydration
   React.useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Check if user is admin
-  const isAdmin =
-    user?.publicMetadata?.role === "admin" ||
-    user?.organizationMemberships?.[0]?.role === "org:admin";
 
   const handleOpenTeamSwitcher = () => {
     setShowTeamSwitcher(true);
@@ -323,7 +318,7 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
             className="w-full max-w-56 xl:max-w-64"
             onOpenTeamSwitcher={handleOpenTeamSwitcher}
           />
-          {isAdmin && <ImpersonationSwitcher />}
+          {impersonationLoaded && canImpersonate && <ImpersonationSwitcher />}
           <PlatformSettingsPopover
             trigger={
               <Button variant="outline" size="icon" className="h-8 w-8">

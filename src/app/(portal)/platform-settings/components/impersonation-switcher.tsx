@@ -29,40 +29,53 @@ interface User {
 
 export function ImpersonationSwitcher() {
   const supabase = useSupabase();
-  const { impersonatedUserId, impersonatedUserName, setImpersonation, clearImpersonation, isImpersonating } =
-    useImpersonation();
+  const {
+    impersonatedUserId,
+    impersonatedUserName,
+    setImpersonation,
+    clearImpersonation,
+    isImpersonating,
+    canImpersonate,
+    isLoaded,
+  } = useImpersonation();
   const [users, setUsers] = useState<User[]>([]);
   const [open, setOpen] = useState(false);
+  const [pending, setPending] = useState(false);
 
   useEffect(() => {
-    if (supabase && open) {
-      loadUsers();
+    if (!supabase || !open || !canImpersonate) return;
+    const client = supabase;
+
+    async function loadUsers(): Promise<void> {
+      const { data } = await client
+        .from("auth_clerk_users")
+        .select("id, full_name, email")
+        .order("full_name");
+      setUsers(data || []);
     }
-  }, [supabase, open]);
 
-  const loadUsers = async () => {
-    if (!supabase) return;
+    void loadUsers();
+  }, [supabase, open, canImpersonate]);
 
-    const { data } = await supabase
-      .from("auth_clerk_users")
-      .select("id, full_name, email")
-      .order("full_name");
+  async function runAndReload(
+    action: () => Promise<void>,
+    failureLabel: string,
+    closePopover = false
+  ): Promise<void> {
+    setPending(true);
+    try {
+      await action();
+      if (closePopover) setOpen(false);
+      window.location.reload();
+    } catch (error) {
+      console.error(failureLabel, error);
+      setPending(false);
+    }
+  }
 
-    setUsers(data || []);
-  };
-
-  const handleSelectUser = (user: User) => {
-    setImpersonation(user.id, user.full_name || user.email || "Unknown");
-    setOpen(false);
-    // Reload the page to fetch data as the impersonated user
-    window.location.reload();
-  };
-
-  const handleClearImpersonation = () => {
-    clearImpersonation();
-    // Reload to go back to own data
-    window.location.reload();
-  };
+  if (!isLoaded || !canImpersonate) {
+    return null;
+  }
 
   return (
     <div className="flex items-center gap-2">
@@ -75,8 +88,14 @@ export function ImpersonationSwitcher() {
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleClearImpersonation}
+            onClick={() =>
+              void runAndReload(
+                clearImpersonation,
+                "Failed to stop impersonation:"
+              )
+            }
             className="h-7 px-2"
+            disabled={pending}
           >
             <X className="h-4 w-4" />
           </Button>
@@ -85,7 +104,7 @@ export function ImpersonationSwitcher() {
 
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2" disabled={pending}>
             <UserCog className="h-4 w-4" />
             {isImpersonating ? "Switch User" : "View As User"}
           </Button>
@@ -100,7 +119,17 @@ export function ImpersonationSwitcher() {
                   <CommandItem
                     key={user.id}
                     value={`${user.full_name} ${user.email}`}
-                    onSelect={() => handleSelectUser(user)}
+                    onSelect={() =>
+                      void runAndReload(
+                        () =>
+                          setImpersonation(
+                            user.id,
+                            user.full_name || user.email || "Unknown"
+                          ),
+                        "Failed to start impersonation:",
+                        true
+                      )
+                    }
                   >
                     <Check
                       className={cn(
@@ -122,4 +151,3 @@ export function ImpersonationSwitcher() {
     </div>
   );
 }
-

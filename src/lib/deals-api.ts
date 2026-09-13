@@ -73,34 +73,46 @@ export function wrapDealsForApi(
   return deals.map((deal) => ({ deal_id: deal.id, deal }));
 }
 
-export async function fetchPortalDeals(options: {
+export type PortalDealQueryOptions = {
   clerkOrgId?: string | null;
-  impersonatedUserId?: number | null;
-}): Promise<PortalDeal[]> {
+  isImpersonating?: boolean;
+};
+
+/** Org filter only — never an identity override, never impersonate_user_id. */
+export function buildPortalQuery(
+  options: PortalDealQueryOptions
+): URLSearchParams {
   const params = new URLSearchParams();
-  // When impersonating, show the target user's full deal set. The org switcher
-  // is the admin's Clerk org, not the impersonated user's; sending clerk_org_id
-  // would filter (or return []) against the wrong organization, while Analytics
-  // still shows the full portfolio.
-  if (options.impersonatedUserId) {
-    params.set("impersonate_user_id", String(options.impersonatedUserId));
-  } else if (options.clerkOrgId) {
+  if (!options.isImpersonating && options.clerkOrgId) {
     params.set("clerk_org_id", options.clerkOrgId);
   }
+  return params;
+}
 
+function dealsApiErrorMessage(payload: unknown, status: number): string {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "error" in payload &&
+    typeof (payload as { error: unknown }).error === "string"
+  ) {
+    return (payload as { error: string }).error;
+  }
+  return `Failed to load deals (${status})`;
+}
+
+export async function fetchPortalDeals(
+  options: PortalDealQueryOptions
+): Promise<PortalDeal[]> {
+  // Impersonation is a server cookie. Clients only skip the admin's org filter
+  // so the API can return the impersonated user's full deal set.
+  const params = buildPortalQuery(options);
   const query = params.toString();
   const response = await fetch(`/api/deals${query ? `?${query}` : ""}`);
   const payload: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const message =
-      payload &&
-      typeof payload === "object" &&
-      "error" in payload &&
-      typeof (payload as { error: unknown }).error === "string"
-        ? (payload as { error: string }).error
-        : `Failed to load deals (${response.status})`;
-    throw new Error(message);
+    throw new Error(dealsApiErrorMessage(payload, response.status));
   }
 
   return unwrapApiDeals(payload);

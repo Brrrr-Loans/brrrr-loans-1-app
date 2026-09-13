@@ -1,37 +1,24 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-server";
-import { auth } from "@clerk/nextjs/server";
+import { resolveRequestImpersonation } from "@/lib/impersonation";
 
 export async function GET(request: Request) {
   try {
     const supabase = createServiceRoleClient();
-    const { userId: clerkUserId } = await auth();
-    
-    if (!clerkUserId) {
+    const scope = await resolveRequestImpersonation();
+
+    if (!scope.clerkUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const url = new URL(request.url);
-    const impersonatedUserIdParam = url.searchParams.get("impersonate_user_id");
-    const clerkOrgIdParam = url.searchParams.get("clerk_org_id");
-    
-    // Get target user ID (for impersonation or current user)
-    let targetUserId: number;
+    const clerkOrgIdParam = scope.isImpersonating
+      ? null
+      : url.searchParams.get("clerk_org_id");
 
-    if (impersonatedUserIdParam) {
-      targetUserId = parseInt(impersonatedUserIdParam);
-    } else {
-      const { data: currentUser } = await supabase
-        .from("auth_clerk_users")
-        .select("id")
-        .eq("clerk_user_id", clerkUserId)
-        .single();
-
-      if (!currentUser) {
-        return NextResponse.json([]);
-      }
-
-      targetUserId = currentUser.id;
+    const targetUserId = scope.targetUserId;
+    if (targetUserId == null) {
+      return NextResponse.json([]);
     }
 
     let contributions: Array<{

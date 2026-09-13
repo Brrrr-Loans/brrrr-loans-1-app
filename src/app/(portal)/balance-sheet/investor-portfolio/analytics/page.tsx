@@ -49,13 +49,9 @@ export default function InvestorDashboard() {
         setIsLoading(true);
         setError(null);
 
-        // Build query params for impersonation and org filtering
-        // When impersonating, don't apply org filter - show all impersonated user's data
+        // Impersonation is a server session; skip the admin org filter while viewing as a user.
         const params = new URLSearchParams();
-        if (impersonatedUserId) {
-          params.set("impersonate_user_id", String(impersonatedUserId));
-        } else if (clerkOrgId) {
-          // Only apply org filter when NOT impersonating
+        if (!impersonatedUserId && clerkOrgId) {
           params.set("clerk_org_id", String(clerkOrgId));
         }
         const queryString = params.toString();

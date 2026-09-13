@@ -56,7 +56,7 @@ export function SectionCards() {
       const loadFromApi = async () => {
         const apiDeals: PortalDeal[] = await fetchPortalDeals({
           clerkOrgId,
-          impersonatedUserId,
+          isImpersonating: Boolean(impersonatedUserId),
         });
         setMetrics(metricsFromDeals(apiDeals));
       };

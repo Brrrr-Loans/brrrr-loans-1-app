@@ -1,38 +1,28 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { createServiceRoleClient } from "@/lib/supabase-server";
 import type { Tables } from "@/types/supabase";
-import {
-  getCurrentUserData,
-  getUserInvestmentOrgs,
-} from "@/lib/auth-helpers";
+import { getUserInvestmentOrgs } from "@/lib/auth-helpers";
+import { resolveRequestImpersonation } from "@/lib/impersonation";
 
 export async function GET(request: Request) {
   try {
     const supabase = createServiceRoleClient();
-    const { userId: clerkUserId } = await auth();
+    const scope = await resolveRequestImpersonation();
 
-    if (!clerkUserId) {
+    if (!scope.clerkUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const url = new URL(request.url);
-    const impersonatedUserIdParam = url.searchParams.get("impersonate_user_id");
-    const clerkOrgIdParam = url.searchParams.get("clerk_org_id");
+    const clerkOrgIdParam = scope.isImpersonating
+      ? null
+      : url.searchParams.get("clerk_org_id");
     const search = url.searchParams.get("search") ?? "";
     const period = url.searchParams.get("period") ?? "all";
 
-    // Get target user ID (for impersonation or current user)
-    let targetUserId: number;
-
-    if (impersonatedUserIdParam) {
-      targetUserId = parseInt(impersonatedUserIdParam);
-    } else {
-      const currentUser = await getCurrentUserData();
-      if (!currentUser) {
-        return NextResponse.json([]);
-      }
-      targetUserId = currentUser.id;
+    const targetUserId = scope.targetUserId;
+    if (targetUserId == null) {
+      return NextResponse.json([]);
     }
 
     // Calculate date filter

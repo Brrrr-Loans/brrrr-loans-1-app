@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-server";
-import { auth } from "@clerk/nextjs/server";
+import { resolveRequestImpersonation } from "@/lib/impersonation";
 
 interface DealDocumentResult {
   id: number;
@@ -14,73 +14,35 @@ interface DealDocumentResult {
   deal_names: string[];
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
     const supabase = createServiceRoleClient();
-    const { userId: clerkUserId } = await auth();
+    const scope = await resolveRequestImpersonation();
 
-    if (!clerkUserId) {
+    if (!scope.clerkUserId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const url = new URL(request.url);
-    const impersonatedUserIdParam = url.searchParams.get("impersonate_user_id");
-
-    // Get target user ID (for impersonation or current user)
-    let targetUserId: number;
-    let targetClerkUserId: string;
-
-    if (impersonatedUserIdParam) {
-      // Verify the requesting user is an admin
-      const { data: adminUser } = await supabase
-        .from("auth_clerk_users")
-        .select("id, personal_role")
-        .eq("clerk_user_id", clerkUserId)
-        .single();
-
-      if (!adminUser || adminUser.personal_role !== "admin") {
-        return NextResponse.json(
-          { error: "Forbidden - admin only" },
-          { status: 403 },
-        );
-      }
-
-      // Get the impersonated user's details
-      const { data: impersonatedUser } = await supabase
-        .from("auth_clerk_users")
-        .select("id, clerk_user_id")
-        .eq("id", parseInt(impersonatedUserIdParam))
-        .single();
-
-      if (!impersonatedUser || !impersonatedUser.clerk_user_id) {
-        return NextResponse.json(
-          { error: "Impersonated user not found" },
-          { status: 404 },
-        );
-      }
-
-      targetUserId = impersonatedUser.id;
-      targetClerkUserId = impersonatedUser.clerk_user_id;
-    } else {
-      // Normal user - get their own info
-      const { data: currentUser } = await supabase
-        .from("auth_clerk_users")
-        .select("id, clerk_user_id, personal_role")
-        .eq("clerk_user_id", clerkUserId)
-        .single();
-
-      if (!currentUser) {
-        return NextResponse.json([]);
-      }
-
-      targetUserId = currentUser.id;
-      targetClerkUserId = currentUser.clerk_user_id || clerkUserId;
-
-      // If admin and not impersonating, show ALL documents (existing behavior)
-      if (currentUser.personal_role === "admin") {
-        return await fetchAllDocuments(supabase);
-      }
+    if (scope.isPlatformAdmin && !scope.isImpersonating) {
+      return await fetchAllDocuments(supabase);
     }
+
+    const targetUserId = scope.targetUserId;
+    if (targetUserId == null) {
+      return NextResponse.json([]);
+    }
+
+    const { data: targetUser } = await supabase
+      .from("auth_clerk_users")
+      .select("id, clerk_user_id")
+      .eq("id", targetUserId)
+      .maybeSingle();
+
+    if (!targetUser) {
+      return NextResponse.json([]);
+    }
+
+    const targetClerkUserId = targetUser.clerk_user_id || scope.clerkUserId;
 
     // For non-admin users (or when impersonating), filter by user access
     return await fetchDocumentsForUser(

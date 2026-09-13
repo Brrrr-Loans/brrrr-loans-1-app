@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types scripts/verify-deal-access.mjs && node --experimental-strip-types scripts/verify-impersonation.mjs",
+    "test:impersonation": "node --experimental-strip-types scripts/verify-impersonation.mjs",
     "test:e2e": "npx playwright install --with-deps && npx playwright test"
   },
   "dependencies": {

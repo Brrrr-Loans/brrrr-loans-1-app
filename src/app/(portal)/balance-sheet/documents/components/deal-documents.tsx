@@ -114,14 +114,7 @@ export function DealDocuments() {
     async (signal?: AbortSignal) => {
       setLoading(true);
       try {
-        // Build API URL with impersonation parameter if active
-        const params = new URLSearchParams();
-        if (impersonatedUserId) {
-          params.set("impersonate_user_id", impersonatedUserId.toString());
-        }
-
-        const queryString = params.toString();
-        const url = `/api/documents/deal${queryString ? `?${queryString}` : ""}`;
+        const url = "/api/documents/deal";
 
         const response = await fetch(url, { signal });
         if (!response.ok) {

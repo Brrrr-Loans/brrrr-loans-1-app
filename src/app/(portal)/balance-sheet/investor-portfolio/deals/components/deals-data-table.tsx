@@ -505,7 +505,7 @@ export function DealsDataTable() {
     async function loadFromApi() {
       const apiDeals = await fetchPortalDeals({
         clerkOrgId,
-        impersonatedUserId,
+        isImpersonating: Boolean(impersonatedUserId),
       });
       setData(apiDeals.map(dealFromApi));
     }
