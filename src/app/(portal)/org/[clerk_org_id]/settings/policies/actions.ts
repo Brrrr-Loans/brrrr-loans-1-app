@@ -38,6 +38,7 @@ import {
 import {
   assertPolicyMutable,
   fanOutResourceActions,
+  filterActionsForResourceType,
   orgPoliciesListOrFilter,
   type PolicyMutationSubject,
 } from "@/lib/policies/policy-mutation";
@@ -124,48 +125,121 @@ function normalizeRole(value?: string) {
   return trimmed.toLowerCase().replace(/^org:/, "");
 }
 
-function deriveLegacyScope(definition: PolicyDefinitionInput): PolicyScope {
-  const sc = definition.scopeConditions ?? [];
-  if (sc.length === 0) return definition.scope || "all";
+function isPositiveScopeOperator(operator: string): boolean {
+  return operator === "=" || operator === "is";
+}
 
-  const hasOrgEquals = sc.some(
-    (c) => c.column === "org_id" && c.operator === "="
+function scopeColumnName(column: string): string {
+  const dot = column.lastIndexOf(".");
+  return dot === -1 ? column : column.slice(dot + 1);
+}
+
+function matchesPositiveScope(
+  condition: { column: string; operator: string; reference: string },
+  columns: readonly string[],
+  references: readonly string[]
+): boolean {
+  if (!isPositiveScopeOperator(condition.operator)) return false;
+  if (references.includes(condition.reference)) return true;
+  return columns.includes(scopeColumnName(condition.column));
+}
+
+function deriveLegacyScope(definition: PolicyDefinitionInput): PolicyScope {
+  const scopeConditions = definition.scopeConditions ?? [];
+  if (scopeConditions.length === 0) return definition.scope || "all";
+
+  const hasOrgEquals = scopeConditions.some((condition) =>
+    matchesPositiveScope(condition, ["org_id"], ["active_org"])
   );
-  const hasUserEquals = sc.some(
-    (c) =>
-      (c.column === "created_by" || c.column === "user_id") &&
-      c.operator === "="
+  const hasUserEquals = scopeConditions.some((condition) =>
+    matchesPositiveScope(
+      condition,
+      ["created_by", "user_id"],
+      ["current_user_clerk", "current_user_pk"]
+    )
   );
 
   if (hasOrgEquals && hasUserEquals) return "org_and_user";
   if (hasOrgEquals) return "org_records";
   if (hasUserEquals) return "user_records";
-  return "all";
+  return definition.scope || "all";
 }
 
 type CompiledCondition = { field: string; operator: string; values: string[] };
+type CompiledConditionGroup = {
+  connector: "AND" | "OR";
+  conditions: CompiledCondition[];
+};
+
+function isFilledCondition<T extends { values?: string[] }>(
+  condition: T
+): condition is T & { values: string[] } {
+  return Array.isArray(condition.values) && condition.values.length > 0;
+}
+
+function filledConditions(
+  conditions: PolicyDefinitionInput["conditions"] | undefined
+): CompiledCondition[] {
+  return (conditions ?? []).filter(isFilledCondition).map((condition) => ({
+    field: condition.field,
+    operator: condition.operator,
+    values: condition.values,
+  }));
+}
+
+function compiledConditions(
+  conditions: PolicyDefinitionInput["conditions"] | undefined
+): CompiledCondition[] {
+  return filledConditions(conditions).map((condition) => ({
+    field: condition.field,
+    operator: condition.operator,
+    values: condition.values.map((value) => value.toLowerCase()),
+  }));
+}
+
+function filledConditionGroups(
+  groups: PolicyDefinitionInput["conditionGroups"]
+): CompiledConditionGroup[] {
+  return (groups ?? [])
+    .map((group) => ({
+      connector: group.connector,
+      conditions: filledConditions(group.conditions),
+    }))
+    .filter((group) => group.conditions.length > 0);
+}
+
+function compiledConditionGroups(
+  groups: PolicyDefinitionInput["conditionGroups"]
+): CompiledConditionGroup[] {
+  return (groups ?? [])
+    .map((group) => ({
+      connector: group.connector,
+      conditions: compiledConditions(group.conditions),
+    }))
+    .filter((group) => group.conditions.length > 0);
+}
+
+function compiledHasRequiredConditions(compiled: {
+  allow_internal_users: boolean;
+  conditions: CompiledCondition[];
+  condition_groups?: CompiledConditionGroup[];
+}): boolean {
+  if (compiled.allow_internal_users) return true;
+  if (compiled.conditions.length > 0) return true;
+  return (compiled.condition_groups ?? []).some(
+    (group) => group.conditions.length > 0
+  );
+}
 
 function compilePolicy(definition: PolicyDefinitionInput): {
   allow_internal_users: boolean;
   conditions: CompiledCondition[];
+  condition_groups?: CompiledConditionGroup[];
   [key: string]: unknown;
 } {
   const legacyScope = deriveLegacyScope(definition);
-  const conditions = (definition.conditions ?? []).map((c) => ({
-    field: c.field,
-    operator: c.operator,
-    values: c.values.map((v) => v.toLowerCase()),
-  }));
-  const conditionGroups = (definition.conditionGroups ?? [])
-    .filter((g) => g.conditions.length > 0)
-    .map((g) => ({
-      connector: g.connector,
-      conditions: g.conditions.map((c) => ({
-        field: c.field,
-        operator: c.operator,
-        values: c.values.map((v) => v.toLowerCase()),
-      })),
-    }));
+  const conditions = compiledConditions(definition.conditions);
+  const conditionGroups = compiledConditionGroups(definition.conditionGroups);
   const scopeConditions = (definition.scopeConditions ?? []).map((c) => ({
     column: c.column,
     operator: c.operator,
@@ -220,25 +294,12 @@ function compilePolicy(definition: PolicyDefinitionInput): {
 
 function buildDefinition(definition: PolicyDefinitionInput) {
   const namedScopes = definition.namedScopeConditions ?? [];
-  const conditionGroups = (definition.conditionGroups ?? [])
-    .filter((g) => g.conditions.length > 0)
-    .map((g) => ({
-      connector: g.connector,
-      conditions: g.conditions.map((c) => ({
-        field: c.field,
-        operator: c.operator,
-        values: c.values,
-      })),
-    }));
+  const conditionGroups = filledConditionGroups(definition.conditionGroups);
   const base: Record<string, unknown> = {
     version: 3,
     effect: definition.effect || "ALLOW",
     allow_internal_users: !!definition.allowInternalUsers,
-    conditions: (definition.conditions ?? []).map((c) => ({
-      field: c.field,
-      operator: c.operator,
-      values: c.values,
-    })),
+    conditions: filledConditions(definition.conditions),
     connector: definition.connector || "AND",
     scope: deriveLegacyScope(definition),
     scope_conditions: (definition.scopeConditions ?? []).map((c) => ({
@@ -339,10 +400,7 @@ export async function saveOrgPolicy(
   const compiledConfig = compilePolicy(input.definition);
   const definitionJson = buildDefinition(input.definition);
 
-  if (
-    !compiledConfig.allow_internal_users &&
-    (!compiledConfig.conditions || compiledConfig.conditions.length === 0)
-  ) {
+  if (!compiledHasRequiredConditions(compiledConfig)) {
     throw new Error(
       "At least one condition or internal-user allowance is required."
     );
@@ -370,11 +428,21 @@ export async function saveOrgPolicy(
     }
   }
 
+  const actions = filterActionsForResourceType(
+    input.resourceType,
+    input.actions
+  );
+  if (actions.length === 0) {
+    throw new Error(
+      "None of the selected permissions apply to this resource type."
+    );
+  }
+
   const fanOut = fanOutResourceActions(
     orgPk,
     input.resourceType,
     input.resourceName || "*",
-    input.actions
+    actions
   );
 
   const rows = await Promise.all(
@@ -401,6 +469,8 @@ export async function saveOrgPolicy(
         version: (existing?.version ?? 0) + 1,
         is_active: true,
         created_by_clerk_sub: userId,
+        archived_at: null,
+        archived_by: null,
       };
     })
   );
@@ -465,10 +535,7 @@ export async function updateOrgPolicy(input: {
   const compiledConfig = compilePolicy(input.definition);
   const definitionJson = buildDefinition(input.definition);
 
-  if (
-    !compiledConfig.allow_internal_users &&
-    (!compiledConfig.conditions || compiledConfig.conditions.length === 0)
-  ) {
+  if (!compiledHasRequiredConditions(compiledConfig)) {
     throw new Error(
       "At least one condition or internal-user allowance is required."
     );

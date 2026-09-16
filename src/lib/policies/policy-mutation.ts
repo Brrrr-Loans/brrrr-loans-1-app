@@ -51,6 +51,60 @@ export const V1_RESOURCE_TYPES: PolicyResourceType[] = [
 
 export const API_KEY_ACTIONS: PolicyAction[] = ["read", "write"];
 
+export const LIVEBLOCKS_ACTIONS: PolicyAction[] = [
+  "room_write",
+  "room_read",
+  "room_presence_write",
+  "room_private",
+];
+
+export const FEATURE_ACTIONS: PolicyAction[] = [
+  "submit",
+  "view",
+  "insert",
+  "update",
+  "delete",
+];
+
+const ROUTE_ACTIONS: readonly PolicyAction[] = [
+  "view",
+  "submit",
+  ...DEFAULT_TABLE_ACTIONS,
+];
+
+const TABLE_AND_STORAGE_ACTIONS: readonly PolicyAction[] = [
+  ...DEFAULT_TABLE_ACTIONS,
+  "all",
+];
+
+/** Actions the engine and UI treat as valid for a given resource type. */
+export function allowedActionsForResourceType(
+  resourceType: PolicyResourceType
+): readonly PolicyAction[] {
+  switch (resourceType) {
+    case "api_key":
+      return API_KEY_ACTIONS;
+    case "liveblocks":
+      return LIVEBLOCKS_ACTIONS;
+    case "feature":
+      return FEATURE_ACTIONS;
+    case "route":
+      return ROUTE_ACTIONS;
+    default:
+      return TABLE_AND_STORAGE_ACTIONS;
+  }
+}
+
+export function filterActionsForResourceType(
+  resourceType: PolicyResourceType,
+  actions: readonly PolicyAction[]
+): PolicyAction[] {
+  const allowed = new Set<PolicyAction>(
+    allowedActionsForResourceType(resourceType)
+  );
+  return actions.filter((action) => allowed.has(action));
+}
+
 /** Supabase `.or()` filter: org-owned rows plus inherited globals. */
 export function orgPoliciesListOrFilter(orgPk: number): string {
   return `org_id.eq.${orgPk},org_id.is.null`;

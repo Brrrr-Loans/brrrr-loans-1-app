@@ -125,6 +125,7 @@ import { cn } from "@/lib/utils";
 import { PolicyDiagramView } from "@/components/policies/policy-diagram-view";
 import {
   canMutatePolicy,
+  filterActionsForResourceType,
   isGlobalPolicy,
   isMultiRulePolicy as isMultiRuleSubject,
   isProtectedPolicy as isProtectedSubject,
@@ -225,6 +226,17 @@ function scopeConditionsToLegacyScope(conditions: ScopeConditionState[]): Policy
   if (hasOrg) return "org_records";
   if (hasUser) return "user_records";
   return "all";
+}
+
+function parseResourceSelection(resource: string): {
+  resourceType: ResourceType;
+  resourceName: string;
+} {
+  const colonIdx = resource.indexOf(":");
+  return {
+    resourceType: resource.substring(0, colonIdx) as ResourceType,
+    resourceName: resource.substring(colonIdx + 1),
+  };
 }
 
 function legacyScopeToConditions(scope: PolicyScope): ScopeConditionState[] {
@@ -1489,6 +1501,14 @@ export default function OrgPolicyBuilder({
       return;
     }
 
+    if (
+      !editingPolicyId &&
+      (selectedResources.length === 0 || selectedActions.length === 0)
+    ) {
+      setError("Select at least one resource and permission.");
+      return;
+    }
+
     startTransition(async () => {
       try {
         const conditionInputs: ConditionInput[] = conditions.map((c) => ({
@@ -1546,31 +1566,48 @@ export default function OrgPolicyBuilder({
             );
             return;
           }
-          const res = selectedResources[0] ?? "table:*";
-          const colonIdx = res.indexOf(":");
-          const resType = res.substring(0, colonIdx) as ResourceType;
-          const resName = res.substring(colonIdx + 1);
+          const { resourceType, resourceName } = parseResourceSelection(
+            selectedResources[0] ?? "table:*"
+          );
 
           await updateOrgPolicy({
             id: editingPolicyId,
             definition,
             action: (selectedActions[0] ?? "select") as PolicyAction,
-            resourceType: resType,
-            resourceName: resName,
+            resourceType,
+            resourceName,
           });
 
           router.refresh();
           resetForm();
         } else {
+          const payloads: Array<{
+            resourceType: ResourceType;
+            resourceName: string;
+            actions: PolicyAction[];
+          }> = [];
           for (const resource of selectedResources) {
-            const colonIdx = resource.indexOf(":");
-            const resourceType = resource.substring(0, colonIdx) as ResourceType;
-            const resourceName = resource.substring(colonIdx + 1);
-
-            await saveOrgPolicy({
+            const { resourceType, resourceName } =
+              parseResourceSelection(resource);
+            const actions = filterActionsForResourceType(
               resourceType,
-              resourceName: resourceName === "*" ? undefined : resourceName,
-              actions: selectedActions as PolicyAction[],
+              selectedActions as PolicyAction[]
+            );
+            if (actions.length === 0) {
+              setError(
+                "Selected permissions do not apply to every chosen resource."
+              );
+              return;
+            }
+            payloads.push({ resourceType, resourceName, actions });
+          }
+
+          for (const payload of payloads) {
+            await saveOrgPolicy({
+              resourceType: payload.resourceType,
+              resourceName:
+                payload.resourceName === "*" ? undefined : payload.resourceName,
+              actions: payload.actions,
               definition,
             });
           }

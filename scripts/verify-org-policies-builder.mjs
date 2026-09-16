@@ -4,6 +4,7 @@ import {
   canMutatePolicy,
   fanOutResourceActions,
   fanOutResourcesActions,
+  filterActionsForResourceType,
   isGlobalPolicy,
   isMultiRulePolicy,
   isProtectedPolicy,
@@ -183,5 +184,21 @@ assertEqual(
 );
 
 assertEqual(API_KEY_ACTIONS, ["read", "write"], "api_key actions persist as read/write");
+
+assertEqual(
+  filterActionsForResourceType("table", ["select", "read", "write", "insert"]),
+  ["select", "insert"],
+  "table policies drop api_key verbs"
+);
+assertEqual(
+  filterActionsForResourceType("api_key", ["select", "read", "write", "insert"]),
+  ["read", "write"],
+  "api_key policies drop table verbs"
+);
+assertEqual(
+  filterActionsForResourceType("liveblocks", ["room_write", "select", "read"]),
+  ["room_write"],
+  "liveblocks policies drop foreign verbs"
+);
 
 console.log("verify-org-policies-builder: all assertions passed");
