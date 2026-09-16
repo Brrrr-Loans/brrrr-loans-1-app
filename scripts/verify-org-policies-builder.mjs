@@ -1,16 +1,28 @@
 import {
   API_KEY_ACTIONS,
+  POLICY_UPSERT_RESTORE_FIELDS,
   V1_RESOURCE_TYPES,
+  assertCreateSelection,
   canMutatePolicy,
+  deriveLegacyScope,
   fanOutResourceActions,
   fanOutResourcesActions,
+  filterActionsForResourceType,
+  hasValidPolicyConditions,
   isGlobalPolicy,
   isMultiRulePolicy,
   isProtectedPolicy,
   orgPoliciesListOrFilter,
   policyFanOutKey,
   policyMutationBlockReason,
+  sanitizePolicyConditions,
 } from "../src/lib/policies/policy-mutation.ts";
+import {
+  CLERK_SUPABASE_JWT_REJECTED_MESSAGE,
+  isPostgrestCoerceError,
+  orgNotSyncedMessage,
+  resolveAuthClerkOrgPk,
+} from "../src/lib/org-lookup.ts";
 
 function assert(condition, message) {
   if (!condition) {
@@ -57,10 +69,9 @@ assertEqual(
   [
     "42|table|deal|select",
     "42|table|deal|update",
-    "42|feature|settings_policies|select",
     "42|feature|settings_policies|update",
   ],
-  "duplicate resources × actions fan out uniquely"
+  "duplicate resources × actions fan out uniquely and drop verbs invalid for the type"
 );
 
 const wildcardName = fanOutResourceActions(7, "route", "", ["view"]);
@@ -73,8 +84,37 @@ assertEqual(
 const defaultActions = fanOutResourceActions(1, "table", "deal", []);
 assertEqual(
   defaultActions.map((row) => row.action),
-  ["select", "insert", "update", "delete"],
-  "empty action list defaults to table CRUD"
+  [],
+  "empty action list writes nothing — create requires an explicit action"
+);
+
+const mixedFanOut = fanOutResourcesActions(
+  42,
+  [
+    { resourceType: "table", resourceName: "deal" },
+    { resourceType: "api_key", resourceName: "deals" },
+  ],
+  ["read", "write", "select"]
+);
+assertEqual(
+  mixedFanOut.map(policyFanOutKey),
+  [
+    "42|table|deal|select",
+    "42|api_key|deals|read",
+    "42|api_key|deals|write",
+  ],
+  "mixed resources only receive actions allowed for each type"
+);
+
+assertEqual(
+  filterActionsForResourceType("table", ["read", "write", "select"]),
+  ["select"],
+  "read/write are not applied to tables"
+);
+assertEqual(
+  filterActionsForResourceType("api_key", ["select", "read"]),
+  ["read"],
+  "table CRUD is not applied to api_key resources"
 );
 
 // ---------------------------------------------------------------------------
@@ -183,5 +223,216 @@ assertEqual(
 );
 
 assertEqual(API_KEY_ACTIONS, ["read", "write"], "api_key actions persist as read/write");
+
+// ---------------------------------------------------------------------------
+// Archived recreate restores visibility
+// ---------------------------------------------------------------------------
+
+assertEqual(
+  POLICY_UPSERT_RESTORE_FIELDS,
+  { archived_at: null, archived_by: null, is_active: true },
+  "upsert restore fields clear archived_at and restore visibility"
+);
+
+// ---------------------------------------------------------------------------
+// Condition groups count; leftover empty org_role rows are dropped
+// ---------------------------------------------------------------------------
+
+assert(
+  hasValidPolicyConditions({
+    conditions: [{ field: "org_role", operator: "is", values: [] }],
+    conditionGroups: [
+      {
+        connector: "OR",
+        conditions: [{ field: "org_role", operator: "is", values: ["admin"] }],
+      },
+    ],
+  }) === true,
+  "nested condition groups count as valid conditions"
+);
+
+assert(
+  hasValidPolicyConditions({
+    conditions: [{ field: "org_role", operator: "is", values: [] }],
+    conditionGroups: [
+      {
+        connector: "OR",
+        conditions: [{ field: "org_role", operator: "is", values: [] }],
+      },
+    ],
+  }) === false,
+  "empty leftover org_role rows are not valid conditions"
+);
+
+const sanitized = sanitizePolicyConditions({
+  conditions: [
+    { field: "org_role", operator: "is", values: [] },
+    { field: "org_role", operator: "is", values: ["member"] },
+  ],
+  conditionGroups: [
+    {
+      connector: "OR",
+      conditions: [{ field: "org_role", operator: "is", values: [] }],
+    },
+    {
+      connector: "AND",
+      conditions: [{ field: "org_type", operator: "is", values: ["internal"] }],
+    },
+  ],
+});
+assertEqual(
+  sanitized.conditions,
+  [{ field: "org_role", operator: "is", values: ["member"] }],
+  "sanitize drops empty leftover org_role conditions"
+);
+assertEqual(
+  sanitized.conditionGroups,
+  [
+    {
+      connector: "AND",
+      conditions: [{ field: "org_type", operator: "is", values: ["internal"] }],
+    },
+  ],
+  "sanitize drops empty leftover org_role groups"
+);
+
+// ---------------------------------------------------------------------------
+// WHERE operators + qualified columns compile to org/user scope
+// ---------------------------------------------------------------------------
+
+assertEqual(
+  deriveLegacyScope({
+    scopeConditions: [
+      { column: "deal.org_id", operator: "is", reference: "active_org" },
+    ],
+  }),
+  "org_records",
+  "qualified org_id + is compiles to org_records"
+);
+assertEqual(
+  deriveLegacyScope({
+    scopeConditions: [
+      { column: "created_by", operator: "is", reference: "current_user_clerk" },
+    ],
+  }),
+  "user_records",
+  "created_by + is compiles to user_records"
+);
+assertEqual(
+  deriveLegacyScope({
+    scopeConditions: [
+      { column: "documents.clerk_org_id", operator: "eq", reference: "active_org" },
+      { column: "documents.uploaded_by", operator: "=", reference: "current_user_pk" },
+    ],
+  }),
+  "org_and_user",
+  "org + user equality operators compile to org_and_user"
+);
+assertEqual(
+  deriveLegacyScope({
+    scopeConditions: [
+      { column: "deal.org_id", operator: "is_not", reference: "active_org" },
+    ],
+  }),
+  "all",
+  "non-equality WHERE operators do not become org_records"
+);
+
+// ---------------------------------------------------------------------------
+// Empty create never succeeds
+// ---------------------------------------------------------------------------
+
+let emptyCreateError = "";
+try {
+  assertCreateSelection([], ["select"]);
+} catch (error) {
+  emptyCreateError = error instanceof Error ? error.message : String(error);
+}
+assert(
+  emptyCreateError.includes("resource"),
+  "empty create without resources is rejected"
+);
+
+let emptyActionError = "";
+try {
+  assertCreateSelection([{ resourceType: "table", resourceName: "deal" }], []);
+} catch (error) {
+  emptyActionError = error instanceof Error ? error.message : String(error);
+}
+assert(
+  emptyActionError.includes("action"),
+  "empty create without actions is rejected"
+);
+
+// ---------------------------------------------------------------------------
+// Org lookup / auth error mapping
+// ---------------------------------------------------------------------------
+
+let jwtError = "";
+try {
+  resolveAuthClerkOrgPk({
+    clerkOrgId: "org_36SzeYzil2XqjLza1TKcLLEkQ8O",
+    data: null,
+    error: { status: 401, message: "JWT expired" },
+  });
+} catch (error) {
+  jwtError = error instanceof Error ? error.message : String(error);
+}
+assertEqual(
+  jwtError,
+  CLERK_SUPABASE_JWT_REJECTED_MESSAGE,
+  "401/JWT maps to Clerk↔Supabase token rejection"
+);
+
+let coerceError = "";
+try {
+  resolveAuthClerkOrgPk({
+    clerkOrgId: "org_36SzeYzil2XqjLza1TKcLLEkQ8O",
+    data: null,
+    error: {
+      code: "PGRST116",
+      message: "Cannot coerce the result to a single JSON object",
+    },
+  });
+} catch (error) {
+  coerceError = error instanceof Error ? error.message : String(error);
+}
+assertEqual(
+  coerceError,
+  orgNotSyncedMessage("org_36SzeYzil2XqjLza1TKcLLEkQ8O"),
+  "PGRST116 / 0-row coerce maps to unsynced org, not PostgREST gibberish"
+);
+
+let missingRowError = "";
+try {
+  resolveAuthClerkOrgPk({
+    clerkOrgId: "org_missing",
+    data: null,
+    error: null,
+  });
+} catch (error) {
+  missingRowError = error instanceof Error ? error.message : String(error);
+}
+assert(
+  missingRowError.includes("auth_clerk_orgs"),
+  "null maybeSingle row maps to org not synced"
+);
+
+assert(
+  isPostgrestCoerceError({
+    message: "Cannot coerce the result to a single JSON object",
+  }) === true,
+  "coerce detector matches Aaron's permissions error"
+);
+
+assertEqual(
+  resolveAuthClerkOrgPk({
+    clerkOrgId: "org_ok",
+    data: { id: 12 },
+    error: null,
+  }),
+  12,
+  "maybeSingle org row resolves to numeric pk"
+);
 
 console.log("verify-org-policies-builder: all assertions passed");

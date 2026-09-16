@@ -24,7 +24,6 @@ import type {
   ResourceType,
   PolicyAction,
   OrgPolicyRow,
-  PolicyScope,
   NamedScopeRow,
   DealRoleTypeRow,
 } from "./constants";
@@ -36,11 +35,20 @@ import {
   type IntegrationFeatureResource,
 } from "./constants";
 import {
+  assertCreateSelection,
   assertPolicyMutable,
+  deriveLegacyScope,
   fanOutResourceActions,
+  hasValidPolicyConditions,
   orgPoliciesListOrFilter,
+  sanitizePolicyConditions,
+  POLICY_UPSERT_RESTORE_FIELDS,
   type PolicyMutationSubject,
 } from "@/lib/policies/policy-mutation";
+import {
+  resolveAuthClerkOrgPk,
+  throwMappedSupabaseError,
+} from "@/lib/org-lookup";
 
 type SavePolicyInput = {
   resourceType: ResourceType;
@@ -97,25 +105,13 @@ async function getOrgPk(
     );
   }
 
-  // ADAPTED: auth_clerk_orgs instead of organizations
   const { data, error } = await supabase
     .from("auth_clerk_orgs")
     .select("id")
-    .eq("clerk_org_id", orgId) // ADAPTED: clerk_org_id instead of clerk_organization_id
-    .single();
+    .eq("clerk_org_id", orgId)
+    .maybeSingle();
 
-  // ADAPTED: return BIGINT as number instead of UUID as string
-  if (data?.id) return data.id as number;
-
-  if (error) {
-    console.error(`getOrgPk: lookup failed for ${orgId}:`, error.message);
-  }
-
-  throw new Error(
-    `Organization not found in Supabase database. ` +
-      `This usually means Clerk webhooks haven't synced the organization or your membership. ` +
-      `Ensure your user appears in auth_clerk_orgs_members for this org.`
-  );
+  return resolveAuthClerkOrgPk({ clerkOrgId: orgId, data, error });
 }
 
 function normalizeRole(value?: string) {
@@ -124,23 +120,17 @@ function normalizeRole(value?: string) {
   return trimmed.toLowerCase().replace(/^org:/, "");
 }
 
-function deriveLegacyScope(definition: PolicyDefinitionInput): PolicyScope {
-  const sc = definition.scopeConditions ?? [];
-  if (sc.length === 0) return definition.scope || "all";
-
-  const hasOrgEquals = sc.some(
-    (c) => c.column === "org_id" && c.operator === "="
-  );
-  const hasUserEquals = sc.some(
-    (c) =>
-      (c.column === "created_by" || c.column === "user_id") &&
-      c.operator === "="
-  );
-
-  if (hasOrgEquals && hasUserEquals) return "org_and_user";
-  if (hasOrgEquals) return "org_records";
-  if (hasUserEquals) return "user_records";
-  return "all";
+function prepareDefinition(definition: PolicyDefinitionInput): PolicyDefinitionInput {
+  const sanitized = sanitizePolicyConditions(definition);
+  if (!hasValidPolicyConditions(sanitized)) {
+    throw new Error(
+      "At least one condition or internal-user allowance is required."
+    );
+  }
+  return {
+    ...sanitized,
+    scope: deriveLegacyScope(sanitized),
+  };
 }
 
 type CompiledCondition = { field: string; operator: string; values: string[] };
@@ -266,15 +256,16 @@ function buildDefinition(definition: PolicyDefinitionInput) {
 export async function getOrgDisplayName(): Promise<string> {
   const { orgId, token } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
-  
-  // ADAPTED: auth_clerk_orgs instead of organizations
-  const { data } = await supabase
+
+  const { data, error } = await supabase
     .from("auth_clerk_orgs")
     .select("clerk_org_name")
-    .eq("clerk_org_id", orgId) // ADAPTED: column name
-    .single();
-    
-  return (data?.clerk_org_name as string) ?? "This Organization"; // ADAPTED: column name
+    .eq("clerk_org_id", orgId)
+    .maybeSingle();
+
+  throwMappedSupabaseError(error);
+
+  return (data?.clerk_org_name as string) ?? "This Organization";
 }
 
 // ADAPTED: Return type changed from string to number (BIGINT)
@@ -321,7 +312,7 @@ export async function getOrgPolicies(): Promise<{
     error = result.error as { message: string } | null;
   }
 
-  if (error) throw new Error(error.message);
+  throwMappedSupabaseError(error);
 
   return {
     orgPk,
@@ -336,17 +327,14 @@ export async function saveOrgPolicy(
   const supabase = supabaseForUser(token);
   const orgPk = await getOrgPk(supabase, orgId);
 
-  const compiledConfig = compilePolicy(input.definition);
-  const definitionJson = buildDefinition(input.definition);
+  assertCreateSelection(
+    [{ resourceType: input.resourceType, resourceName: input.resourceName }],
+    input.actions
+  );
 
-  if (
-    !compiledConfig.allow_internal_users &&
-    (!compiledConfig.conditions || compiledConfig.conditions.length === 0)
-  ) {
-    throw new Error(
-      "At least one condition or internal-user allowance is required."
-    );
-  }
+  const definition = prepareDefinition(input.definition);
+  const compiledConfig = compilePolicy(definition);
+  const definitionJson = buildDefinition(definition);
 
   // Self-lockout protection: owners and admins can always save policies
   const normalizedOrgRole = normalizeRole(orgRole ?? "");
@@ -377,6 +365,12 @@ export async function saveOrgPolicy(
     input.actions
   );
 
+  if (fanOut.length === 0) {
+    throw new Error(
+      `None of the selected actions apply to ${input.resourceType} resources.`
+    );
+  }
+
   const rows = await Promise.all(
     fanOut.map(async (key) => {
       const { data: existing } = await supabase
@@ -396,11 +390,11 @@ export async function saveOrgPolicy(
         action: key.action,
         definition_json: definitionJson,
         compiled_config: compiledConfig,
-        scope: input.definition.scope || "all",
-        effect: input.definition.effect || "ALLOW",
+        scope: definition.scope || "all",
+        effect: definition.effect || "ALLOW",
         version: (existing?.version ?? 0) + 1,
-        is_active: true,
         created_by_clerk_sub: userId,
+        ...POLICY_UPSERT_RESTORE_FIELDS,
       };
     })
   );
@@ -409,7 +403,7 @@ export async function saveOrgPolicy(
     onConflict: "org_id,resource_type,resource_name,action",
   });
 
-  if (error) throw new Error(error.message);
+  throwMappedSupabaseError(error);
 
   return { ok: true };
 }
@@ -422,15 +416,11 @@ async function loadPolicyForMutation(
     .from("organization_policies")
     .select("org_id,is_protected_policy,compiled_config,definition_json")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
-  if (error) throw new Error(error.message);
-  return (data ?? {
-    org_id: null,
-    is_protected_policy: false,
-    compiled_config: null,
-    definition_json: null,
-  }) as PolicyMutationSubject;
+  throwMappedSupabaseError(error);
+  if (!data) throw new Error("Policy not found.");
+  return data as PolicyMutationSubject;
 }
 
 export async function setOrgPolicyActive(input: {
@@ -446,7 +436,7 @@ export async function setOrgPolicyActive(input: {
     .update({ is_active: input.isActive })
     .eq("id", input.id);
 
-  if (error) throw new Error(error.message);
+  throwMappedSupabaseError(error);
 
   return { ok: true };
 }
@@ -462,17 +452,9 @@ export async function updateOrgPolicy(input: {
   const supabase = supabaseForUser(token);
   assertPolicyMutable(await loadPolicyForMutation(supabase, input.id), "edit");
 
-  const compiledConfig = compilePolicy(input.definition);
-  const definitionJson = buildDefinition(input.definition);
-
-  if (
-    !compiledConfig.allow_internal_users &&
-    (!compiledConfig.conditions || compiledConfig.conditions.length === 0)
-  ) {
-    throw new Error(
-      "At least one condition or internal-user allowance is required."
-    );
-  }
+  const definition = prepareDefinition(input.definition);
+  const compiledConfig = compilePolicy(definition);
+  const definitionJson = buildDefinition(definition);
 
   const normalizedOrgRole = normalizeRole(orgRole ?? "");
   const isPrivileged = ["owner", "admin"].includes(normalizedOrgRole);
@@ -509,8 +491,8 @@ export async function updateOrgPolicy(input: {
   const updatePayload: Record<string, unknown> = {
     definition_json: definitionJson,
     compiled_config: compiledConfig,
-    scope: input.definition.scope || "all",
-    effect: input.definition.effect || "ALLOW",
+    scope: definition.scope || "all",
+    effect: definition.effect || "ALLOW",
     created_by_clerk_sub: userId,
   };
 
@@ -524,7 +506,7 @@ export async function updateOrgPolicy(input: {
     .update(updatePayload)
     .eq("id", input.id);
 
-  if (error) throw new Error(error.message);
+  throwMappedSupabaseError(error);
 
   return { ok: true };
 }
@@ -630,7 +612,7 @@ export async function deleteOrgPolicy(input: {
       .from("organization_policies")
       .update({ archived_at: null, archived_by: null })
       .eq("id", input.id);
-    if (error) throw new Error(error.message);
+    throwMappedSupabaseError(error);
     return { ok: true };
   }
 
@@ -641,7 +623,7 @@ export async function deleteOrgPolicy(input: {
     .update({ archived_at: now, archived_by: userId })
     .eq("id", input.id);
 
-  if (error) throw new Error(error.message);
+  throwMappedSupabaseError(error);
 
   return { ok: true };
 }

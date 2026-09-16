@@ -125,9 +125,15 @@ import { cn } from "@/lib/utils";
 import { PolicyDiagramView } from "@/components/policies/policy-diagram-view";
 import {
   canMutatePolicy,
+  deriveLegacyScope,
+  filterActionsForResourceType,
+  hasValidPolicyConditions,
   isGlobalPolicy,
   isMultiRulePolicy as isMultiRuleSubject,
   isProtectedPolicy as isProtectedSubject,
+  sanitizePolicyConditions,
+  type PolicyAction as MutationPolicyAction,
+  type PolicyResourceType,
 } from "@/lib/policies/policy-mutation";
 
 // ============================================================================
@@ -216,15 +222,34 @@ const defaultScopeCondition: ScopeConditionState = {
 };
 
 function scopeConditionsToLegacyScope(conditions: ScopeConditionState[]): PolicyScope {
-  if (conditions.length === 0) return "all";
-  const hasOrg = conditions.some((c) => c.subject === "active_org" && c.operator === "is");
-  const hasUser = conditions.some(
-    (c) => (c.subject === "current_user_clerk" || c.subject === "current_user_pk") && c.operator === "is"
-  );
-  if (hasOrg && hasUser) return "org_and_user";
-  if (hasOrg) return "org_records";
-  if (hasUser) return "user_records";
-  return "all";
+  return deriveLegacyScope({
+    scopeConditions: conditions
+      .filter((c) => c.targetColumn)
+      .map((c) => ({
+        column: c.targetColumn,
+        operator: c.operator,
+        reference: c.subject,
+      })),
+  });
+}
+
+function parseSelectedResource(resource: string): {
+  resourceType: ResourceType;
+  resourceName: string;
+} {
+  const colonIdx = resource.indexOf(":");
+  return {
+    resourceType: resource.substring(0, colonIdx) as ResourceType,
+    resourceName: resource.substring(colonIdx + 1),
+  };
+}
+
+function toConditionInput(condition: ConditionState): ConditionInput {
+  return {
+    field: condition.field,
+    operator: condition.operator as "is" | "is_not",
+    values: condition.values,
+  };
 }
 
 function legacyScopeToConditions(scope: PolicyScope): ScopeConditionState[] {
@@ -1475,14 +1500,26 @@ export default function OrgPolicyBuilder({
     setStatus(null);
   }
 
-  const hasValidConditions =
-    allowInternalUsers ||
-    conditions.some((c) => c.values.length > 0) ||
-    conditionGroups.some((g) => g.conditions.some((c) => c.values.length > 0));
+  const hasValidConditions = hasValidPolicyConditions({
+    allowInternalUsers,
+    conditions,
+    conditionGroups,
+    namedScopeConditions: selectedNamedScopes.map((name) => ({ name })),
+  });
 
   async function handleSave() {
     setError(null);
     setStatus(null);
+
+    if (!editingPolicyId && selectedResources.length === 0) {
+      setError("Select at least one resource.");
+      return;
+    }
+
+    if (selectedActions.length === 0) {
+      setError("Select at least one action.");
+      return;
+    }
 
     if (!hasValidConditions) {
       setError("At least one condition with selected values is required.");
@@ -1491,22 +1528,13 @@ export default function OrgPolicyBuilder({
 
     startTransition(async () => {
       try {
-        const conditionInputs: ConditionInput[] = conditions.map((c) => ({
-          field: c.field,
-          operator: c.operator as "is" | "is_not",
-          values: c.values,
-        }));
-
-        const conditionGroupInputs: ConditionGroupInput[] = conditionGroups
-          .filter((g) => g.conditions.length > 0)
-          .map((g) => ({
-            connector: g.connector,
-            conditions: g.conditions.map((c) => ({
-              field: c.field,
-              operator: c.operator as "is" | "is_not",
-              values: c.values,
-            })),
-          }));
+        const conditionInputs: ConditionInput[] = conditions.map(toConditionInput);
+        const conditionGroupInputs: ConditionGroupInput[] = conditionGroups.map(
+          (group) => ({
+            connector: group.connector,
+            conditions: group.conditions.map(toConditionInput),
+          })
+        );
 
         const scopeConditionInputs: ScopeConditionInput[] = scopeConditions
           .filter((c) => c.targetColumn)
@@ -1516,7 +1544,7 @@ export default function OrgPolicyBuilder({
             reference: c.subject,
           }));
 
-        const definition: PolicyDefinitionInput = {
+        const definition = sanitizePolicyConditions({
           allowInternalUsers,
           conditions: conditionInputs,
           conditionGroups: conditionGroupInputs.length > 0 ? conditionGroupInputs : undefined,
@@ -1534,7 +1562,7 @@ export default function OrgPolicyBuilder({
                   : null,
               }
             : undefined,
-        };
+        } as PolicyDefinitionInput);
 
         if (editingPolicyId) {
           const current = policies.find((p) => p.id === editingPolicyId);
@@ -1546,34 +1574,48 @@ export default function OrgPolicyBuilder({
             );
             return;
           }
-          const res = selectedResources[0] ?? "table:*";
-          const colonIdx = res.indexOf(":");
-          const resType = res.substring(0, colonIdx) as ResourceType;
-          const resName = res.substring(colonIdx + 1);
+          const { resourceType, resourceName } = parseSelectedResource(
+            selectedResources[0] ?? "table:*"
+          );
 
           await updateOrgPolicy({
             id: editingPolicyId,
             definition,
             action: (selectedActions[0] ?? "select") as PolicyAction,
-            resourceType: resType,
-            resourceName: resName,
+            resourceType,
+            resourceName,
           });
 
           router.refresh();
           resetForm();
         } else {
+          let wrote = 0;
           for (const resource of selectedResources) {
-            const colonIdx = resource.indexOf(":");
-            const resourceType = resource.substring(0, colonIdx) as ResourceType;
-            const resourceName = resource.substring(colonIdx + 1);
+            const { resourceType, resourceName } =
+              parseSelectedResource(resource);
+            const actions = filterActionsForResourceType(
+              resourceType as PolicyResourceType,
+              selectedActions as MutationPolicyAction[]
+            );
+
+            if (actions.length === 0) continue;
 
             await saveOrgPolicy({
               resourceType,
               resourceName: resourceName === "*" ? undefined : resourceName,
-              actions: selectedActions as PolicyAction[],
+              actions: actions as PolicyAction[],
               definition,
             });
+            wrote += 1;
           }
+
+          if (wrote === 0) {
+            setError(
+              "None of the selected actions apply to the selected resources."
+            );
+            return;
+          }
+
           setStatus("Policy saved successfully.");
           router.refresh();
         }

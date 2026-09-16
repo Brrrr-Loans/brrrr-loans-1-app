@@ -10,63 +10,53 @@ export type MemberRoleOption = {
   isOrgSpecific: boolean;
 };
 
+const ALL_MEMBER_ROLES_OPTION: MemberRoleOption = {
+  value: "_all",
+  label: "All",
+  description: "Matches all member roles",
+  isOrgSpecific: false,
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  member: "Member",
+  viewer: "Viewer",
+};
+
 export async function getMemberRolesForPolicies(): Promise<MemberRoleOption[]> {
   const { orgId } = await auth();
-  if (!orgId)
-    return [
-      {
-        value: "_all",
-        label: "All",
-        description: "Matches all member roles",
-        isOrgSpecific: false,
-      },
-    ];
+  const options: MemberRoleOption[] = [{ ...ALL_MEMBER_ROLES_OPTION }];
+  if (!orgId) return options;
 
   const supabase = createServiceRoleClient();
 
-  // Get the org's internal ID
+  // Service role + maybeSingle: missing org returns the All option, not a coerce error
   const { data: org } = await supabase
     .from("auth_clerk_orgs")
     .select("id")
     .eq("clerk_org_id", orgId)
-    .single();
-
-  const options: MemberRoleOption[] = [
-    {
-      value: "_all",
-      label: "All",
-      description: "Matches all member roles",
-      isOrgSpecific: false,
-    },
-  ];
+    .maybeSingle();
 
   if (!org) return options;
 
-  // Get unique org roles from memberships for this org
   const { data: memberships } = await supabase
     .from("auth_clerk_orgs_members")
     .select("clerk_org_role")
     .eq("clerk_org_id", org.id);
 
   const uniqueRoles = new Set(
-    memberships?.map((m) => m.clerk_org_role).filter(Boolean) ?? []
+    (memberships ?? [])
+      .map((membership) => membership.clerk_org_role)
+      .filter((role): role is string => Boolean(role))
   );
 
-  const roleLabels: Record<string, string> = {
-    admin: "Admin",
-    member: "Member",
-    viewer: "Viewer",
-  };
-
   for (const role of uniqueRoles) {
-    if (role) {
-      options.push({
-        value: role,
-        label: roleLabels[role] ?? role,
-        description: null,
-        isOrgSpecific: false,
-      });
-    }
+    options.push({
+      value: role,
+      label: ROLE_LABELS[role] ?? role,
+      description: null,
+      isOrgSpecific: false,
+    });
   }
 
   return options;

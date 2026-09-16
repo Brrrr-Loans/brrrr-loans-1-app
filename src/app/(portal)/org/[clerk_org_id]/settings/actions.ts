@@ -3,6 +3,10 @@
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 import { getClerkSupabaseToken } from "@/lib/clerk-supabase-token";
+import {
+  resolveAuthClerkOrgPk,
+  throwMappedSupabaseError,
+} from "@/lib/org-lookup";
 
 export type DealRoleTypeRow = {
   id: number;
@@ -57,11 +61,9 @@ async function getOrgPk(supabase: ReturnType<typeof supabaseForUser>, orgId: str
     .from("auth_clerk_orgs")
     .select("id")
     .eq("clerk_org_id", orgId)
-    .single();
+    .maybeSingle();
 
-  if (error) throw new Error(error.message);
-  if (!data?.id) throw new Error("Org not found in auth_clerk_orgs");
-  return data.id as number;
+  return resolveAuthClerkOrgPk({ clerkOrgId: orgId, data, error });
 }
 
 // Loader
@@ -77,7 +79,7 @@ export async function getDocumentRbacMatrix(): Promise<RbacMatrixPayload> {
     .select("id,name,description")
     .order("name", { ascending: true });
 
-  if (rolesRes.error) throw new Error(rolesRes.error.message);
+  throwMappedSupabaseError(rolesRes.error);
 
   // Categories (rows)
   // If your table has a group column (ex: group_name), add it to select.
@@ -86,7 +88,7 @@ export async function getDocumentRbacMatrix(): Promise<RbacMatrixPayload> {
     .select("id,name,description")
     .order("name", { ascending: true });
 
-  if (catsRes.error) throw new Error(catsRes.error.message);
+  throwMappedSupabaseError(catsRes.error);
 
   // Permissions for org
   const permsRes = await supabase
@@ -94,7 +96,7 @@ export async function getDocumentRbacMatrix(): Promise<RbacMatrixPayload> {
     .select("deal_role_types_id,document_categories_id,can_view,can_insert,can_upload,can_delete")
     .eq("clerk_org_id", orgPk);
 
-  if (permsRes.error) throw new Error(permsRes.error.message);
+  throwMappedSupabaseError(permsRes.error);
 
   return {
     orgPk,
@@ -135,7 +137,7 @@ export async function saveDocumentRbacMatrix(input: {
       onConflict: "clerk_org_id,deal_role_types_id,document_categories_id",
     });
 
-  if (error) throw new Error(error.message);
+  throwMappedSupabaseError(error);
 
   return { ok: true, updated: upsertRows.length };
 }
@@ -146,7 +148,7 @@ export async function resetOrgDocumentPermissions(orgPk: number): Promise<{ ok: 
   const supabase = supabaseForUser(token);
 
   const { error } = await supabase.rpc("reset_org_document_permissions", { p_org_id: orgPk });
-  if (error) throw new Error(error.message);
+  throwMappedSupabaseError(error);
 
   return { ok: true };
 }
