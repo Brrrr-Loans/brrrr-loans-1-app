@@ -44,6 +44,25 @@ export const V1_RESOURCE_TYPES: PolicyResourceType[] = [
 
 export const API_KEY_ACTIONS: PolicyAction[] = ["read", "write"];
 
+/** Verbs the route picker offers. `all` stays valid in the DB but is not a builder choice. */
+export const BUILDER_ROUTE_ACTIONS: PolicyAction[] = ["view", "submit"];
+
+/**
+ * Map a stored action into a picker verb. The UI never offers `all`, so a
+ * stored `all` becomes the type's default explicit action instead of `select`
+ * on every resource type.
+ */
+export function formActionForStoredPolicy(
+  resourceType: PolicyResourceType,
+  action: PolicyAction
+): PolicyAction {
+  if (action !== "all") return action;
+  if (resourceType === "route" || resourceType === "feature") return "view";
+  if (resourceType === "api_key") return "read";
+  if (resourceType === "liveblocks") return "room_write";
+  return "select";
+}
+
 export const RESOURCE_TYPE_ACTIONS: Record<PolicyResourceType, PolicyAction[]> =
   {
     table: ["select", "insert", "update", "delete", "all"],

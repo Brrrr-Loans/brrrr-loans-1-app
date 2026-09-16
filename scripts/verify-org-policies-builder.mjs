@@ -1,8 +1,10 @@
 import {
   API_KEY_ACTIONS,
+  BUILDER_ROUTE_ACTIONS,
   POLICY_UPSERT_RESTORE_FIELDS,
   V1_RESOURCE_TYPES,
   assertCreateSelection,
+  formActionForStoredPolicy,
   canMutatePolicy,
   deriveLegacyScope,
   fanOutResourceActions,
@@ -139,6 +141,34 @@ assertEqual(
   mixedRouteFanOut.map(policyFanOutKey),
   ["42|table|deal|select", "42|route|*|view"],
   "mixed table+route persists only type-allowed verbs"
+);
+
+assertEqual(
+  BUILDER_ROUTE_ACTIONS,
+  ["view", "submit"],
+  "route picker does not offer all"
+);
+assertEqual(
+  formActionForStoredPolicy("route", "all"),
+  "view",
+  "stored route all opens as view, not select"
+);
+assertEqual(
+  formActionForStoredPolicy("table", "all"),
+  "select",
+  "stored table all still opens as select"
+);
+assertEqual(
+  fanOutResourcesActions(
+    42,
+    [
+      { resourceType: "table", resourceName: "deal" },
+      { resourceType: "route", resourceName: "*" },
+    ],
+    BUILDER_ROUTE_ACTIONS
+  ).map(policyFanOutKey),
+  ["42|route|*|view", "42|route|*|submit"],
+  "mixed table+route with picker verbs does not write table all/select"
 );
 
 // ---------------------------------------------------------------------------

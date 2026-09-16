@@ -124,10 +124,11 @@ import {
 import { cn } from "@/lib/utils";
 import { PolicyDiagramView } from "@/components/policies/policy-diagram-view";
 import {
-  RESOURCE_TYPE_ACTIONS,
+  BUILDER_ROUTE_ACTIONS,
   canMutatePolicy,
   deriveLegacyScope,
   filterActionsForResourceType,
+  formActionForStoredPolicy,
   hasValidPolicyConditions,
   isGlobalPolicy,
   isMultiRulePolicy as isMultiRuleSubject,
@@ -187,7 +188,7 @@ const apiResourceActionOptions = [
   { value: "write", label: "Write", description: "API keys can create/update/delete via POST/PATCH/DELETE" },
 ];
 
-const routeActionOptions = RESOURCE_TYPE_ACTIONS.route.map((action) => ({
+const routeActionOptions = BUILDER_ROUTE_ACTIONS.map((action) => ({
   value: action,
   label: action.charAt(0).toUpperCase() + action.slice(1),
 }));
@@ -1081,7 +1082,9 @@ function loadPolicyIntoForm(
   setters.setAllowInternalUsers(
     def?.allow_internal_users ?? compiled?.allow_internal_users ?? false
   );
-  setters.setSelectedActions([policy.action === "all" ? "select" : policy.action]);
+  setters.setSelectedActions([
+    formActionForStoredPolicy(policy.resource_type, policy.action),
+  ]);
   setters.setSelectedResources([`${policy.resource_type}:${policy.resource_name}`]);
   setters.setSelectedEffect(policy.effect ?? def?.effect ?? "ALLOW");
   setters.setEditingPolicyId(policy.id);
