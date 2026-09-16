@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types scripts/verify-deal-access.mjs && node --experimental-strip-types scripts/verify-impersonation.mjs && node --experimental-strip-types scripts/verify-org-policies-builder.mjs",
+    "test": "node --experimental-strip-types scripts/verify-deal-access.mjs && node --experimental-strip-types scripts/verify-impersonation.mjs && node --experimental-strip-types scripts/verify-org-policies-builder.mjs && node --experimental-strip-types scripts/verify-clerk-sync.mjs",
+    "test:clerk-sync": "node --experimental-strip-types scripts/verify-clerk-sync.mjs",
     "test:policies": "node --experimental-strip-types scripts/verify-org-policies-builder.mjs",
     "test:impersonation": "node --experimental-strip-types scripts/verify-impersonation.mjs",
     "test:e2e": "npx playwright install --with-deps && npx playwright test"
