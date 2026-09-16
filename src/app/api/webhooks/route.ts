@@ -412,11 +412,60 @@ async function handleOrganizationCreated(
 ) {
   const { id: org_id, name, slug, created_by } = data;
 
+  const { data: existing, error: lookupError } = await supabase
+    .from("auth_clerk_orgs")
+    .select("id")
+    .eq("clerk_org_id", org_id)
+    .maybeSingle();
+
+  if (lookupError) {
+    console.error("Error creating organization:", lookupError);
+    throw lookupError;
+  }
+
+  const { data: creator } = await supabase
+    .from("auth_clerk_users")
+    .select("id")
+    .eq("clerk_user_id", created_by)
+    .maybeSingle();
+
+  // Membership can insert the org first; only patch fields that cannot
+  // violate created_by FK or clerk_org_slug NOT NULL.
+  if (existing) {
+    const update: Database["public"]["Tables"]["auth_clerk_orgs"]["Update"] = {
+      clerk_org_name: name,
+    };
+    if (slug) {
+      update.clerk_org_slug = slug;
+    }
+    if (creator) {
+      update.created_by_clerk_user_id = created_by;
+    }
+
+    const { error } = await supabase
+      .from("auth_clerk_orgs")
+      .update(update)
+      .eq("clerk_org_id", org_id);
+
+    if (error) {
+      console.error("Error creating organization:", error);
+      throw error;
+    }
+    console.log("Successfully created organization:", { org_id, name, slug });
+    return;
+  }
+
+  if (!creator) {
+    throw new Error(
+      `Cannot create organization ${org_id}: creator ${created_by} not found in auth_clerk_users`
+    );
+  }
+
   const { error } = await supabase.from("auth_clerk_orgs").upsert(
     {
       clerk_org_id: org_id,
       clerk_org_name: name,
-      clerk_org_slug: slug,
+      clerk_org_slug: slug || org_id,
       created_by_clerk_user_id: created_by,
     },
     { onConflict: "clerk_org_id" }
