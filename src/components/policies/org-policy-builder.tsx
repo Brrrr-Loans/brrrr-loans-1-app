@@ -124,6 +124,7 @@ import {
 import { cn } from "@/lib/utils";
 import { PolicyDiagramView } from "@/components/policies/policy-diagram-view";
 import {
+  RESOURCE_TYPE_ACTIONS,
   canMutatePolicy,
   deriveLegacyScope,
   filterActionsForResourceType,
@@ -185,6 +186,11 @@ const apiResourceActionOptions = [
   { value: "read", label: "Read", description: "API keys can read this resource via GET requests" },
   { value: "write", label: "Write", description: "API keys can create/update/delete via POST/PATCH/DELETE" },
 ];
+
+const routeActionOptions = RESOURCE_TYPE_ACTIONS.route.map((action) => ({
+  value: action,
+  label: action.charAt(0).toUpperCase() + action.slice(1),
+}));
 
 const resourceScopeOptions = [
   { value: "table:*", label: "All Tables" },
@@ -1383,6 +1389,7 @@ export default function OrgPolicyBuilder({
   const hasDataSelected = selectedResources.some(
     (r) => r.startsWith("table:") || r.startsWith("storage_bucket:")
   );
+  const hasRouteSelected = selectedResources.some((r) => r.startsWith("route:"));
   const hasLiveblocksSelected = selectedResources.some((r) => r.startsWith("liveblocks:"));
   const hasApiResourceSelected = selectedResources.some((r) => r.startsWith("api_key:"));
 
@@ -1409,42 +1416,94 @@ export default function OrgPolicyBuilder({
 
   // Contextual action options based on which resource types are selected
   const activeActionOptions = useMemo(() => {
-    const onlyOne = [hasDataSelected, hasFeatureSelected, hasLiveblocksSelected, hasApiResourceSelected].filter(Boolean).length === 1;
+    const onlyOne =
+      [
+        hasDataSelected,
+        hasFeatureSelected,
+        hasRouteSelected,
+        hasLiveblocksSelected,
+        hasApiResourceSelected,
+      ].filter(Boolean).length === 1;
     if (onlyOne) {
       if (hasLiveblocksSelected) return liveblocksActionOptions;
       if (hasFeatureSelected) return activeFeatureActionOptions;
       if (hasApiResourceSelected) return apiResourceActionOptions;
+      if (hasRouteSelected) return routeActionOptions;
       if (hasDataSelected) return dataActionOptions;
     }
     // Mixed: combine all applicable option sets
     const combined = [...dataActionOptions];
     if (hasFeatureSelected) combined.push(...activeFeatureActionOptions);
+    if (hasRouteSelected) combined.push(...routeActionOptions);
     if (hasLiveblocksSelected) combined.push(...liveblocksActionOptions);
     if (hasApiResourceSelected) combined.push(...apiResourceActionOptions);
     return combined;
-  }, [hasDataSelected, hasFeatureSelected, hasLiveblocksSelected, hasApiResourceSelected, activeFeatureActionOptions]);
+  }, [
+    hasDataSelected,
+    hasFeatureSelected,
+    hasRouteSelected,
+    hasLiveblocksSelected,
+    hasApiResourceSelected,
+    activeFeatureActionOptions,
+  ]);
 
   // Reset selected actions when the resource type mix changes
   useEffect(() => {
-    if (hasApiResourceSelected && !hasDataSelected && !hasFeatureSelected && !hasLiveblocksSelected) {
+    if (
+      hasApiResourceSelected &&
+      !hasDataSelected &&
+      !hasFeatureSelected &&
+      !hasRouteSelected &&
+      !hasLiveblocksSelected
+    ) {
       const apiVals = new Set(apiResourceActionOptions.map((o) => o.value));
       setSelectedActions((prev) => {
         const valid = prev.filter((a) => apiVals.has(a));
         return valid.length > 0 ? valid : ["read", "write"];
       });
-    } else if (hasLiveblocksSelected && !hasDataSelected && !hasFeatureSelected && !hasApiResourceSelected) {
+    } else if (
+      hasLiveblocksSelected &&
+      !hasDataSelected &&
+      !hasFeatureSelected &&
+      !hasRouteSelected &&
+      !hasApiResourceSelected
+    ) {
       const lbVals = new Set(liveblocksActionOptions.map((o) => o.value));
       setSelectedActions((prev) => {
         const valid = prev.filter((a) => lbVals.has(a));
         return valid.length > 0 ? valid : ["room_write"];
       });
-    } else if (hasFeatureSelected && !hasDataSelected && !hasLiveblocksSelected && !hasApiResourceSelected) {
+    } else if (
+      hasFeatureSelected &&
+      !hasDataSelected &&
+      !hasRouteSelected &&
+      !hasLiveblocksSelected &&
+      !hasApiResourceSelected
+    ) {
       const featureVals = new Set(activeFeatureActionOptions.map((o) => o.value));
       setSelectedActions((prev) => {
         const valid = prev.filter((a) => featureVals.has(a));
         return valid.length > 0 ? valid : [activeFeatureActionOptions[0]?.value ?? "submit"];
       });
-    } else if (hasDataSelected && !hasFeatureSelected && !hasLiveblocksSelected && !hasApiResourceSelected) {
+    } else if (
+      hasRouteSelected &&
+      !hasDataSelected &&
+      !hasFeatureSelected &&
+      !hasLiveblocksSelected &&
+      !hasApiResourceSelected
+    ) {
+      const routeVals = new Set(routeActionOptions.map((o) => o.value));
+      setSelectedActions((prev) => {
+        const valid = prev.filter((a) => routeVals.has(a));
+        return valid.length > 0 ? valid : ["view"];
+      });
+    } else if (
+      hasDataSelected &&
+      !hasFeatureSelected &&
+      !hasRouteSelected &&
+      !hasLiveblocksSelected &&
+      !hasApiResourceSelected
+    ) {
       const dataVals = new Set(dataActionOptions.map((o) => o.value));
       setSelectedActions((prev) => {
         const valid = prev.filter((a) => dataVals.has(a));
@@ -1452,7 +1511,7 @@ export default function OrgPolicyBuilder({
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasFeatureSelected, hasDataSelected, hasLiveblocksSelected, hasApiResourceSelected, selectedResources]);
+  }, [hasFeatureSelected, hasDataSelected, hasRouteSelected, hasLiveblocksSelected, hasApiResourceSelected, selectedResources]);
 
   // Determine if row-level scope selector should be enabled based on selected data resources.
   // Features never have row-level scope; when mixed with data resources, only the data

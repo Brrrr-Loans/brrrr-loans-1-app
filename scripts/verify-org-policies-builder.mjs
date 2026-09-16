@@ -116,6 +116,30 @@ assertEqual(
   ["read"],
   "table CRUD is not applied to api_key resources"
 );
+assertEqual(
+  filterActionsForResourceType("route", ["select", "insert", "update", "delete"]),
+  [],
+  "table CRUD is not applied to routes"
+);
+assertEqual(
+  filterActionsForResourceType("route", ["view", "submit", "select"]),
+  ["view", "submit"],
+  "routes keep view/submit from the route action set"
+);
+
+const mixedRouteFanOut = fanOutResourcesActions(
+  42,
+  [
+    { resourceType: "table", resourceName: "deal" },
+    { resourceType: "route", resourceName: "*" },
+  ],
+  ["select", "view"]
+);
+assertEqual(
+  mixedRouteFanOut.map(policyFanOutKey),
+  ["42|table|deal|select", "42|route|*|view"],
+  "mixed table+route persists only type-allowed verbs"
+);
 
 // ---------------------------------------------------------------------------
 // Global inherited / read-only
