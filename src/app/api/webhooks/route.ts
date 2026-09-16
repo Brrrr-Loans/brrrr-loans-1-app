@@ -143,18 +143,28 @@ async function handleUserCreated(
     );
   }
 
-  // Generate unique username using helper function
-  const username = await generateUniqueUsername(
-    first_name || "",
-    last_name || "",
-    primaryEmail,
-    supabase
-  );
+  const { data: existing } = await supabase
+    .from("auth_clerk_users")
+    .select("clerk_username, personal_role, is_internal_yn")
+    .eq("clerk_user_id", clerkId)
+    .maybeSingle();
+
+  // Reuse an existing username so a membership-created row is not renamed.
+  const username =
+    existing?.clerk_username ||
+    (await generateUniqueUsername(
+      first_name || "",
+      last_name || "",
+      primaryEmail,
+      supabase
+    ));
 
   const sync = resolveClerkProfileSync({
     clerkUserId: clerkId,
     email: primaryEmail,
     publicMetadata: public_metadata,
+    existingPersonalRole: existing?.personal_role,
+    existingIsInternalYn: existing?.is_internal_yn,
   });
 
   // Test service role access
@@ -171,19 +181,22 @@ async function handleUserCreated(
 
   const { data: profile, error } = await supabase
     .from("auth_clerk_users")
-    .insert({
-      clerk_user_id: clerkId,
-      email: primaryEmail,
-      clerk_username: username,
-      first_name: first_name || null,
-      last_name: last_name || null,
-      phone_number: primaryPhone,
-      personal_role: sync.personal_role as Database["public"]["Enums"]["user_role_internal"],
-      is_internal_yn: sync.is_internal_yn,
-      is_active_yn: true,
-      image_url: image_url || null,
-      has_image: has_image || false,
-    })
+    .upsert(
+      {
+        clerk_user_id: clerkId,
+        email: primaryEmail,
+        clerk_username: username,
+        first_name: first_name || null,
+        last_name: last_name || null,
+        phone_number: primaryPhone,
+        personal_role: sync.personal_role as Database["public"]["Enums"]["user_role_internal"],
+        is_internal_yn: sync.is_internal_yn,
+        is_active_yn: true,
+        image_url: image_url || null,
+        has_image: has_image || false,
+      },
+      { onConflict: "clerk_user_id" }
+    )
     .select()
     .single();
 
@@ -401,12 +414,33 @@ async function handleOrganizationCreated(
 ) {
   const { id: org_id, name, slug, created_by } = data;
 
-  const { error } = await supabase.from("auth_clerk_orgs").insert({
-    clerk_org_id: org_id,
-    clerk_org_name: name,
-    clerk_org_slug: slug,
-    created_by_clerk_user_id: created_by,
-  });
+  const { data: creator } = await supabase
+    .from("auth_clerk_users")
+    .select("id")
+    .eq("clerk_user_id", created_by)
+    .maybeSingle();
+
+  const { data: existing } = await supabase
+    .from("auth_clerk_orgs")
+    .select("created_by_clerk_user_id")
+    .eq("clerk_org_id", org_id)
+    .maybeSingle();
+
+  // Keep a membership-created creator if the webhook creator is not in DB yet.
+  const createdBy =
+    creator?.id != null
+      ? created_by
+      : existing?.created_by_clerk_user_id || created_by;
+
+  const { error } = await supabase.from("auth_clerk_orgs").upsert(
+    {
+      clerk_org_id: org_id,
+      clerk_org_name: name,
+      clerk_org_slug: slug,
+      created_by_clerk_user_id: createdBy,
+    },
+    { onConflict: "clerk_org_id" }
+  );
 
   if (error) {
     console.error("Error creating organization:", error);
@@ -481,15 +515,22 @@ async function ensureUserForMembership(
   let lastName = publicUserData.last_name ?? null;
   let imageUrl = publicUserData.image_url ?? null;
   let hasImage = publicUserData.has_image ?? false;
+  let publicMetadata: { role?: string | null } | null = null;
 
-  if (!email) {
+  try {
     const client = await clerkClient();
     const clerkUser = await client.users.getUser(clerkUserId);
-    email = clerkUser.emailAddresses?.[0]?.emailAddress ?? null;
+    email = email || clerkUser.emailAddresses?.[0]?.emailAddress || null;
     firstName = firstName || clerkUser.firstName;
     lastName = lastName || clerkUser.lastName;
     imageUrl = imageUrl || clerkUser.imageUrl || null;
     hasImage = hasImage || clerkUser.hasImage || false;
+    publicMetadata = clerkUser.publicMetadata as { role?: string | null };
+  } catch (err) {
+    console.warn(
+      `Could not load Clerk user ${clerkUserId} for membership metadata:`,
+      err
+    );
   }
 
   if (!email) {
@@ -507,6 +548,7 @@ async function ensureUserForMembership(
   const sync = resolveClerkProfileSync({
     clerkUserId,
     email,
+    publicMetadata,
   });
 
   const { data, error } = await supabase

@@ -3,6 +3,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import { syncExistingClerkData } from "../../../../scripts/sync-clerk-data";
 import {
   CLERK_SYNC_SECRET_HEADER,
+  InvalidSyncClerkOrgIdError,
   authorizeClerkSync,
   parseSyncClerkOrgId,
 } from "@/lib/clerk-org-sync";
@@ -47,10 +48,21 @@ async function runSync(request: Request, body?: unknown) {
     return unauthorized();
   }
 
-  const clerkOrgId = parseSyncClerkOrgId({
-    searchParams: new URL(request.url).searchParams,
-    body,
-  });
+  let clerkOrgId: string | undefined;
+  try {
+    clerkOrgId = parseSyncClerkOrgId({
+      searchParams: new URL(request.url).searchParams,
+      body,
+    });
+  } catch (error) {
+    if (error instanceof InvalidSyncClerkOrgIdError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 400 }
+      );
+    }
+    throw error;
+  }
 
   const result = await syncExistingClerkData({ clerkOrgId });
   return NextResponse.json({

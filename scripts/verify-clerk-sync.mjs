@@ -1,6 +1,7 @@
 import { AARON_KRAUT_CLERK_USER_ID } from "../src/lib/internal-admin.ts";
 import {
   CLERK_SYNC_SECRET_HEADER,
+  InvalidSyncClerkOrgIdError,
   authorizeClerkSync,
   mapClerkOrgRole,
   parseSyncClerkOrgId,
@@ -58,12 +59,38 @@ assertEqual(
 
 assertEqual(
   parseSyncClerkOrgId({
-    searchParams: new URLSearchParams("clerk_org_id=user_nope"),
+    searchParams: new URLSearchParams(),
     body: null,
   }),
   undefined,
-  "non-org ids are rejected"
+  "missing clerk_org_id means full sync"
 );
+
+try {
+  parseSyncClerkOrgId({
+    searchParams: new URLSearchParams("clerk_org_id=user_nope"),
+    body: null,
+  });
+  throw new Error("non-org ids should be rejected");
+} catch (error) {
+  assert(
+    error instanceof InvalidSyncClerkOrgIdError,
+    "non-org ids throw InvalidSyncClerkOrgIdError"
+  );
+}
+
+try {
+  parseSyncClerkOrgId({
+    searchParams: new URLSearchParams("clerk_org_id=org-typo"),
+    body: { clerk_org_id: "org_2rNqHTbc3gCIKwPSTXYudYB3Log" },
+  });
+  throw new Error("invalid query clerk_org_id should not fall through");
+} catch (error) {
+  assert(
+    error instanceof InvalidSyncClerkOrgIdError,
+    "invalid query clerk_org_id is not treated as a full sync"
+  );
+}
 
 assertEqual(CLERK_SYNC_SECRET_HEADER, "x-clerk-sync-secret", "secret header name");
 

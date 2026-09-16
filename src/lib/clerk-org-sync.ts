@@ -15,21 +15,42 @@ export function mapClerkOrgRole(role?: string | null): ClerkOrgRole {
   return "member";
 }
 
-export function parseSyncClerkOrgId(input: {
+export class InvalidSyncClerkOrgIdError extends Error {
+  readonly clerkOrgId: string;
+
+  constructor(clerkOrgId: string) {
+    super(`Invalid clerk_org_id "${clerkOrgId}": must start with org_`);
+    this.name = "InvalidSyncClerkOrgIdError";
+    this.clerkOrgId = clerkOrgId;
+  }
+}
+
+function rawSyncClerkOrgId(input: {
   searchParams?: URLSearchParams | null;
   body?: unknown;
 }): string | undefined {
   const fromQuery = input.searchParams?.get("clerk_org_id")?.trim();
-  if (fromQuery?.startsWith("org_")) return fromQuery;
+  if (fromQuery) return fromQuery;
 
   if (input.body && typeof input.body === "object") {
     const id = (input.body as { clerk_org_id?: unknown }).clerk_org_id;
-    if (typeof id === "string" && id.trim().startsWith("org_")) {
-      return id.trim();
+    if (typeof id === "string" && id.trim()) return id.trim();
+    if (id != null && id !== "") {
+      throw new InvalidSyncClerkOrgIdError(String(id));
     }
   }
 
   return undefined;
+}
+
+export function parseSyncClerkOrgId(input: {
+  searchParams?: URLSearchParams | null;
+  body?: unknown;
+}): string | undefined {
+  const raw = rawSyncClerkOrgId(input);
+  if (!raw) return undefined;
+  if (raw.startsWith("org_")) return raw;
+  throw new InvalidSyncClerkOrgIdError(raw);
 }
 
 export function bearerToken(authorizationHeader?: string | null): string | null {

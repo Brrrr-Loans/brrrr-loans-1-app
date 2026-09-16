@@ -310,46 +310,77 @@ export async function syncExistingClerkData(
   }
 
   for (const org of orgs) {
-    const memberships = await listOrganizationMemberships(clerk, org.id);
-    const userPkByClerkId = new Map<string, number>();
+    try {
+      const memberships = await listOrganizationMemberships(clerk, org.id);
+      const userPkByClerkId = new Map<string, number>();
 
-    for (const membership of memberships) {
-      const clerkUserId = membership.publicUserData?.userId;
-      if (!clerkUserId) continue;
-      const userPk = await upsertClerkUserFromId(clerk, supabase, clerkUserId);
-      userPkByClerkId.set(clerkUserId, userPk);
-      result.usersUpserted += 1;
+      for (const membership of memberships) {
+        const clerkUserId = membership.publicUserData?.userId;
+        if (!clerkUserId) continue;
+        try {
+          const userPk = await upsertClerkUserFromId(clerk, supabase, clerkUserId);
+          userPkByClerkId.set(clerkUserId, userPk);
+          result.usersUpserted += 1;
+        } catch (error) {
+          console.warn(
+            `Skipping membership user ${clerkUserId} for org ${org.id}:`,
+            error
+          );
+        }
+      }
+
+      let createdBy = org.createdBy || memberships[0]?.publicUserData?.userId;
+      if (createdBy && !userPkByClerkId.has(createdBy)) {
+        try {
+          const createdByPk = await upsertClerkUserFromId(
+            clerk,
+            supabase,
+            createdBy
+          );
+          userPkByClerkId.set(createdBy, createdByPk);
+          result.usersUpserted += 1;
+        } catch (error) {
+          console.warn(
+            `Organization ${org.id} creator ${createdBy} missing or has no email; using a membership user instead`,
+            error
+          );
+          createdBy = [...userPkByClerkId.keys()][0];
+        }
+      }
+
+      if (!createdBy || !userPkByClerkId.has(createdBy)) {
+        createdBy = [...userPkByClerkId.keys()][0];
+      }
+
+      if (!createdBy) {
+        console.warn(
+          `Skipping organization ${org.id}: no createdBy user to satisfy FK`
+        );
+        continue;
+      }
+
+      const orgPk = await upsertOrganization(supabase, org, createdBy);
+      result.orgsUpserted += 1;
+
+      for (const membership of memberships) {
+        const clerkUserId = membership.publicUserData?.userId;
+        if (!clerkUserId) continue;
+        const userPk = userPkByClerkId.get(clerkUserId);
+        if (userPk == null) continue;
+        await upsertMembership(supabase, {
+          userPk,
+          orgPk,
+          role: membership.role,
+        });
+        result.membershipsUpserted += 1;
+      }
+
+      console.log(
+        `Synced ${org.name} (${org.id}): ${memberships.length} memberships`
+      );
+    } catch (error) {
+      console.error(`Failed to sync organization ${org.id}:`, error);
     }
-
-    let createdBy = org.createdBy || memberships[0]?.publicUserData?.userId;
-    if (!createdBy) {
-      throw new Error(`Organization ${org.id} has no createdBy user to satisfy FK`);
-    }
-    if (!userPkByClerkId.has(createdBy)) {
-      const createdByPk = await upsertClerkUserFromId(clerk, supabase, createdBy);
-      userPkByClerkId.set(createdBy, createdByPk);
-      result.usersUpserted += 1;
-    }
-
-    const orgPk = await upsertOrganization(supabase, org, createdBy);
-    result.orgsUpserted += 1;
-
-    for (const membership of memberships) {
-      const clerkUserId = membership.publicUserData?.userId;
-      if (!clerkUserId) continue;
-      const userPk = userPkByClerkId.get(clerkUserId);
-      if (userPk == null) continue;
-      await upsertMembership(supabase, {
-        userPk,
-        orgPk,
-        role: membership.role,
-      });
-      result.membershipsUpserted += 1;
-    }
-
-    console.log(
-      `Synced ${org.name} (${org.id}): ${memberships.length} memberships`
-    );
   }
 
   console.log("Clerk sync completed", result);
