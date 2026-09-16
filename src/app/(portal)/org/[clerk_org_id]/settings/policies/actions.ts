@@ -34,8 +34,13 @@ import {
   LIVEBLOCKS_RESOURCES,
   API_RESOURCES,
   type IntegrationFeatureResource,
-  type PolicyAction as PA,
 } from "./constants";
+import {
+  assertPolicyMutable,
+  fanOutResourceActions,
+  orgPoliciesListOrFilter,
+  type PolicyMutationSubject,
+} from "@/lib/policies/policy-mutation";
 
 type SavePolicyInput = {
   resourceType: ResourceType;
@@ -289,9 +294,10 @@ export async function getOrgPolicies(): Promise<{
   const result = await supabase
     .from("organization_policies")
     .select(
-      "id,org_id,resource_type,resource_name,action,definition_json,compiled_config,scope,effect,version,is_active,is_protected_policy,created_at"
+      "id,org_id,resource_type,resource_name,action,definition_json,compiled_config,scope,effect,version,is_active,is_protected_policy,created_at,archived_at"
     )
-    .or(`org_id.eq.${orgPk},org_id.is.null`)
+    .or(orgPoliciesListOrFilter(orgPk))
+    .is("archived_at", null)
     .order("created_at", { ascending: false });
 
   if (result.error && result.error.message.includes("is_protected_policy")) {
@@ -299,9 +305,10 @@ export async function getOrgPolicies(): Promise<{
     const fallback = await supabase
       .from("organization_policies")
       .select(
-        "id,org_id,resource_type,resource_name,action,definition_json,compiled_config,scope,effect,version,is_active,created_at"
+        "id,org_id,resource_type,resource_name,action,definition_json,compiled_config,scope,effect,version,is_active,created_at,archived_at"
       )
-      .or(`org_id.eq.${orgPk},org_id.is.null`)
+      .or(orgPoliciesListOrFilter(orgPk))
+      .is("archived_at", null)
       .order("created_at", { ascending: false });
 
     data = (fallback.data ?? []).map((row: Record<string, unknown>) => ({
@@ -363,29 +370,30 @@ export async function saveOrgPolicy(
     }
   }
 
-  const actions = input.actions.length
-    ? input.actions
-    : ["select", "insert", "update", "delete"];
-
-  const resourceName = input.resourceName || "*";
+  const fanOut = fanOutResourceActions(
+    orgPk,
+    input.resourceType,
+    input.resourceName || "*",
+    input.actions
+  );
 
   const rows = await Promise.all(
-    actions.map(async (action) => {
+    fanOut.map(async (key) => {
       const { data: existing } = await supabase
         .from("organization_policies")
         .select("id,version")
         .eq("org_id", orgPk)
-        .eq("resource_type", input.resourceType)
-        .eq("resource_name", resourceName)
-        .eq("action", action)
+        .eq("resource_type", key.resourceType)
+        .eq("resource_name", key.resourceName)
+        .eq("action", key.action)
         .maybeSingle();
 
       return {
         id: existing?.id ?? crypto.randomUUID(),
         org_id: orgPk,
-        resource_type: input.resourceType,
-        resource_name: resourceName,
-        action,
+        resource_type: key.resourceType,
+        resource_name: key.resourceName,
+        action: key.action,
         definition_json: definitionJson,
         compiled_config: compiledConfig,
         scope: input.definition.scope || "all",
@@ -406,28 +414,32 @@ export async function saveOrgPolicy(
   return { ok: true };
 }
 
+async function loadPolicyForMutation(
+  supabase: ReturnType<typeof supabaseForUser>,
+  id: string
+): Promise<PolicyMutationSubject> {
+  const { data, error } = await supabase
+    .from("organization_policies")
+    .select("org_id,is_protected_policy,compiled_config,definition_json")
+    .eq("id", id)
+    .single();
+
+  if (error) throw new Error(error.message);
+  return (data ?? {
+    org_id: null,
+    is_protected_policy: false,
+    compiled_config: null,
+    definition_json: null,
+  }) as PolicyMutationSubject;
+}
+
 export async function setOrgPolicyActive(input: {
   id: string;
   isActive: boolean;
 }): Promise<{ ok: true }> {
   const { token } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
-
-  // Prevent disabling system policies (gracefully handle missing column)
-  try {
-    const { data: policyRow } = await supabase
-      .from("organization_policies")
-      .select("is_protected_policy")
-      .eq("id", input.id)
-      .single();
-    if (policyRow?.is_protected_policy && !input.isActive) {
-      throw new Error(
-        "Protected policies cannot be disabled. They are required for core application security."
-      );
-    }
-  } catch (e) {
-    if (e instanceof Error && e.message.includes("Protected policies")) throw e;
-  }
+  assertPolicyMutable(await loadPolicyForMutation(supabase, input.id), "toggle");
 
   const { error } = await supabase
     .from("organization_policies")
@@ -448,21 +460,7 @@ export async function updateOrgPolicy(input: {
 }): Promise<{ ok: true }> {
   const { userId, token, orgRole } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
-
-  try {
-    const { data: policyRow } = await supabase
-      .from("organization_policies")
-      .select("is_protected_policy")
-      .eq("id", input.id)
-      .single();
-    if (policyRow?.is_protected_policy) {
-      throw new Error(
-        "Protected policies cannot be edited. They are required for core application security."
-      );
-    }
-  } catch (e) {
-    if (e instanceof Error && e.message.includes("Protected policies")) throw e;
-  }
+  assertPolicyMutable(await loadPolicyForMutation(supabase, input.id), "edit");
 
   const compiledConfig = compilePolicy(input.definition);
   const definitionJson = buildDefinition(input.definition);
@@ -623,21 +621,8 @@ export async function deleteOrgPolicy(input: {
 }): Promise<{ ok: true }> {
   const { token, userId } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
-
-  // Prevent archiving system policies (gracefully handle missing column)
-  try {
-    const { data: policyRow } = await supabase
-      .from("organization_policies")
-      .select("is_protected_policy")
-      .eq("id", input.id)
-      .single();
-    if (policyRow?.is_protected_policy) {
-      throw new Error(
-        "Protected policies cannot be archived. They are required for core application security."
-      );
-    }
-  } catch (e) {
-    if (e instanceof Error && e.message.includes("Protected policies")) throw e;
+  if (input.action !== "restore") {
+    assertPolicyMutable(await loadPolicyForMutation(supabase, input.id), "archive");
   }
 
   if (input.action === "restore") {
