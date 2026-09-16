@@ -187,10 +187,12 @@ const apiResourceActionOptions = [
   { value: "write", label: "Write", description: "API keys can create/update/delete via POST/PATCH/DELETE" },
 ];
 
-const routeActionOptions = RESOURCE_TYPE_ACTIONS.route.map((action) => ({
-  value: action,
-  label: action.charAt(0).toUpperCase() + action.slice(1),
-}));
+const routeActionOptions = RESOURCE_TYPE_ACTIONS.route
+  .filter((action) => action !== "all")
+  .map((action) => ({
+    value: action,
+    label: action.charAt(0).toUpperCase() + action.slice(1),
+  }));
 
 const resourceScopeOptions = [
   { value: "table:*", label: "All Tables" },
