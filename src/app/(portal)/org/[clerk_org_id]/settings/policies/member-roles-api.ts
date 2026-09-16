@@ -47,7 +47,7 @@ export async function getMemberRolesForPolicies(): Promise<MemberRoleOption[]> {
   const uniqueRoles = new Set(
     (memberships ?? [])
       .map((membership) => membership.clerk_org_role)
-      .filter(Boolean)
+      .filter((role): role is string => Boolean(role))
   );
 
   for (const role of uniqueRoles) {
