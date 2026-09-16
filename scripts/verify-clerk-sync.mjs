@@ -4,6 +4,7 @@ import {
   authorizeClerkSync,
   mapClerkOrgRole,
   parseSyncClerkScope,
+  resolveOrganizationCreatedWrite,
 } from "../src/lib/clerk-org-sync.ts";
 
 function assert(condition, message) {
@@ -114,6 +115,42 @@ assert(
     clerkUserId: "user_stranger",
   }) === false,
   "public callers are rejected when no secret is configured"
+);
+
+assertEqual(
+  resolveOrganizationCreatedWrite({
+    orgId: "org_preview",
+    name: "Preview Org",
+    slug: null,
+    createdBy: "user_missing",
+    creatorExists: false,
+    existing: {
+      created_by_clerk_user_id: "user_member",
+      clerk_org_slug: "preview-org",
+    },
+  }),
+  {
+    clerk_org_name: "Preview Org",
+    clerk_org_slug: "preview-org",
+    created_by_clerk_user_id: "user_member",
+  },
+  "org.created keeps membership creator and slug when webhook creator is unsynced"
+);
+
+assertEqual(
+  resolveOrganizationCreatedWrite({
+    orgId: "org_preview",
+    name: "Preview Org",
+    slug: null,
+    createdBy: "user_missing",
+    creatorExists: false,
+    existing: null,
+  }),
+  {
+    clerk_org_name: "Preview Org",
+    clerk_org_slug: "org_preview",
+  },
+  "new org with unsynced creator omits created_by and coalesces slug to org id"
 );
 
 console.log("verify-clerk-sync: all assertions passed");

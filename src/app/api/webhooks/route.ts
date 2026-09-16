@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-server";
 import type { Database } from "@/types/supabase";
 import { resolveClerkProfileSync } from "@/lib/internal-admin";
-import { mapClerkOrgRole } from "@/lib/clerk-org-sync";
+import { mapClerkOrgRole, resolveOrganizationCreatedWrite } from "@/lib/clerk-org-sync";
 
 // Debug logging for service role key
 console.log(
@@ -412,21 +412,57 @@ async function handleOrganizationCreated(
 ) {
   const { id: org_id, name, slug, created_by } = data;
 
-  const { error } = await supabase.from("auth_clerk_orgs").upsert(
-    {
-      clerk_org_id: org_id,
-      clerk_org_name: name,
-      clerk_org_slug: slug,
-      created_by_clerk_user_id: created_by,
-    },
-    { onConflict: "clerk_org_id" }
-  );
+  const { data: creator } = await supabase
+    .from("auth_clerk_users")
+    .select("id")
+    .eq("clerk_user_id", created_by)
+    .maybeSingle();
+
+  const { data: existing } = await supabase
+    .from("auth_clerk_orgs")
+    .select("created_by_clerk_user_id, clerk_org_slug")
+    .eq("clerk_org_id", org_id)
+    .maybeSingle();
+
+  const write = resolveOrganizationCreatedWrite({
+    orgId: org_id,
+    name,
+    slug,
+    createdBy: created_by,
+    creatorExists: creator?.id != null,
+    existing,
+  });
+
+  if (!existing && !write.created_by_clerk_user_id) {
+    throw new Error(
+      `Cannot create org ${org_id}: creator ${created_by} is not in auth_clerk_users yet`
+    );
+  }
+
+  const { error } = existing
+    ? await supabase
+        .from("auth_clerk_orgs")
+        .update({
+          clerk_org_name: write.clerk_org_name,
+          clerk_org_slug: write.clerk_org_slug,
+          ...(write.created_by_clerk_user_id
+            ? { created_by_clerk_user_id: write.created_by_clerk_user_id }
+            : {}),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("clerk_org_id", org_id)
+    : await supabase.from("auth_clerk_orgs").insert({
+        clerk_org_id: org_id,
+        clerk_org_name: write.clerk_org_name,
+        clerk_org_slug: write.clerk_org_slug,
+        created_by_clerk_user_id: write.created_by_clerk_user_id as string,
+      });
 
   if (error) {
     console.error("Error creating organization:", error);
     throw error;
   }
-  console.log("Successfully created organization:", { org_id, name, slug });
+  console.log("Successfully created organization:", { org_id, name, slug: write.clerk_org_slug });
 }
 
 async function handleOrganizationUpdated(

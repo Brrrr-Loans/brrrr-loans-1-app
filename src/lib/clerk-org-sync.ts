@@ -67,6 +67,41 @@ export function isValidClerkSyncSecret(
   return provided === expected;
 }
 
+export type OrganizationCreatedWrite = {
+  clerk_org_name: string;
+  clerk_org_slug: string;
+  created_by_clerk_user_id?: string;
+};
+
+/**
+ * Membership may already have created the org with a valid creator/slug.
+ * Do not overwrite created_by with an unsynced Clerk user (FK 500),
+ * and never persist a null slug.
+ */
+export function resolveOrganizationCreatedWrite(input: {
+  orgId: string;
+  name: string;
+  slug?: string | null;
+  createdBy?: string | null;
+  creatorExists: boolean;
+  existing?: {
+    created_by_clerk_user_id?: string | null;
+    clerk_org_slug?: string | null;
+  } | null;
+}): OrganizationCreatedWrite {
+  const slug = input.slug || input.existing?.clerk_org_slug || input.orgId;
+  const createdBy = input.creatorExists
+    ? input.createdBy || input.existing?.created_by_clerk_user_id || undefined
+    : input.existing?.created_by_clerk_user_id || undefined;
+
+  const write: OrganizationCreatedWrite = {
+    clerk_org_name: input.name,
+    clerk_org_slug: slug,
+  };
+  if (createdBy) write.created_by_clerk_user_id = createdBy;
+  return write;
+}
+
 export function authorizeClerkSync(input: {
   secretHeader?: string | null;
   authorizationHeader?: string | null;
