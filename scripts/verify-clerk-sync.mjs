@@ -3,7 +3,7 @@ import {
   CLERK_SYNC_SECRET_HEADER,
   authorizeClerkSync,
   mapClerkOrgRole,
-  parseSyncClerkOrgId,
+  parseSyncClerkScope,
 } from "../src/lib/clerk-org-sync.ts";
 
 function assert(condition, message) {
@@ -35,34 +35,42 @@ assertEqual(
 assertEqual(mapClerkOrgRole(""), "member", "empty role defaults to member");
 assertEqual(mapClerkOrgRole(null), "member", "null role defaults to member");
 
-const targeted = parseSyncClerkOrgId({
-  searchParams: new URLSearchParams(
-    "clerk_org_id=org_2rNqHTbc3gCIKwPSTXYudYB3Log"
-  ),
-  body: null,
-});
 assertEqual(
-  targeted,
-  "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
+  parseSyncClerkScope({
+    searchParams: new URLSearchParams(
+      "clerk_org_id=org_2rNqHTbc3gCIKwPSTXYudYB3Log"
+    ),
+    body: null,
+  }),
+  { mode: "one", clerkOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log" },
   "query clerk_org_id is accepted"
 );
 
 assertEqual(
-  parseSyncClerkOrgId({
+  parseSyncClerkScope({
     searchParams: new URLSearchParams(),
     body: { clerk_org_id: "org_2rNqHTbc3gCIKwPSTXYudYB3Log" },
   }),
-  "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
+  { mode: "one", clerkOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log" },
   "body clerk_org_id is accepted"
 );
 
 assertEqual(
-  parseSyncClerkOrgId({
+  parseSyncClerkScope({
     searchParams: new URLSearchParams("clerk_org_id=user_nope"),
     body: null,
   }),
-  undefined,
-  "non-org ids are rejected"
+  { mode: "invalid", value: "user_nope" },
+  "non-org ids are invalid and must not fall through to full sync"
+);
+
+assertEqual(
+  parseSyncClerkScope({
+    searchParams: new URLSearchParams(),
+    body: null,
+  }),
+  { mode: "all" },
+  "omitted clerk_org_id means full sync"
 );
 
 assertEqual(CLERK_SYNC_SECRET_HEADER, "x-clerk-sync-secret", "secret header name");

@@ -321,14 +321,32 @@ export async function syncExistingClerkData(
       result.usersUpserted += 1;
     }
 
-    let createdBy = org.createdBy || memberships[0]?.publicUserData?.userId;
-    if (!createdBy) {
-      throw new Error(`Organization ${org.id} has no createdBy user to satisfy FK`);
+    let createdBy = org.createdBy || undefined;
+    if (createdBy && !userPkByClerkId.has(createdBy)) {
+      try {
+        const createdByPk = await upsertClerkUserFromId(
+          clerk,
+          supabase,
+          createdBy
+        );
+        userPkByClerkId.set(createdBy, createdByPk);
+        result.usersUpserted += 1;
+      } catch (error) {
+        console.warn(
+          `Org ${org.id} createdBy ${createdBy} is missing or has no email; using a member instead`,
+          error
+        );
+        createdBy = undefined;
+      }
     }
-    if (!userPkByClerkId.has(createdBy)) {
-      const createdByPk = await upsertClerkUserFromId(clerk, supabase, createdBy);
-      userPkByClerkId.set(createdBy, createdByPk);
-      result.usersUpserted += 1;
+    if (!createdBy) {
+      createdBy = userPkByClerkId.keys().next().value;
+    }
+    if (!createdBy) {
+      const message = `Organization ${org.id} has no createdBy user to satisfy FK`;
+      if (options.clerkOrgId) throw new Error(message);
+      console.warn(`Skipping org ${org.name} (${org.id}): ${message}`);
+      continue;
     }
 
     const orgPk = await upsertOrganization(supabase, org, createdBy);

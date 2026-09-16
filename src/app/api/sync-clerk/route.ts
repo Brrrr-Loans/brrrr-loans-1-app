@@ -4,7 +4,7 @@ import { syncExistingClerkData } from "../../../../scripts/sync-clerk-data";
 import {
   CLERK_SYNC_SECRET_HEADER,
   authorizeClerkSync,
-  parseSyncClerkOrgId,
+  parseSyncClerkScope,
 } from "@/lib/clerk-org-sync";
 
 /**
@@ -47,11 +47,22 @@ async function runSync(request: Request, body?: unknown) {
     return unauthorized();
   }
 
-  const clerkOrgId = parseSyncClerkOrgId({
+  const scope = parseSyncClerkScope({
     searchParams: new URL(request.url).searchParams,
     body,
   });
 
+  if (scope.mode === "invalid") {
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Invalid clerk_org_id "${scope.value}". Expected an id starting with org_.`,
+      },
+      { status: 400 }
+    );
+  }
+
+  const clerkOrgId = scope.mode === "one" ? scope.clerkOrgId : undefined;
   const result = await syncExistingClerkData({ clerkOrgId });
   return NextResponse.json({
     success: true,
