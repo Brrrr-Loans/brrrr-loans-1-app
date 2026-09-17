@@ -23,11 +23,15 @@ import {
  */
 function clerkEmails(user: Awaited<ReturnType<typeof currentUser>>): string[] {
   const emails: string[] = [];
-  const primary = user?.primaryEmailAddress?.emailAddress;
-  if (primary) emails.push(primary);
+  const primary = user?.primaryEmailAddress;
+  if (primary?.verification?.status === "verified" && primary.emailAddress) {
+    emails.push(primary.emailAddress);
+  }
   const addresses = user?.emailAddresses ?? [];
   for (let i = 0; i < addresses.length; i++) {
-    const value = addresses[i]?.emailAddress;
+    const address = addresses[i];
+    if (address?.verification?.status !== "verified") continue;
+    const value = address.emailAddress;
     if (value) emails.push(value);
   }
   return emails;
