@@ -2,6 +2,8 @@ import { AARON_KRAUT_CLERK_USER_ID } from "../src/lib/internal-admin.ts";
 import {
   CLERK_SYNC_SECRET_HEADER,
   authorizeClerkSync,
+  clerkSyncUnauthorizedBody,
+  isScopedClerkOrgAdmin,
   mapClerkOrgRole,
   parseSyncClerkScope,
   resolveOrganizationCreatedWrite,
@@ -80,7 +82,7 @@ assert(
   authorizeClerkSync({
     secretHeader: "preview-secret",
     expectedSecret: "preview-secret",
-  }) === true,
+  }).authorized === true,
   "matching sync secret is authorized"
 );
 
@@ -88,7 +90,7 @@ assert(
   authorizeClerkSync({
     authorizationHeader: "Bearer preview-secret",
     expectedSecret: "preview-secret",
-  }) === true,
+  }).authorized === true,
   "Bearer sync secret is authorized"
 );
 
@@ -97,7 +99,7 @@ assert(
     secretHeader: "wrong",
     expectedSecret: "preview-secret",
     clerkUserId: "user_stranger",
-  }) === false,
+  }).authorized === false,
   "wrong secret without admin is rejected"
 );
 
@@ -105,16 +107,131 @@ assert(
   authorizeClerkSync({
     clerkUserId: AARON_KRAUT_CLERK_USER_ID,
     expectedSecret: "preview-secret",
-  }) === true,
+  }).authorized === true,
   "platform admin can sync without the secret"
 );
 
 assert(
   authorizeClerkSync({
     expectedSecret: null,
+    clerkUserId: "user_preview_session",
+    email: "akraut@brrrr.com", // pragma: allowlist secret
+  }).authorized === true,
+  "Aaron email allowlist authorizes even if session user id is not hardcoded"
+);
+
+assert(
+  authorizeClerkSync({
+    expectedSecret: null,
+    emails: ["personal@example.com", "AKRAUT@BRRRR.COM"], // pragma: allowlist secret
+    clerkUserId: "user_preview_session",
+  }).authorized === true,
+  "secondary Clerk emails still match the platform admin allowlist"
+);
+
+assert(
+  authorizeClerkSync({
+    expectedSecret: null,
     clerkUserId: "user_stranger",
-  }) === false,
+  }).authorized === false,
   "public callers are rejected when no secret is configured"
+);
+
+const emailMismatch = authorizeClerkSync({
+  expectedSecret: null,
+  clerkUserId: "user_preview_session",
+  email: "someone@example.com",
+});
+assert(emailMismatch.authorized === false, "unknown email is not a platform admin");
+assertEqual(
+  { hasUserId: emailMismatch.hasUserId, emailMatched: emailMismatch.emailMatched },
+  { hasUserId: true, emailMatched: false },
+  "401 hint reports signed-in caller without leaking identity"
+);
+
+const anonymous = authorizeClerkSync({ expectedSecret: null });
+assertEqual(
+  clerkSyncUnauthorizedBody(anonymous),
+  {
+    success: false,
+    error: "Unauthorized",
+    auth: { hasUserId: false, emailMatched: false },
+  },
+  "401 body is only success/error/auth booleans"
+);
+assert(
+  !JSON.stringify(clerkSyncUnauthorizedBody(emailMismatch)).includes("user_"),
+  "401 body must not include Clerk user ids"
+);
+assert(
+  !JSON.stringify(clerkSyncUnauthorizedBody({
+    hasUserId: true,
+    emailMatched: true,
+  })).includes("@"),
+  "401 body must not include emails"
+);
+
+assert(
+  isScopedClerkOrgAdmin({
+    scopedClerkOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
+    sessionOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
+    sessionOrgRole: "org:admin",
+  }) === true,
+  "active Clerk org admin can sync that org"
+);
+
+assert(
+  authorizeClerkSync({
+    expectedSecret: null,
+    clerkUserId: "user_org_admin",
+    scopedClerkOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
+    sessionOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
+    sessionOrgRole: "org:admin",
+  }).authorized === true,
+  "scoped sync allows the org's Clerk admin"
+);
+
+assert(
+  authorizeClerkSync({
+    expectedSecret: null,
+    clerkUserId: "user_org_admin",
+    scopedClerkOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
+    sessionOrgId: "org_other",
+    sessionOrgRole: "org:admin",
+  }).authorized === false,
+  "org admin of a different org cannot scoped-sync"
+);
+
+assert(
+  authorizeClerkSync({
+    expectedSecret: null,
+    clerkUserId: "user_org_member",
+    scopedClerkOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
+    sessionOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
+    sessionOrgRole: "org:member",
+  }).authorized === false,
+  "org members cannot scoped-sync"
+);
+
+assert(
+  authorizeClerkSync({
+    expectedSecret: null,
+    clerkUserId: "user_org_admin",
+    sessionOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
+    sessionOrgRole: "org:admin",
+  }).authorized === false,
+  "full sync stays platform-admin/secret only"
+);
+
+assert(
+  authorizeClerkSync({
+    expectedSecret: null,
+    clerkUserId: "user_org_admin",
+    scopedClerkOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
+    sessionOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
+    sessionHasOrgAdmin: true,
+  }).authorized === true,
+  "Clerk has({ role: org:admin }) is enough for scoped sync"
 );
 
 assertEqual(

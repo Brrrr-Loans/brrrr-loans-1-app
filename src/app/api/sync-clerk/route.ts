@@ -4,7 +4,10 @@ import { syncExistingClerkData } from "../../../../scripts/sync-clerk-data";
 import {
   CLERK_SYNC_SECRET_HEADER,
   authorizeClerkSync,
+  clerkSyncUnauthorizedBody,
   parseSyncClerkScope,
+  type ClerkSyncAuthHint,
+  type ClerkSyncAuthResult,
 } from "@/lib/clerk-org-sync";
 
 /**
@@ -13,17 +16,31 @@ import {
  * GET/POST /api/sync-clerk?clerk_org_id=org_...
  *
  * Auth: platform admin session OR `x-clerk-sync-secret` / Bearer matching
- * `CLERK_SYNC_SECRET`. The route stays public in middleware so curl works;
- * this handler still returns 401 without one of those.
+ * `CLERK_SYNC_SECRET`. Scoped sync also allows an authenticated Clerk org
+ * admin of that org. Full sync stays platform-admin/secret only.
+ * The route stays public in middleware so curl works; this handler still
+ * returns 401 without one of those.
  */
-async function authorizeSyncRequest(request: Request): Promise<boolean> {
-  const { userId } = await auth();
-  let email: string | null = null;
+function clerkEmails(user: Awaited<ReturnType<typeof currentUser>>): string[] {
+  const emails: string[] = [];
+  const primary = user?.primaryEmailAddress?.emailAddress;
+  if (primary) emails.push(primary);
+  const addresses = user?.emailAddresses ?? [];
+  for (let i = 0; i < addresses.length; i++) {
+    const value = addresses[i]?.emailAddress;
+    if (value) emails.push(value);
+  }
+  return emails;
+}
+
+async function authorizeSyncRequest(
+  request: Request,
+  scopedClerkOrgId: string | null
+): Promise<ClerkSyncAuthResult> {
+  const { userId, orgId, orgRole, has } = await auth();
+  let emails: string[] = [];
   if (userId) {
-    const user = await currentUser();
-    email = user?.primaryEmailAddress?.emailAddress
-      ?? user?.emailAddresses?.[0]?.emailAddress
-      ?? null;
+    emails = clerkEmails(await currentUser());
   }
 
   return authorizeClerkSync({
@@ -31,26 +48,29 @@ async function authorizeSyncRequest(request: Request): Promise<boolean> {
     authorizationHeader: request.headers.get("authorization"),
     expectedSecret: process.env.CLERK_SYNC_SECRET ?? null,
     clerkUserId: userId,
-    email,
+    emails,
+    scopedClerkOrgId,
+    sessionOrgId: orgId,
+    sessionOrgRole: orgRole,
+    sessionHasOrgAdmin: typeof has === "function" && has({ role: "org:admin" }),
   });
 }
 
-function unauthorized() {
-  return NextResponse.json(
-    { success: false, error: "Unauthorized" },
-    { status: 401 }
-  );
+function unauthorized(hint: ClerkSyncAuthHint) {
+  return NextResponse.json(clerkSyncUnauthorizedBody(hint), { status: 401 });
 }
 
 async function runSync(request: Request, body?: unknown) {
-  if (!(await authorizeSyncRequest(request))) {
-    return unauthorized();
-  }
-
   const scope = parseSyncClerkScope({
     searchParams: new URL(request.url).searchParams,
     body,
   });
+  const scopedClerkOrgId = scope.mode === "one" ? scope.clerkOrgId : null;
+  const authResult = await authorizeSyncRequest(request, scopedClerkOrgId);
+
+  if (!authResult.authorized) {
+    return unauthorized(authResult);
+  }
 
   if (scope.mode === "invalid") {
     return NextResponse.json(

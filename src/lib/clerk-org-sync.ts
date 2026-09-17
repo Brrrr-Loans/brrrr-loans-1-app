@@ -1,4 +1,5 @@
-import { isPlatformAdminIdentity } from "./internal-admin.ts";
+import { isClerkOrgAdminRole } from "./deal-access.ts";
+import { isKnownPlatformAdmin, isPlatformAdminIdentity } from "./internal-admin.ts";
 
 export type ClerkOrgRole = "admin" | "member" | "viewer";
 
@@ -102,20 +103,88 @@ export function resolveOrganizationCreatedWrite(input: {
   return write;
 }
 
+export type ClerkSyncAuthHint = {
+  hasUserId: boolean;
+  emailMatched: boolean;
+};
+
+export type ClerkSyncAuthResult = ClerkSyncAuthHint & {
+  authorized: boolean;
+};
+
+export function clerkSyncUnauthorizedBody(hint: ClerkSyncAuthHint): {
+  success: false;
+  error: "Unauthorized";
+  auth: ClerkSyncAuthHint;
+} {
+  return {
+    success: false,
+    error: "Unauthorized",
+    auth: {
+      hasUserId: Boolean(hint.hasUserId),
+      emailMatched: Boolean(hint.emailMatched),
+    },
+  };
+}
+
+export function isScopedClerkOrgAdmin(input: {
+  scopedClerkOrgId?: string | null;
+  sessionOrgId?: string | null;
+  sessionOrgRole?: string | null;
+  sessionHasOrgAdmin?: boolean | null;
+}): boolean {
+  if (!input.scopedClerkOrgId || !input.sessionOrgId) return false;
+  if (input.scopedClerkOrgId !== input.sessionOrgId) return false;
+  return (
+    input.sessionHasOrgAdmin === true ||
+    isClerkOrgAdminRole(input.sessionOrgRole)
+  );
+}
+
 export function authorizeClerkSync(input: {
   secretHeader?: string | null;
   authorizationHeader?: string | null;
   expectedSecret?: string | null;
   clerkUserId?: string | null;
   email?: string | null;
-}): boolean {
+  emails?: Array<string | null | undefined>;
+  scopedClerkOrgId?: string | null;
+  sessionOrgId?: string | null;
+  sessionOrgRole?: string | null;
+  sessionHasOrgAdmin?: boolean | null;
+}): ClerkSyncAuthResult {
+  const emails = [input.email, ...(input.emails ?? [])];
+  const matchingEmail =
+    emails.find((value) => isKnownPlatformAdmin({ email: value })) ?? null;
+  const hint: ClerkSyncAuthHint = {
+    hasUserId: Boolean(input.clerkUserId),
+    emailMatched: Boolean(matchingEmail),
+  };
+
   const providedSecret = input.secretHeader || bearerToken(input.authorizationHeader);
   if (isValidClerkSyncSecret(providedSecret, input.expectedSecret)) {
-    return true;
+    return { authorized: true, ...hint };
   }
 
-  return isPlatformAdminIdentity({
-    clerkUserId: input.clerkUserId,
-    email: input.email,
-  });
+  if (
+    isPlatformAdminIdentity({
+      clerkUserId: input.clerkUserId,
+      email: matchingEmail ?? input.email,
+    })
+  ) {
+    return { authorized: true, ...hint };
+  }
+
+  if (
+    isScopedClerkOrgAdmin({
+      scopedClerkOrgId: input.scopedClerkOrgId,
+      sessionOrgId: input.sessionOrgId,
+      sessionOrgRole: input.sessionOrgRole,
+      sessionHasOrgAdmin: input.sessionHasOrgAdmin,
+    })
+  ) {
+    return { authorized: true, ...hint };
+  }
+
+  return { authorized: false, ...hint };
 }

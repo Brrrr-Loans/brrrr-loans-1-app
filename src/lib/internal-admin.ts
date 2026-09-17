@@ -19,6 +19,7 @@ export const PLATFORM_ADMIN_CLERK_USER_IDS = [
 
 export const PLATFORM_ADMIN_EMAILS = [
   "clesnik@brrrr.com",
+  "akraut@brrrr.com", // pragma: allowlist secret
 ] as const;
 
 const PLATFORM_ADMIN_ID_SET = new Set<string>(PLATFORM_ADMIN_CLERK_USER_IDS);
