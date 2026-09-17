@@ -7,6 +7,7 @@ import {
   mapClerkOrgRole,
   parseSyncClerkScope,
   resolveOrganizationCreatedWrite,
+  verifiedClerkEmails,
 } from "../src/lib/clerk-org-sync.ts";
 
 function assert(condition, message) {
@@ -127,6 +128,44 @@ assert(
     clerkUserId: "user_preview_session",
   }).authorized === true,
   "secondary Clerk emails still match the platform admin allowlist"
+);
+
+assertEqual(
+  verifiedClerkEmails({
+    primaryEmailAddress: {
+      emailAddress: "personal@example.com",
+      verification: { status: "verified" },
+    },
+    emailAddresses: [
+      {
+        emailAddress: "akraut@brrrr.com", // pragma: allowlist secret
+        verification: { status: "unverified" },
+      },
+      {
+        emailAddress: "AKRAUT@BRRRR.COM", // pragma: allowlist secret
+        verification: { status: "verified" },
+      },
+    ],
+  }),
+  ["personal@example.com", "AKRAUT@BRRRR.COM"], // pragma: allowlist secret
+  "only verified Clerk emails are candidates for platform-admin matching"
+);
+
+assertEqual(
+  verifiedClerkEmails({
+    primaryEmailAddress: {
+      emailAddress: "akraut@brrrr.com", // pragma: allowlist secret
+      verification: { status: "unverified" },
+    },
+    emailAddresses: [
+      {
+        emailAddress: "akraut@brrrr.com", // pragma: allowlist secret
+        verification: { status: "unverified" },
+      },
+    ],
+  }),
+  [],
+  "unverified allowlisted emails must not be forwarded to authorizeClerkSync"
 );
 
 assert(

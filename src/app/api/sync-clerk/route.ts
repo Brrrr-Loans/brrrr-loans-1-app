@@ -6,6 +6,7 @@ import {
   authorizeClerkSync,
   clerkSyncUnauthorizedBody,
   parseSyncClerkScope,
+  verifiedClerkEmails,
   type ClerkSyncAuthHint,
   type ClerkSyncAuthResult,
 } from "@/lib/clerk-org-sync";
@@ -21,18 +22,6 @@ import {
  * The route stays public in middleware so curl works; this handler still
  * returns 401 without one of those.
  */
-function clerkEmails(user: Awaited<ReturnType<typeof currentUser>>): string[] {
-  const emails: string[] = [];
-  const primary = user?.primaryEmailAddress?.emailAddress;
-  if (primary) emails.push(primary);
-  const addresses = user?.emailAddresses ?? [];
-  for (let i = 0; i < addresses.length; i++) {
-    const value = addresses[i]?.emailAddress;
-    if (value) emails.push(value);
-  }
-  return emails;
-}
-
 async function authorizeSyncRequest(
   request: Request,
   scopedClerkOrgId: string | null
@@ -40,7 +29,7 @@ async function authorizeSyncRequest(
   const { userId, orgId, orgRole, has } = await auth();
   let emails: string[] = [];
   if (userId) {
-    emails = clerkEmails(await currentUser());
+    emails = verifiedClerkEmails(await currentUser());
   }
 
   return authorizeClerkSync({

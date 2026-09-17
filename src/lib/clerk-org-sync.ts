@@ -127,6 +127,48 @@ export function clerkSyncUnauthorizedBody(hint: ClerkSyncAuthHint): {
   };
 }
 
+export type ClerkEmailCandidate = {
+  emailAddress?: string | null;
+  verification?: { status?: string | null } | null;
+};
+
+export function isVerifiedClerkEmail(
+  entry?: ClerkEmailCandidate | null
+): boolean {
+  const email = (entry?.emailAddress || "").trim();
+  if (!email) return false;
+  return (entry?.verification?.status || "").toLowerCase() === "verified";
+}
+
+/**
+ * Only verified Clerk addresses may be used for platform-admin email
+ * matching. Unverified secondaries stay on `emailAddresses` and must not
+ * grant a service-role backfill.
+ */
+export function verifiedClerkEmails(user?: {
+  primaryEmailAddress?: ClerkEmailCandidate | null;
+  emailAddresses?: Array<ClerkEmailCandidate | null> | null;
+} | null): string[] {
+  const emails: string[] = [];
+  const seen = new Set<string>();
+
+  const add = (entry?: ClerkEmailCandidate | null) => {
+    if (!isVerifiedClerkEmail(entry)) return;
+    const value = (entry?.emailAddress || "").trim();
+    const key = value.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    emails.push(value);
+  };
+
+  add(user?.primaryEmailAddress);
+  const addresses = user?.emailAddresses ?? [];
+  for (let i = 0; i < addresses.length; i++) {
+    add(addresses[i]);
+  }
+  return emails;
+}
+
 export function isScopedClerkOrgAdmin(input: {
   scopedClerkOrgId?: string | null;
   sessionOrgId?: string | null;
