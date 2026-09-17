@@ -95,6 +95,7 @@ export type OrgPolicyRow = {
   is_active: boolean;
   is_protected_policy: boolean;
   created_at: string;
+  archived_at?: string | null;
 };
 
 /**

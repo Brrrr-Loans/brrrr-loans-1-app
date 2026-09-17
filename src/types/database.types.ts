@@ -4435,6 +4435,182 @@ export type Database = {
           },
         ];
       };
+      organization_policies: {
+        Row: {
+          action: string;
+          archived_at: string | null;
+          archived_by: string | null;
+          compiled_config: Json;
+          created_at: string;
+          created_by_clerk_sub: string | null;
+          created_by_user_id: number | null;
+          definition_json: Json;
+          effect: string;
+          id: string;
+          is_active: boolean;
+          is_protected_policy: boolean;
+          org_id: number | null;
+          resource_name: string;
+          resource_type: string;
+          scope: string;
+          version: number;
+        };
+        Insert: {
+          action: string;
+          archived_at?: string | null;
+          archived_by?: string | null;
+          compiled_config: Json;
+          created_at?: string;
+          created_by_clerk_sub?: string | null;
+          created_by_user_id?: number | null;
+          definition_json: Json;
+          effect?: string;
+          id?: string;
+          is_active?: boolean;
+          is_protected_policy?: boolean;
+          org_id?: number | null;
+          resource_name?: string;
+          resource_type: string;
+          scope?: string;
+          version?: number;
+        };
+        Update: {
+          action?: string;
+          archived_at?: string | null;
+          archived_by?: string | null;
+          compiled_config?: Json;
+          created_at?: string;
+          created_by_clerk_sub?: string | null;
+          created_by_user_id?: number | null;
+          definition_json?: Json;
+          effect?: string;
+          id?: string;
+          is_active?: boolean;
+          is_protected_policy?: boolean;
+          org_id?: number | null;
+          resource_name?: string;
+          resource_type?: string;
+          scope?: string;
+          version?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_policies_created_by_user_id_fkey";
+            columns: ["created_by_user_id"];
+            isOneToOne: false;
+            referencedRelation: "auth_clerk_users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "organization_policies_org_id_fkey";
+            columns: ["org_id"];
+            isOneToOne: false;
+            referencedRelation: "auth_clerk_orgs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      organization_policies_column_filters: {
+        Row: {
+          id: string;
+          is_excluded: boolean;
+          join_path: string | null;
+          named_scopes: string[];
+          notes: string | null;
+          org_column: string | null;
+          schema_name: string;
+          table_name: string;
+          user_column: string | null;
+          user_column_type: string;
+        };
+        Insert: {
+          id?: string;
+          is_excluded?: boolean;
+          join_path?: string | null;
+          named_scopes?: string[];
+          notes?: string | null;
+          org_column?: string | null;
+          schema_name?: string;
+          table_name: string;
+          user_column?: string | null;
+          user_column_type?: string;
+        };
+        Update: {
+          id?: string;
+          is_excluded?: boolean;
+          join_path?: string | null;
+          named_scopes?: string[];
+          notes?: string | null;
+          org_column?: string | null;
+          schema_name?: string;
+          table_name?: string;
+          user_column?: string | null;
+          user_column_type?: string;
+        };
+        Relationships: [];
+      };
+      organization_policy_named_scope_tables: {
+        Row: {
+          fk_column: string;
+          notes: string | null;
+          scope_name: string;
+          table_name: string;
+        };
+        Insert: {
+          fk_column: string;
+          notes?: string | null;
+          scope_name: string;
+          table_name: string;
+        };
+        Update: {
+          fk_column?: string;
+          notes?: string | null;
+          scope_name?: string;
+          table_name?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_policy_named_scope_tables_scope_name_fkey";
+            columns: ["scope_name"];
+            isOneToOne: false;
+            referencedRelation: "organization_policy_named_scopes";
+            referencedColumns: ["name"];
+          },
+        ];
+      };
+      organization_policy_named_scopes: {
+        Row: {
+          created_at: string;
+          description: string | null;
+          label: string;
+          name: string;
+          precomputed_pk_col: string | null;
+          precomputed_table: string | null;
+          precomputed_user_col: string | null;
+          uses_precomputed: boolean;
+        };
+        Insert: {
+          created_at?: string;
+          description?: string | null;
+          label: string;
+          name: string;
+          precomputed_pk_col?: string | null;
+          precomputed_table?: string | null;
+          precomputed_user_col?: string | null;
+          uses_precomputed?: boolean;
+        };
+        Update: {
+          created_at?: string;
+          description?: string | null;
+          label?: string;
+          name?: string;
+          precomputed_pk_col?: string | null;
+          precomputed_table?: string | null;
+          precomputed_user_col?: string | null;
+          uses_precomputed?: boolean;
+        };
+        Relationships: [];
+      };
       payroll_ledger: {
         Row: {
           comp_ae_final_usd: number | null;

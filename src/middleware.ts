@@ -8,6 +8,8 @@ const isPublicRoute = createRouteMatcher([
   "/sign-up(.*)",
   // Public API routes (webhooks, external integrations)
   "/api/webhooks(.*)",
+  // Public so curl + x-clerk-sync-secret works; the handler still 401s
+  // unless the caller is a platform admin or presents CLERK_SYNC_SECRET.
   "/api/sync-clerk(.*)",
 ]);
 
