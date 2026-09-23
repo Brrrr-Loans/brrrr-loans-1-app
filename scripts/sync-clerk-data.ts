@@ -57,6 +57,24 @@ async function listAllOrganizations(clerk: ClerkClient) {
   return orgs;
 }
 
+async function listAllUsers(clerk: ClerkClient) {
+  const users: Awaited<
+    ReturnType<ClerkClient["users"]["getUserList"]>
+  >["data"] = [];
+  let offset = 0;
+  const limit = 100;
+
+  while (true) {
+    const page = await clerk.users.getUserList({ limit, offset });
+    const rows = page.data ?? [];
+    users.push(...rows);
+    if (rows.length < limit) break;
+    offset += limit;
+  }
+
+  return users;
+}
+
 async function listOrganizationMemberships(
   clerk: ClerkClient,
   organizationId: string
@@ -292,8 +310,7 @@ export async function syncExistingClerkData(
     : await listAllOrganizations(clerk);
 
   if (!options.clerkOrgId) {
-    const usersPage = await clerk.users.getUserList({ limit: 100 });
-    const users = usersPage.data ?? [];
+    const users = await listAllUsers(clerk);
     for (const user of users) {
       const email = user.emailAddresses?.[0]?.emailAddress;
       if (!email) continue;

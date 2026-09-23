@@ -9,7 +9,7 @@ import {
   type MemberRoleOption,
 } from "@/app/(portal)/org/[clerk_org_id]/settings/policies/member-roles-api";
 import {
-  saveOrgPolicy,
+  saveOrgPolicies,
   setOrgPolicyActive,
   updateOrgPolicy,
   deleteOrgPolicy,
@@ -125,9 +125,9 @@ import { cn } from "@/lib/utils";
 import { PolicyDiagramView } from "@/components/policies/policy-diagram-view";
 import {
   BUILDER_ROUTE_ACTIONS,
+  actionForPolicyUpdate,
   canMutatePolicy,
   deriveLegacyScope,
-  filterActionsForResourceType,
   formActionForStoredPolicy,
   hasValidPolicyConditions,
   isGlobalPolicy,
@@ -135,7 +135,6 @@ import {
   isProtectedPolicy as isProtectedSubject,
   sanitizePolicyConditions,
   type PolicyAction as MutationPolicyAction,
-  type PolicyResourceType,
 } from "@/lib/policies/policy-mutation";
 
 // ============================================================================
@@ -335,11 +334,13 @@ function ChipsSelect({
   selected,
   onChange,
   placeholder,
+  disabled,
 }: {
   options: Array<{ value: string; label: string }>;
   selected: string[];
   onChange: (values: string[]) => void;
   placeholder: string;
+  disabled?: boolean;
 }) {
   function toggle(value: string) {
     if (selected.includes(value)) {
@@ -355,6 +356,7 @@ function ChipsSelect({
         <Button
           variant="outline"
           role="combobox"
+          disabled={disabled}
           className="justify-between font-normal h-auto min-h-9 rounded-md shadow-xs px-2 py-1.5"
         >
           <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
@@ -1083,7 +1085,9 @@ function loadPolicyIntoForm(
     def?.allow_internal_users ?? compiled?.allow_internal_users ?? false
   );
   setters.setSelectedActions([
-    formActionForStoredPolicy(policy.resource_type, policy.action),
+    policy.action === "all"
+      ? "all"
+      : formActionForStoredPolicy(policy.resource_type, policy.action),
   ]);
   setters.setSelectedResources([`${policy.resource_type}:${policy.resource_name}`]);
   setters.setSelectedEffect(policy.effect ?? def?.effect ?? "ALLOW");
@@ -1402,14 +1406,24 @@ export default function OrgPolicyBuilder({
       .filter((r) => r.startsWith("feature:"))
       .map((r) => r.slice("feature:".length));
 
-    const actionSet = new Set<string>();
+    // Multiple features narrow to the intersection of their declared actions.
+    let actionSet: Set<string> | null = null;
     for (const name of selectedFeatureNames) {
       const feat =
         FEATURE_RESOURCES.find((f) => f.name === name) ??
         dynamicIntegrationFeatures.find((f) => f.name === name);
-      feat?.actions.forEach((a) => actionSet.add(a));
+      const featActions = new Set<string>(feat?.actions ?? []);
+      if (actionSet === null) {
+        actionSet = featActions;
+      } else {
+        const next = new Set<string>();
+        for (const a of actionSet) {
+          if (featActions.has(a)) next.add(a);
+        }
+        actionSet = next;
+      }
     }
-    if (actionSet.size === 0) actionSet.add("submit");
+    if (!actionSet || actionSet.size === 0) actionSet = new Set(["submit"]);
 
     return [...actionSet].map((a) => ({
       value: a,
@@ -1452,6 +1466,13 @@ export default function OrgPolicyBuilder({
 
   // Reset selected actions when the resource type mix changes
   useEffect(() => {
+    // A stored `all` policy keeps its verb while editing.
+    if (
+      editingPolicyId &&
+      policies.find((p) => p.id === editingPolicyId)?.action === "all"
+    ) {
+      return;
+    }
     if (
       hasApiResourceSelected &&
       !hasDataSelected &&
@@ -1643,7 +1664,12 @@ export default function OrgPolicyBuilder({
           await updateOrgPolicy({
             id: editingPolicyId,
             definition,
-            action: (selectedActions[0] ?? "select") as PolicyAction,
+            action: current
+              ? actionForPolicyUpdate(
+                  current.action as MutationPolicyAction,
+                  selectedActions[0] as MutationPolicyAction
+                )
+              : ((selectedActions[0] ?? "select") as PolicyAction),
             resourceType,
             resourceName,
           });
@@ -1651,32 +1677,18 @@ export default function OrgPolicyBuilder({
           router.refresh();
           resetForm();
         } else {
-          let wrote = 0;
-          for (const resource of selectedResources) {
-            const { resourceType, resourceName } =
-              parseSelectedResource(resource);
-            const actions = filterActionsForResourceType(
-              resourceType as PolicyResourceType,
-              selectedActions as MutationPolicyAction[]
-            );
-
-            if (actions.length === 0) continue;
-
-            await saveOrgPolicy({
+          const resources = selectedResources.map((r) => {
+            const { resourceType, resourceName } = parseSelectedResource(r);
+            return {
               resourceType,
               resourceName: resourceName === "*" ? undefined : resourceName,
-              actions: actions as PolicyAction[],
-              definition,
-            });
-            wrote += 1;
-          }
-
-          if (wrote === 0) {
-            setError(
-              "None of the selected actions apply to the selected resources."
-            );
-            return;
-          }
+            };
+          });
+          await saveOrgPolicies({
+            resources,
+            actions: selectedActions as PolicyAction[],
+            definition,
+          });
 
           setStatus("Policy saved successfully.");
           router.refresh();
@@ -1986,11 +1998,22 @@ export default function OrgPolicyBuilder({
         </p>
         <div className="min-w-[160px]">
           <ChipsSelect
-            options={activeActionOptions}
+            options={
+              editingPolicy?.action === "all"
+                ? [{ value: "all", label: "All" }]
+                : activeActionOptions
+            }
             selected={selectedActions}
             onChange={setSelectedActions}
             placeholder="Select permissions..."
+            disabled={editingPolicy?.action === "all"}
           />
+          {editingPolicy?.action === "all" && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              This policy grants all actions. Change conditions here; change the
+              action with SQL.
+            </p>
+          )}
         </div>
         <span className="text-sm font-semibold shrink-0">ON</span>
         <div className="w-fit">

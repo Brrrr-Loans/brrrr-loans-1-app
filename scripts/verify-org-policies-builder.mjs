@@ -9,6 +9,8 @@ import {
   deriveLegacyScope,
   fanOutResourceActions,
   fanOutResourcesActions,
+  actionForPolicyUpdate,
+  filterActionsForFeature,
   filterActionsForResourceType,
   hasValidPolicyConditions,
   isGlobalPolicy,
@@ -487,6 +489,39 @@ assertEqual(
   }),
   12,
   "maybeSingle org row resolves to numeric pk"
+);
+
+// ---------------------------------------------------------------------------
+// Per-feature action narrowing + preserved `all` on update
+// ---------------------------------------------------------------------------
+
+const FEATURES = [
+  { name: "settings_general", actions: ["view", "update"] },
+  { name: "settings_members", actions: ["view", "insert", "update", "delete"] },
+];
+
+assertEqual(
+  filterActionsForFeature("settings_general", ["view", "update", "delete"], FEATURES),
+  ["view", "update"],
+  "feature verbs narrow to the actions that feature declares"
+);
+
+assertEqual(
+  filterActionsForFeature("unknown_feature", ["view", "all"], FEATURES),
+  ["view"],
+  "unknown features pass through, but `all` is not a feature verb"
+);
+
+assertEqual(
+  actionForPolicyUpdate("all", "view"),
+  undefined,
+  "stored `all` is preserved on edit (no action update sent)"
+);
+
+assertEqual(
+  actionForPolicyUpdate("view", "submit"),
+  "submit",
+  "non-`all` stored action is updated to the selected verb"
 );
 
 console.log("verify-org-policies-builder: all assertions passed");
