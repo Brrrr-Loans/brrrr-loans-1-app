@@ -148,6 +148,13 @@ export function filterActionsForFeature(
   );
 }
 
+/** `loan_processor` → "Loan Processor". */
+export function humanizeRole(role: string): string {
+  return role
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 /** A stored `all` is preserved on edit; the builder never rewrites it to a narrower verb. */
 export function actionForPolicyUpdate(
   storedAction: PolicyAction,

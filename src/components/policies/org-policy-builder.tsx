@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   getMemberRolesForPolicies,
+  getOrgRolesForPolicies,
   type MemberRoleOption,
 } from "@/app/(portal)/org/[clerk_org_id]/settings/policies/member-roles-api";
 import {
@@ -140,13 +141,6 @@ import {
 // ============================================================================
 // Constants
 // ============================================================================
-
-const orgRoleValueOptions = [
-  { value: "owner", label: "Owner" },
-  { value: "admin", label: "Admin" },
-  { value: "member", label: "Member" },
-  { value: "broker", label: "Broker" },
-];
 
 const orgTypeValueOptions = [
   { value: "internal", label: "Internal" },
@@ -1196,7 +1190,16 @@ export default function OrgPolicyBuilder({
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
 
-  // Dynamic member role options
+  // Dynamic org role options (auth_clerk_orgs_members.clerk_org_role enum)
+  const [orgRoleValueOptions, setOrgRoleValueOptions] = useState<
+    Array<{ value: string; label: string; description?: string | null }>
+  >([
+    { value: "admin", label: "Admin" },
+    { value: "member", label: "Member" },
+    { value: "viewer", label: "Viewer" },
+  ]);
+
+  // Dynamic member role options (auth_clerk_orgs_members.clerk_member_role)
   const [memberRoleValueOptions, setMemberRoleValueOptions] = useState<
     Array<{ value: string; label: string; description?: string | null }>
   >([]);
@@ -1227,6 +1230,20 @@ export default function OrgPolicyBuilder({
         );
       } catch (err) {
         console.error("Failed to load member roles:", err);
+      }
+
+      // Load org roles
+      try {
+        const orgRoles = await getOrgRolesForPolicies();
+        setOrgRoleValueOptions(
+          orgRoles.map((r) => ({
+            value: r.value,
+            label: r.label,
+            description: r.description,
+          }))
+        );
+      } catch (err) {
+        console.error("Failed to load org roles:", err);
       }
 
       // Load available tables, buckets, and features
@@ -1311,7 +1328,7 @@ export default function OrgPolicyBuilder({
     },
     {
       value: "member_role",
-      label: "Member Role",
+      label: "Member Role (app-wide)",
       operators: standardOperators,
       valueOptions: memberRoleValueOptions,
     },

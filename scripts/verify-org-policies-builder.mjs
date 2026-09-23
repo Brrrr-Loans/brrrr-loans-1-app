@@ -13,6 +13,7 @@ import {
   filterActionsForFeature,
   filterActionsForResourceType,
   hasValidPolicyConditions,
+  humanizeRole,
   isGlobalPolicy,
   isMultiRulePolicy,
   isProtectedPolicy,
@@ -522,6 +523,12 @@ assertEqual(
   actionForPolicyUpdate("view", "submit"),
   "submit",
   "non-`all` stored action is updated to the selected verb"
+);
+
+assertEqual(
+  humanizeRole("loan_processor"),
+  "Loan Processor",
+  "snake_case member roles humanize for picker labels"
 );
 
 console.log("verify-org-policies-builder: all assertions passed");
