@@ -9,7 +9,7 @@ import {
 // Custom file extractor that bypasses File System Access API entirely
 // This avoids the "NotAllowedError: getFile" error when dragging files in dialogs/modals
 async function getFilesFromEvent(
-  event: DropEvent
+  event: DropEvent | FileSystemFileHandle[]
 ): Promise<Array<File | DataTransferItem>> {
   // Handle FileSystemFileHandle array (from File System Access API - we still need to handle it)
   if (Array.isArray(event)) {
@@ -136,9 +136,10 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
         });
 
       const invalidFiles = fileRejections.map(({ file, errors }) => {
-        (file as FileWithPreview).preview = URL.createObjectURL(file);
-        (file as FileWithPreview).errors = errors;
-        return file as FileWithPreview;
+        const rejected: File = file;
+        (rejected as FileWithPreview).preview = URL.createObjectURL(rejected);
+        (rejected as FileWithPreview).errors = errors;
+        return rejected as FileWithPreview;
       });
 
       const newFiles = [...files, ...validFiles, ...invalidFiles];
