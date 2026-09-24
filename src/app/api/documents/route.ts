@@ -111,9 +111,19 @@ export async function POST(request: Request) {
       ? (category as CategoryType)
       : undefined;
 
+    let documentCategoryId: number | null = null;
+    if (categoryValue) {
+      const { data: cat } = await supabase
+        .from("document_categories")
+        .select("id")
+        .eq("code", categoryValue)
+        .maybeSingle();
+      documentCategoryId = cat?.id ?? null;
+    }
+
     const insertObj: TablesInsert<"document_files"> = {
       document_name,
-      document_category: categoryValue,
+      document_category_id: documentCategoryId,
       file_type,
       file_size,
       storage_bucket,

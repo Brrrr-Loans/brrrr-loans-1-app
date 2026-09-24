@@ -81,7 +81,7 @@ export async function GET(request: Request) {
           transaction_method: tx.transaction_method || "wire",
           transaction_status: tx.transaction_status || "pending",
           ledger_entry_type: tx.ledger_entry_type || "distribution",
-          transaction_amount: Math.abs(parseFloat(tx.transaction_amount || "0")),
+          transaction_amount: Math.abs(tx.transaction_amount ?? 0),
         }));
       }
     } else {
@@ -188,7 +188,7 @@ export async function GET(request: Request) {
         transaction_method: tx.transaction_method || "wire",
         transaction_status: tx.transaction_status || "pending",
         ledger_entry_type: tx.ledger_entry_type || "distribution",
-        transaction_amount: Math.abs(parseFloat(tx.transaction_amount || "0")),
+        transaction_amount: Math.abs(tx.transaction_amount ?? 0),
       }));
     }
 

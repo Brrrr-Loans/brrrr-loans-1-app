@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { getSupabaseClient } from "@/lib/supabase-server";
+import { isContactType } from "@/types/auth";
 import type { UserPermissions, UserRole } from "@/types/auth";
 
 /**
@@ -56,7 +57,7 @@ async function getUserProfileWorkflow(userId: string): Promise<WorkflowResult> {
       .select(
         `
         *,
-        contact_types:contact_type_assignment(contact_type(*))
+        contact_types:contact_contact_types(contact_types(name))
       `
       )
       .eq("auth_clerk_users_id", profile.id)
@@ -83,10 +84,15 @@ async function getUserProfileWorkflow(userId: string): Promise<WorkflowResult> {
       ? (userRole as UserRole)
       : "balance_sheet_investor";
 
+    const contactTypeName =
+      contact?.contact_types?.[0]?.contact_types?.name ?? null;
+
     const permissions: UserPermissions = {
       userId: user.id,
       email: user.emailAddresses?.[0]?.emailAddress ?? "",
-      contactType: contact?.contact_type ?? "Balance Sheet Investor",
+      contactType: isContactType(contactTypeName)
+        ? contactTypeName
+        : "Balance Sheet Investor",
       role,
       contactId: contact?.id ?? 0,
       authUserProfileId: profile.id,

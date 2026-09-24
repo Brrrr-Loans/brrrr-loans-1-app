@@ -37,8 +37,8 @@ export async function GET(request: Request) {
     let transactions: Array<{
       id: number;
       transaction_date: string;
-      transaction_amount: string;
-      ledger_entry_type: string;
+      transaction_amount: number | null;
+      ledger_entry_type: string | null;
     }> = [];
 
     if (clerkOrgIdParam) {
@@ -159,7 +159,7 @@ export async function GET(request: Request) {
     // Group transactions by month
     // Classify by ledger_entry_type, not by amount sign
     transactions.forEach((tx) => {
-      const amount = Math.abs(parseFloat(tx.transaction_amount || "0"));
+      const amount = Math.abs(tx.transaction_amount ?? 0);
       const date = new Date(tx.transaction_date);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
 
@@ -209,13 +209,13 @@ export async function GET(request: Request) {
     const totalInvested = transactions
       .filter((tx) => tx.ledger_entry_type === "contribution")
       .reduce(
-        (sum, tx) => sum + Math.abs(parseFloat(tx.transaction_amount || "0")),
+        (sum, tx) => sum + Math.abs(tx.transaction_amount ?? 0),
         0
       );
 
     const totalReturned = transactions
       .filter((tx) => tx.ledger_entry_type === "distribution" || tx.ledger_entry_type === "redemption")
-      .reduce((sum, tx) => sum + Math.abs(parseFloat(tx.transaction_amount || "0")), 0);
+      .reduce((sum, tx) => sum + Math.abs(tx.transaction_amount ?? 0), 0);
 
     const currentROI =
       totalInvested > 0 ? (totalReturned / totalInvested) * 100 : 0;

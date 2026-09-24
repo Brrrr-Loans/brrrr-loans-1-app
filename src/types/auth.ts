@@ -18,6 +18,33 @@ export type ContactType =
   | "Transaction Coordinator"
   | "Loan Buyer";
 
+export const CONTACT_TYPES = [
+  "Appraisal Administration",
+  "Appraisal Management Company",
+  "Appraiser",
+  "Borrower",
+  "Borrower Assistant",
+  "Broker",
+  "Broker Loan Processor",
+  "General Contractor",
+  "Entity Member",
+  "Escrow",
+  "Insurance",
+  "Balance Sheet Investor",
+  "Lender",
+  "Point of Contact",
+  "Referring Party",
+  "Title",
+  "Transaction Coordinator",
+  "Loan Buyer",
+] as const satisfies readonly ContactType[];
+
+export function isContactType(
+  v: string | null | undefined
+): v is ContactType {
+  return v != null && (CONTACT_TYPES as readonly string[]).includes(v);
+}
+
 export type UserRole =
   | "admin"
   | "account_executive"
