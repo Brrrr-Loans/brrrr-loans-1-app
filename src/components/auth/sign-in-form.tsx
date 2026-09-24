@@ -215,6 +215,8 @@ export function SignInForm() {
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
         window.location.href = "/dashboard";
+      } else if (result.status === "needs_second_factor") {
+        await startSecondFactor(result, pickSecondFactor(result));
       }
     } catch (err: unknown) {
       const message =
