@@ -10,7 +10,7 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model: provider('gpt-4o'),
-    system: `You are an expert software engineer and UI designer with "v0 powers". 
+    instructions: `You are an expert software engineer and UI designer with "v0 powers". 
     You help users build dynamic document and email templates. 
     You can generate React components, HTML, and execute code concepts.
     
