@@ -465,7 +465,7 @@ export function CreateDistributionForm({
                         disabled={(date) =>
                           date < new Date() || date < new Date("1900-01-01")
                         }
-                        initialFocus
+                        autoFocus
                         className="rounded-md border shadow-sm"
                       />
                     </PopoverContent>
