@@ -2,7 +2,7 @@
 
 import { GitHubIcon } from "@/components/assets/github-icon";
 import { Button, Checkbox, Input, Label, Separator } from "@/components/ui";
-import { useSignIn } from "@clerk/nextjs";
+import { useSignIn } from "@clerk/nextjs/legacy";
 import Link from "next/link";
 import { useState } from "react";
 
