@@ -1,6 +1,6 @@
 "use client";
 
-import "@grapesjs/studio-sdk/style";
+import "@grapesjs/studio-sdk/style.css";
 
 import type { Editor } from "grapesjs";
 
