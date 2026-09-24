@@ -543,7 +543,7 @@ export function ManualTransferMatches({ onMatchDeleted }: ManualTransferMatchesP
           <DialogHeader>
             <DialogTitle>Delete Match?</DialogTitle>
             <DialogDescription>
-              This will remove the transfer-vendor match, but won't delete any synced transactions.
+              This will remove the transfer-vendor match, but won&apos;t delete any synced transactions.
               The transfer will appear in the Unmatched tab again.
             </DialogDescription>
           </DialogHeader>

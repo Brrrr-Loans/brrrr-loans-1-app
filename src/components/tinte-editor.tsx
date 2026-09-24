@@ -1094,7 +1094,7 @@ export function TinteEditor({ onChange, open, onOpenChange }: TinteEditorProps) 
                             }}
                             className="mt-2"
                           >
-                            I've added the API key
+                            I&apos;ve added the API key
                           </Button>
                         </div>
                       </div>
