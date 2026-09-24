@@ -48,9 +48,9 @@ export const API_KEY_ACTIONS: PolicyAction[] = ["read", "write"];
 export const BUILDER_ROUTE_ACTIONS: PolicyAction[] = ["view", "submit"];
 
 /**
- * Map a stored action into a picker verb. The UI never offers `all`, so a
- * stored `all` becomes the type's default explicit action instead of `select`
- * on every resource type.
+ * Map a stored action into a picker verb for display only — never used to
+ * persist. The UI never offers `all`, so a stored `all` becomes the type's
+ * default explicit action instead of `select` on every resource type.
  */
 export function formActionForStoredPolicy(
   resourceType: PolicyResourceType,
@@ -132,6 +132,36 @@ export function filterActionsForResourceType(
     filtered.push(action);
   }
   return filtered;
+}
+
+/** Narrow verbs to those a specific feature declares; unknown features pass through unchanged. */
+export function filterActionsForFeature(
+  resourceName: string,
+  actions: PolicyAction[],
+  featureResources: ReadonlyArray<{ name: string; actions: PolicyAction[] }>
+): PolicyAction[] {
+  const feature = featureResources.find((f) => f.name === resourceName);
+  if (!feature) return filterActionsForResourceType("feature", actions);
+  const allowed = new Set(feature.actions);
+  return filterActionsForResourceType("feature", actions).filter((a) =>
+    allowed.has(a)
+  );
+}
+
+/** `loan_processor` → "Loan Processor". */
+export function humanizeRole(role: string): string {
+  return role
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** A stored `all` is preserved on edit; the builder never rewrites it to a narrower verb. */
+export function actionForPolicyUpdate(
+  storedAction: PolicyAction,
+  selectedAction: PolicyAction | undefined
+): PolicyAction | undefined {
+  if (storedAction === "all") return undefined;
+  return selectedAction;
 }
 
 export function parseCreateSelection(resources: unknown, actions: unknown): {

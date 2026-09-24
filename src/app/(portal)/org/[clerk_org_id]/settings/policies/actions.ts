@@ -39,8 +39,10 @@ import {
   assertPolicyMutable,
   deriveLegacyScope,
   fanOutResourceActions,
+  filterActionsForFeature,
   hasValidPolicyConditions,
   orgPoliciesListOrFilter,
+  policyFanOutKey,
   sanitizePolicyConditions,
   POLICY_UPSERT_RESTORE_FIELDS,
   type PolicyMutationSubject,
@@ -53,6 +55,12 @@ import {
 type SavePolicyInput = {
   resourceType: ResourceType;
   resourceName?: string;
+  actions: PolicyAction[];
+  definition: PolicyDefinitionInput;
+};
+
+type SavePoliciesInput = {
+  resources: Array<{ resourceType: ResourceType; resourceName?: string }>;
   actions: PolicyAction[];
   definition: PolicyDefinitionInput;
 };
@@ -320,17 +328,14 @@ export async function getOrgPolicies(): Promise<{
   };
 }
 
-export async function saveOrgPolicy(
-  input: SavePolicyInput
+export async function saveOrgPolicies(
+  input: SavePoliciesInput
 ): Promise<{ ok: true }> {
   const { orgId, token, orgRole, userId } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
   const orgPk = await getOrgPk(supabase, orgId);
 
-  assertCreateSelection(
-    [{ resourceType: input.resourceType, resourceName: input.resourceName }],
-    input.actions
-  );
+  assertCreateSelection(input.resources, input.actions);
 
   const definition = prepareDefinition(input.definition);
   const compiledConfig = compilePolicy(definition);
@@ -358,16 +363,37 @@ export async function saveOrgPolicy(
     }
   }
 
-  const fanOut = fanOutResourceActions(
-    orgPk,
-    input.resourceType,
-    input.resourceName || "*",
-    input.actions
-  );
+  const seen = new Set<string>();
+  const fanOut: Array<{
+    resourceType: ResourceType;
+    resourceName: string;
+    action: PolicyAction;
+  }> = [];
+  for (const resource of input.resources) {
+    const actions =
+      resource.resourceType === "feature"
+        ? filterActionsForFeature(
+            resource.resourceName ?? "*",
+            input.actions,
+            FEATURE_RESOURCES
+          )
+        : input.actions;
+    for (const key of fanOutResourceActions(
+      orgPk,
+      resource.resourceType,
+      resource.resourceName || "*",
+      actions
+    )) {
+      const dedupeKey = policyFanOutKey(key);
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      fanOut.push(key);
+    }
+  }
 
   if (fanOut.length === 0) {
     throw new Error(
-      `None of the selected actions apply to ${input.resourceType} resources.`
+      "None of the selected actions apply to the selected resources."
     );
   }
 
@@ -408,14 +434,28 @@ export async function saveOrgPolicy(
   return { ok: true };
 }
 
+export async function saveOrgPolicy(
+  input: SavePolicyInput
+): Promise<{ ok: true }> {
+  return saveOrgPolicies({
+    resources: [
+      { resourceType: input.resourceType, resourceName: input.resourceName },
+    ],
+    actions: input.actions,
+    definition: input.definition,
+  });
+}
+
 async function loadPolicyForMutation(
   supabase: ReturnType<typeof supabaseForUser>,
+  orgPk: number,
   id: string
 ): Promise<PolicyMutationSubject> {
   const { data, error } = await supabase
     .from("organization_policies")
     .select("org_id,is_protected_policy,compiled_config,definition_json")
     .eq("id", id)
+    .eq("org_id", orgPk)
     .maybeSingle();
 
   throwMappedSupabaseError(error);
@@ -427,14 +467,19 @@ export async function setOrgPolicyActive(input: {
   id: string;
   isActive: boolean;
 }): Promise<{ ok: true }> {
-  const { token } = await requireAuthAndOrg();
+  const { orgId, token } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
-  assertPolicyMutable(await loadPolicyForMutation(supabase, input.id), "toggle");
+  const orgPk = await getOrgPk(supabase, orgId);
+  assertPolicyMutable(
+    await loadPolicyForMutation(supabase, orgPk, input.id),
+    "toggle"
+  );
 
   const { error } = await supabase
     .from("organization_policies")
     .update({ is_active: input.isActive })
-    .eq("id", input.id);
+    .eq("id", input.id)
+    .eq("org_id", orgPk);
 
   throwMappedSupabaseError(error);
 
@@ -448,9 +493,13 @@ export async function updateOrgPolicy(input: {
   resourceType?: ResourceType;
   resourceName?: string;
 }): Promise<{ ok: true }> {
-  const { userId, token, orgRole } = await requireAuthAndOrg();
+  const { userId, orgId, token, orgRole } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
-  assertPolicyMutable(await loadPolicyForMutation(supabase, input.id), "edit");
+  const orgPk = await getOrgPk(supabase, orgId);
+  assertPolicyMutable(
+    await loadPolicyForMutation(supabase, orgPk, input.id),
+    "edit"
+  );
 
   const definition = prepareDefinition(input.definition);
   const compiledConfig = compilePolicy(definition);
@@ -504,7 +553,8 @@ export async function updateOrgPolicy(input: {
   const { error } = await supabase
     .from("organization_policies")
     .update(updatePayload)
-    .eq("id", input.id);
+    .eq("id", input.id)
+    .eq("org_id", orgPk);
 
   throwMappedSupabaseError(error);
 
@@ -601,17 +651,25 @@ export async function deleteOrgPolicy(input: {
   id: string;
   action?: "restore";
 }): Promise<{ ok: true }> {
-  const { token, userId } = await requireAuthAndOrg();
+  const { orgId, token, userId } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
-  if (input.action !== "restore") {
-    assertPolicyMutable(await loadPolicyForMutation(supabase, input.id), "archive");
+  const orgPk = await getOrgPk(supabase, orgId);
+  if (input.action === "restore") {
+    // Ownership check only — restoring an archived row is always allowed.
+    await loadPolicyForMutation(supabase, orgPk, input.id);
+  } else {
+    assertPolicyMutable(
+      await loadPolicyForMutation(supabase, orgPk, input.id),
+      "archive"
+    );
   }
 
   if (input.action === "restore") {
     const { error } = await supabase
       .from("organization_policies")
       .update({ archived_at: null, archived_by: null })
-      .eq("id", input.id);
+      .eq("id", input.id)
+      .eq("org_id", orgPk);
     throwMappedSupabaseError(error);
     return { ok: true };
   }
@@ -621,7 +679,8 @@ export async function deleteOrgPolicy(input: {
   const { error } = await supabase
     .from("organization_policies")
     .update({ archived_at: now, archived_by: userId })
-    .eq("id", input.id);
+    .eq("id", input.id)
+    .eq("org_id", orgPk);
 
   throwMappedSupabaseError(error);
 

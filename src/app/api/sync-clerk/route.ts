@@ -54,13 +54,6 @@ async function runSync(request: Request, body?: unknown) {
     searchParams: new URL(request.url).searchParams,
     body,
   });
-  const scopedClerkOrgId = scope.mode === "one" ? scope.clerkOrgId : null;
-  const authResult = await authorizeSyncRequest(request, scopedClerkOrgId);
-
-  if (!authResult.authorized) {
-    return unauthorized(authResult);
-  }
-
   if (scope.mode === "invalid") {
     return NextResponse.json(
       {
@@ -69,6 +62,13 @@ async function runSync(request: Request, body?: unknown) {
       },
       { status: 400 }
     );
+  }
+
+  const scopedClerkOrgId = scope.mode === "one" ? scope.clerkOrgId : null;
+  const authResult = await authorizeSyncRequest(request, scopedClerkOrgId);
+
+  if (!authResult.authorized) {
+    return unauthorized(authResult);
   }
 
   const clerkOrgId = scope.mode === "one" ? scope.clerkOrgId : undefined;

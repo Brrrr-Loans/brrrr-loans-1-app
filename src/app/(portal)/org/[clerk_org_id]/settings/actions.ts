@@ -111,18 +111,14 @@ export async function saveDocumentRbacMatrix(input: {
   orgPk: number; // from loader
   rows: PermissionRow[]; // deal_role_types_id x document_categories_id
 }): Promise<{ ok: true; updated: number }> {
-  const { token } = await requireAuthAndOrg();
+  const { orgId, token } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
 
-  // IMPORTANT: always scope orgPk server-side too if you want to be extra strict.
-  // You can recompute orgPk from orgId and ensure it matches input.orgPk.
-  // (Recommended in production.)
-  // const { orgId } = await requireAuthAndOrg();
-  // const actualOrgPk = await getOrgPk(supabase, orgId);
-  // if (actualOrgPk !== input.orgPk) throw new Error("Org mismatch");
+  const actualOrgPk = await getOrgPk(supabase, orgId);
+  if (actualOrgPk !== input.orgPk) throw new Error("Organization mismatch.");
 
   const upsertRows = input.rows.map(r => ({
-    clerk_org_id: input.orgPk,
+    clerk_org_id: actualOrgPk,
     deal_role_types_id: r.deal_role_types_id,
     document_categories_id: r.document_categories_id,
     can_view: r.can_view,
@@ -144,10 +140,13 @@ export async function saveDocumentRbacMatrix(input: {
 
 // Optional: reset to template (if you created reset_org_document_permissions RPC)
 export async function resetOrgDocumentPermissions(orgPk: number): Promise<{ ok: true }> {
-  const { token } = await requireAuthAndOrg();
+  const { orgId, token } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
 
-  const { error } = await supabase.rpc("reset_org_document_permissions", { p_org_id: orgPk });
+  const actualOrgPk = await getOrgPk(supabase, orgId);
+  if (actualOrgPk !== orgPk) throw new Error("Organization mismatch.");
+
+  const { error } = await supabase.rpc("reset_org_document_permissions", { p_org_id: actualOrgPk });
   throwMappedSupabaseError(error);
 
   return { ok: true };
