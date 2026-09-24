@@ -4,7 +4,23 @@ import {
   isPlatformAdminIdentity,
 } from "../src/lib/internal-admin.ts";
 import { buildPortalQuery } from "../src/lib/deals-api.ts";
-import {
+import { register } from "node:module";
+
+register(
+  `data:text/javascript,${encodeURIComponent(
+    `export async function resolve(specifier, context, next) {
+      if (specifier === "./internal-admin") {
+        return {
+          url: new URL("./internal-admin.ts", context.parentURL).href,
+          shortCircuit: true,
+        };
+      }
+      return next(specifier, context);
+    }`
+  )}`
+);
+
+const {
   DEFAULT_IMPERSONATION_SESSION_TTL_SECONDS,
   authorizeImpersonationStart,
   buildImpersonationSessionPayload,
@@ -15,7 +31,7 @@ import {
   resolveImpersonationTarget,
   signImpersonationSession,
   verifyImpersonationSession,
-} from "../src/lib/impersonation-session.ts";
+} = await import("../src/lib/impersonation-session.ts");
 
 function assert(condition, message) {
   if (!condition) {
