@@ -1533,7 +1533,7 @@ export default function OrgPolicyBuilder({
       !hasLiveblocksSelected &&
       !hasApiResourceSelected
     ) {
-      const routeVals = new Set(routeActionOptions.map((o) => o.value));
+      const routeVals = new Set<string>(routeActionOptions.map((o) => o.value));
       setSelectedActions((prev) => {
         const valid = prev.filter((a) => routeVals.has(a));
         return valid.length > 0 ? valid : ["view"];
