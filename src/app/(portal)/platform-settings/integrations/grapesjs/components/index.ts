@@ -136,8 +136,7 @@ export function registerPropertyAddressComponent(editor: Editor) {
     if (!input || !suggestionsContainer) return;
 
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let sessionToken: any | null = null; // google.maps.places.AutocompleteSessionToken
+    let sessionToken: google.maps.places.AutocompleteSessionToken | null = null;
 
     // Load Google Places API with the new Places library
     function loadGooglePlacesAPI() {
@@ -151,8 +150,7 @@ export function registerPropertyAddressComponent(editor: Editor) {
         return;
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((window as any).google?.maps?.places?.Place) {
+      if (window.google?.maps?.places?.Place) {
         console.log("[PropertyAddress] Google Places (new API) already loaded");
         initAutocomplete();
         return;
@@ -162,8 +160,7 @@ export function registerPropertyAddressComponent(editor: Editor) {
       if (document.querySelector('script[src*="maps.googleapis.com"]')) {
         console.log("[PropertyAddress] Script already loading, waiting...");
         const checkInterval = setInterval(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          if ((window as any).google?.maps?.places?.Place) {
+          if (window.google?.maps?.places?.Place) {
             clearInterval(checkInterval);
             initAutocomplete();
           }
