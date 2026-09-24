@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { isPlatformAdminIdentity } from "./internal-admin";
+import { isPlatformAdminIdentity } from "./internal-admin.ts";
 
 export const IMPERSONATION_COOKIE_NAME = "portal_impersonation";
 export const DEFAULT_IMPERSONATION_SESSION_TTL_SECONDS = 30 * 60;
