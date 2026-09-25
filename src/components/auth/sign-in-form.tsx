@@ -12,6 +12,52 @@ type SignInStep =
   | "forgot-password"
   | "reset-password";
 
+type SecondFactorStrategy = "email_code" | "phone_code" | "totp" | "backup_code";
+
+const SECOND_FACTOR_PRIORITY: SecondFactorStrategy[] = [
+  "totp",
+  "email_code",
+  "phone_code",
+  "backup_code",
+];
+
+const SECOND_FACTOR_COPY: Record<
+  SecondFactorStrategy,
+  { description: string; placeholder: string; switchLabel: string }
+> = {
+  email_code: {
+    description: "We sent a verification code to your email.",
+    placeholder: "Email verification code",
+    switchLabel: "Send code to email",
+  },
+  phone_code: {
+    description: "We sent a verification code to your phone.",
+    placeholder: "Phone verification code",
+    switchLabel: "Send code to phone",
+  },
+  totp: {
+    description: "Enter the code from your authenticator app.",
+    placeholder: "Authenticator code",
+    switchLabel: "Use authenticator app",
+  },
+  backup_code: {
+    description: "Enter one of your backup codes.",
+    placeholder: "Backup code",
+    switchLabel: "Use a backup code",
+  },
+};
+
+type SignInResource = NonNullable<ReturnType<typeof useSignIn>["signIn"]>;
+
+function pickSecondFactor(
+  signIn: SignInResource
+): SecondFactorStrategy | null {
+  const supported = new Set(
+    (signIn.supportedSecondFactors ?? []).map((f) => f.strategy)
+  );
+  return SECOND_FACTOR_PRIORITY.find((s) => supported.has(s)) ?? null;
+}
+
 export function SignInForm() {
   const { isLoaded, signIn, setActive } = useSignIn();
   const [step, setStep] = useState<SignInStep>("start");
@@ -22,6 +68,8 @@ export function SignInForm() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [secondFactor, setSecondFactor] =
+    useState<SecondFactorStrategy | null>(null);
 
   if (!isLoaded) {
     return (
@@ -50,6 +98,22 @@ export function SignInForm() {
     }
   };
 
+  const startSecondFactor = async (
+    result: SignInResource,
+    strategy: SecondFactorStrategy | null
+  ) => {
+    if (!strategy) {
+      setError("No supported two-factor method is available for this account.");
+      return;
+    }
+    if (strategy === "email_code" || strategy === "phone_code") {
+      await result.prepareSecondFactor({ strategy });
+    }
+    setSecondFactor(strategy);
+    setCode("");
+    setStep("verifications");
+  };
+
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!signIn) return;
@@ -68,9 +132,10 @@ export function SignInForm() {
         window.location.href = "/dashboard";
       } else if (result.status === "needs_first_factor") {
         // Need to verify with a code
+        setSecondFactor(null);
         setStep("verifications");
       } else if (result.status === "needs_second_factor") {
-        setStep("verifications");
+        await startSecondFactor(result, pickSecondFactor(result));
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Sign in failed";
@@ -88,14 +153,15 @@ export function SignInForm() {
     setError("");
 
     try {
-      const result = await signIn.attemptFirstFactor({
-        strategy: "email_code",
-        code,
-      });
+      const result = secondFactor
+        ? await signIn.attemptSecondFactor({ strategy: secondFactor, code })
+        : await signIn.attemptFirstFactor({ strategy: "email_code", code });
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
         window.location.href = "/dashboard";
+      } else if (result.status === "needs_second_factor") {
+        await startSecondFactor(result, pickSecondFactor(result));
       }
     } catch (err: unknown) {
       const message =
@@ -150,6 +216,8 @@ export function SignInForm() {
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
         window.location.href = "/dashboard";
+      } else if (result.status === "needs_second_factor") {
+        await startSecondFactor(result, pickSecondFactor(result));
       }
     } catch (err: unknown) {
       const message =
@@ -295,18 +363,34 @@ export function SignInForm() {
 
   // Verification step
   if (step === "verifications") {
+    const description =
+      secondFactor && secondFactor !== "email_code"
+        ? SECOND_FACTOR_COPY[secondFactor].description
+        : `We sent a verification code to ${email}.`;
+    const placeholder = secondFactor
+      ? SECOND_FACTOR_COPY[secondFactor].placeholder
+      : "Email verification code";
+    const alternativeFactors =
+      secondFactor && signIn
+        ? SECOND_FACTOR_PRIORITY.filter(
+            (s) =>
+              s !== secondFactor &&
+              (signIn.supportedSecondFactors ?? []).some(
+                (f) => f.strategy === s
+              )
+          )
+        : [];
+
     return (
       <div className="m-auto w-full max-w-sm space-y-6">
         <div className="space-y-2 text-center">
           <h1 className="text-3xl font-bold">Verify your identity</h1>
-          <p className="text-muted-foreground text-sm">
-            We sent a verification code to {email}.
-          </p>
+          <p className="text-muted-foreground text-sm">{description}</p>
         </div>
 
         <form onSubmit={handleVerifyCode} className="space-y-4">
           <Input
-            placeholder="Email verification code"
+            placeholder={placeholder}
             value={code}
             onChange={(e) => setCode(e.target.value)}
             required
@@ -319,13 +403,44 @@ export function SignInForm() {
           </Button>
         </form>
 
+        {signIn &&
+          alternativeFactors.map((strategy) => (
+            <Button
+              key={strategy}
+              variant="ghost"
+              className="w-full"
+              disabled={isLoading}
+              onClick={async () => {
+                setError("");
+                setIsLoading(true);
+                try {
+                  await startSecondFactor(signIn, strategy);
+                } catch (err: unknown) {
+                  setError(
+                    err instanceof Error
+                      ? err.message
+                      : "Could not switch verification method"
+                  );
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
+              type="button"
+            >
+              {SECOND_FACTOR_COPY[strategy].switchLabel}
+            </Button>
+          ))}
+
         <Button
           variant="ghost"
           className="w-full"
-          onClick={() => setStep("start")}
+          onClick={() => {
+            setSecondFactor(null);
+            setStep("start");
+          }}
           type="button"
         >
-          Use another method
+          Back to sign in
         </Button>
       </div>
     );
