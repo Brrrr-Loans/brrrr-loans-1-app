@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import React from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
 import {
   Plug,
@@ -14,6 +14,7 @@ import {
   Users,
   Globe,
   Shield,
+  ShieldCheck,
   ChevronRight,
   ArrowRightLeft,
   FileCode2,
@@ -38,14 +39,20 @@ interface PlatformSettingsPopoverProps {
 
 // Organization settings navigation items
 const ORG_SETTINGS_ITEMS = [
-  { id: "general", label: "General", icon: Building2, path: "" },
-  { id: "members", label: "Members", icon: Users, path: "" },
-  { id: "domains", label: "Domains", icon: Globe, path: "" },
+  { id: "general", label: "General", icon: Building2, path: "?tab=general" },
+  { id: "members", label: "Members", icon: Users, path: "?tab=members" },
+  { id: "domains", label: "Domains", icon: Globe, path: "?tab=domains" },
   {
     id: "permissions",
     label: "Permissions",
     icon: Shield,
     path: "/documents/permissions",
+  },
+  {
+    id: "policies",
+    label: "Policies",
+    icon: ShieldCheck,
+    path: "/policies",
   },
   { id: "themes", label: "Themes", icon: Settings2, path: "" },
 ] as const;
@@ -56,6 +63,7 @@ export function PlatformSettingsPopover({
   onOpenChange,
 }: PlatformSettingsPopoverProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { organization } = useOrganization();
   const [internalOpen, setInternalOpen] = React.useState(false);
@@ -174,9 +182,15 @@ export function PlatformSettingsPopover({
                         }
 
                         const href = `${orgSettingsBaseUrl}${item.path}`;
-                        const isActive =
-                          pathname === href ||
-                          (item.path === "" && pathname === orgSettingsBaseUrl);
+                        const settingsTab = searchParams.get("tab") || "general";
+                        const isTabLink = item.path.startsWith("?tab=");
+                        const isActive = isTabLink
+                          ? pathname === orgSettingsBaseUrl &&
+                            settingsTab === item.id
+                          : pathname === href ||
+                            pathname.startsWith(
+                              `${orgSettingsBaseUrl}${item.path}`
+                            );
 
                         return (
                           <Link

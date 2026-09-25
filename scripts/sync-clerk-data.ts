@@ -1,234 +1,416 @@
 /**
- * One-time script to sync existing Clerk users and organizations to Supabase
- * Run this to sync data that was created before webhooks were properly configured
+ * Sync Clerk users, organizations, and memberships into Supabase.
+ * Used for preview-branch backfill when webhooks never ran.
+ *
+ *   npx tsx scripts/sync-clerk-data.ts
+ *   npx tsx scripts/sync-clerk-data.ts --clerk-org-id org_2rNqHTbc3gCIKwPSTXYudYB3Log
  */
 
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 import { createClerkClient } from "@clerk/nextjs/server";
 import { createServiceRoleClient } from "../src/lib/supabase-server";
+import { resolveClerkProfileSync } from "../src/lib/internal-admin.ts";
+import { mapClerkOrgRole } from "../src/lib/clerk-org-sync.ts";
 
-// Initialize Clerk client
-const clerkClient = createClerkClient({
-  secretKey: process.env.CLERK_SECRET_KEY!,
-});
+export type SyncClerkDataOptions = {
+  clerkOrgId?: string;
+};
 
-async function syncExistingClerkData() {
-  const supabase = createServiceRoleClient();
+export type SyncClerkDataResult = {
+  clerkOrgId?: string;
+  usersUpserted: number;
+  orgsUpserted: number;
+  membershipsUpserted: number;
+};
 
-  console.log("🚀 Starting sync of existing Clerk data...");
+type ClerkClient = ReturnType<typeof createClerkClient>;
+type ServiceClient = ReturnType<typeof createServiceRoleClient>;
 
-  try {
-    // 1. Sync all users
-    console.log("\n📧 Syncing users...");
-    const usersResponse = await clerkClient.users.getUserList({ limit: 100 });
-    const users = usersResponse.data || usersResponse; // Handle both v5 and v6 formats
-
-    for (const user of users) {
-      const primaryEmail = user.emailAddresses?.[0]?.emailAddress;
-      if (!primaryEmail) continue;
-
-      // Extract phone number (primary phone number)
-      const primaryPhone = user.phoneNumbers?.[0]?.phoneNumber || null;
-
-      // Generate username from email (recommended best practice)
-      const username = primaryEmail.split("@")[0].toLowerCase();
-
-      // Map Clerk roles to valid database enum values
-      const customRole = user.publicMetadata?.role as string;
-
-      let dbRole: string;
-
-      // Map Clerk's built-in and custom roles to database enum
-      if (customRole === "admin" || customRole === "Admin") {
-        dbRole = "admin";
-      } else if (customRole === "account_executive") {
-        dbRole = "account_executive";
-      } else if (customRole === "loan_processor") {
-        dbRole = "loan_processor";
-      } else if (customRole === "loan_opener") {
-        dbRole = "loan_opener";
-      } else if (customRole === "balance_sheet_investor") {
-        dbRole = "balance_sheet_investor";
-      } else {
-        // Default for external users (including users with no custom role set)
-        dbRole = "balance_sheet_investor";
-      }
-
-      // Check if user already exists
-      const { data: existingUser } = await supabase
-        .from("auth_clerk_users")
-        .select("id")
-        .eq("clerk_user_id", user.id)
-        .single();
-
-      if (existingUser) {
-        console.log(`  ✅ User ${primaryEmail} already synced`);
-        continue;
-      }
-
-      // Insert new user
-      const { error } = await supabase.from("auth_clerk_users").insert({
-        clerk_user_id: user.id,
-        email: primaryEmail,
-        clerk_username: username,
-        first_name: user.firstName || null,
-        last_name: user.lastName || null,
-        phone_number: primaryPhone,
-        role: dbRole as
-          | "admin"
-          | "account_executive"
-          | "loan_processor"
-          | "loan_opener"
-          | "balance_sheet_investor"
-          | null,
-        is_internal_yn: false,
-        is_active_yn: true,
-      });
-
-      if (error) {
-        console.error(`  ❌ Error syncing user ${primaryEmail}:`, error);
-      } else {
-        console.log(
-          `  ✅ Synced user: ${primaryEmail} ${primaryPhone ? `(${primaryPhone})` : ""}`
-        );
-      }
-    }
-
-    // 2. Sync all organizations
-    console.log("\n🏢 Syncing organizations...");
-    const orgsResponse = await clerkClient.organizations.getOrganizationList({
-      limit: 100,
-    });
-    const orgs = orgsResponse.data || orgsResponse; // Handle both v5 and v6 formats
-
-    for (const org of orgs) {
-      // Check if org already exists
-      const { data: existingOrg } = await supabase
-        .from("auth_clerk_orgs")
-        .select("id")
-        .eq("clerk_org_id", org.id)
-        .single();
-
-      if (existingOrg) {
-        console.log(`  ✅ Org ${org.name} already synced`);
-        continue;
-      }
-
-      // Insert new organization
-      const { error } = await supabase.from("auth_clerk_orgs").insert({
-        clerk_org_id: org.id,
-        clerk_org_name: org.name,
-        clerk_org_slug: org.slug,
-        created_by_clerk_user_id: org.createdBy || "",
-      });
-
-      if (error) {
-        console.error(`  ❌ Error syncing org ${org.name}:`, error);
-      } else {
-        console.log(`  ✅ Synced organization: ${org.name}`);
-      }
-    }
-
-    // 3. Sync organization memberships
-    console.log("\n👥 Syncing organization memberships...");
-    for (const org of orgs) {
-      const membershipsResponse =
-        await clerkClient.organizations.getOrganizationMembershipList({
-          organizationId: org.id,
-          limit: 100,
-        });
-      const memberships = membershipsResponse.data || membershipsResponse; // Handle both v5 and v6 formats
-
-      for (const membership of memberships) {
-        // Skip if no public user data
-        if (!membership.publicUserData?.userId) {
-          console.log(`  ⚠️  Skipping membership - missing public user data`);
-          continue;
-        }
-
-        // Get our internal user ID
-        const { data: user } = await supabase
-          .from("auth_clerk_users")
-          .select("id")
-          .eq("clerk_user_id", membership.publicUserData.userId)
-          .single();
-
-        // Get our internal org ID
-        const { data: orgData } = await supabase
-          .from("auth_clerk_orgs")
-          .select("id")
-          .eq("clerk_org_id", org.id)
-          .single();
-
-        if (!user || !orgData) {
-          console.log(`  ⚠️  Skipping membership - missing user or org data`);
-          continue;
-        }
-
-        // Check if membership already exists
-        const { data: existingMembership } = await supabase
-          .from("auth_clerk_orgs_members")
-          .select("id")
-          .eq("auth_clerk_users_id", user.id)
-          .eq("clerk_org_id", orgData.id)
-          .single();
-
-        if (existingMembership) {
-          console.log(
-            `  ✅ Membership already synced: ${membership.publicUserData?.identifier} in ${org.name}`
-          );
-          continue;
-        }
-
-        // Insert new membership
-        const { error } = await supabase
-          .from("auth_clerk_orgs_members")
-          .insert({
-            user_id: user.id,
-            clerk_org_id: orgData.id,
-            clerk_org_role: membership.role as "admin" | "member",
-          });
-
-        if (error) {
-          console.error(`  ❌ Error syncing membership:`, error);
-        } else {
-          console.log(
-            `  ✅ Synced membership: ${membership.publicUserData?.identifier} → ${org.name} (${membership.role})`
-          );
-        }
-      }
-    }
-
-    console.log("\n🎉 Sync completed successfully!");
-
-    // Show final counts
-    const { data: userCount } = await supabase
-      .from("auth_clerk_users")
-      .select("id", { count: "exact" });
-    const { data: orgCount } = await supabase
-      .from("auth_clerk_orgs")
-      .select("id", { count: "exact" });
-    const { data: memberCount } = await supabase
-      .from("auth_clerk_orgs_members")
-      .select("id", { count: "exact" });
-
-    console.log(`\n📊 Final counts:
-  • Users: ${userCount?.length || 0}
-  • Organizations: ${orgCount?.length || 0}
-  • Memberships: ${memberCount?.length || 0}`);
-  } catch (error) {
-    console.error("❌ Sync failed:", error);
-    throw error;
+function clerkClientFromEnv(): ClerkClient {
+  const secretKey = process.env.CLERK_SECRET_KEY;
+  if (!secretKey) {
+    throw new Error("Missing CLERK_SECRET_KEY environment variable");
   }
+  return createClerkClient({ secretKey });
 }
 
-// Run the sync if this script is executed directly
-if (require.main === module) {
-  syncExistingClerkData()
+function usernameFromEmail(email: string): string {
+  return email.split("@")[0].toLowerCase().replace(/[^a-z0-9._-]/g, "") || "user";
+}
+
+async function listAllOrganizations(clerk: ClerkClient) {
+  const orgs: Awaited<
+    ReturnType<ClerkClient["organizations"]["getOrganizationList"]>
+  >["data"] = [];
+  let offset = 0;
+  const limit = 100;
+
+  while (true) {
+    const page = await clerk.organizations.getOrganizationList({ limit, offset });
+    const rows = page.data ?? [];
+    orgs.push(...rows);
+    if (rows.length < limit) break;
+    offset += limit;
+  }
+
+  return orgs;
+}
+
+async function listAllUsers(clerk: ClerkClient) {
+  const users: Awaited<
+    ReturnType<ClerkClient["users"]["getUserList"]>
+  >["data"] = [];
+  let offset = 0;
+  const limit = 100;
+
+  while (true) {
+    const page = await clerk.users.getUserList({ limit, offset });
+    const rows = page.data ?? [];
+    users.push(...rows);
+    if (rows.length < limit) break;
+    offset += limit;
+  }
+
+  return users;
+}
+
+async function listOrganizationMemberships(
+  clerk: ClerkClient,
+  organizationId: string
+) {
+  const memberships: Awaited<
+    ReturnType<ClerkClient["organizations"]["getOrganizationMembershipList"]>
+  >["data"] = [];
+  let offset = 0;
+  const limit = 100;
+
+  while (true) {
+    const page = await clerk.organizations.getOrganizationMembershipList({
+      organizationId,
+      limit,
+      offset,
+    });
+    const rows = page.data ?? [];
+    memberships.push(...rows);
+    if (rows.length < limit) break;
+    offset += limit;
+  }
+
+  return memberships;
+}
+
+async function upsertClerkUser(
+  supabase: ServiceClient,
+  input: {
+    clerkUserId: string;
+    email: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    phone?: string | null;
+    publicMetadata?: { role?: string | null } | null;
+  }
+): Promise<number> {
+  const { data: existing } = await supabase
+    .from("auth_clerk_users")
+    .select("id, personal_role, is_internal_yn")
+    .eq("clerk_user_id", input.clerkUserId)
+    .maybeSingle();
+
+  const sync = resolveClerkProfileSync({
+    clerkUserId: input.clerkUserId,
+    email: input.email,
+    publicMetadata: input.publicMetadata,
+    existingPersonalRole: existing?.personal_role,
+    existingIsInternalYn: existing?.is_internal_yn,
+  });
+
+  const row = {
+    clerk_user_id: input.clerkUserId,
+    email: input.email,
+    clerk_username: existing
+      ? undefined
+      : usernameFromEmail(input.email),
+    first_name: input.firstName || null,
+    last_name: input.lastName || null,
+    phone_number: input.phone || null,
+    personal_role: sync.personal_role,
+    is_internal_yn: sync.is_internal_yn,
+    is_active_yn: true,
+  };
+
+  if (existing) {
+    const { error } = await supabase
+      .from("auth_clerk_users")
+      .update({
+        email: row.email,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        phone_number: row.phone_number,
+        personal_role: row.personal_role,
+        is_internal_yn: row.is_internal_yn,
+        is_active_yn: true,
+      })
+      .eq("clerk_user_id", input.clerkUserId);
+    if (error) throw error;
+    return existing.id;
+  }
+
+  const { data, error } = await supabase
+    .from("auth_clerk_users")
+    .upsert(
+      {
+        clerk_user_id: row.clerk_user_id,
+        email: row.email,
+        clerk_username: row.clerk_username,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        phone_number: row.phone_number,
+        personal_role: row.personal_role,
+        is_internal_yn: row.is_internal_yn,
+        is_active_yn: true,
+      },
+      { onConflict: "clerk_user_id" }
+    )
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw error;
+  if (data?.id != null) return data.id;
+
+  const { data: lookup, error: lookupError } = await supabase
+    .from("auth_clerk_users")
+    .select("id")
+    .eq("clerk_user_id", input.clerkUserId)
+    .maybeSingle();
+  if (lookupError || lookup?.id == null) {
+    throw lookupError ?? new Error(`Failed to upsert user ${input.clerkUserId}`);
+  }
+  return lookup.id;
+}
+
+async function upsertClerkUserFromId(
+  clerk: ClerkClient,
+  supabase: ServiceClient,
+  clerkUserId: string
+): Promise<number> {
+  const user = await clerk.users.getUser(clerkUserId);
+  const email = user.emailAddresses?.[0]?.emailAddress;
+  if (!email) {
+    throw new Error(`Clerk user ${clerkUserId} has no email`);
+  }
+  return upsertClerkUser(supabase, {
+    clerkUserId: user.id,
+    email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    phone: user.phoneNumbers?.[0]?.phoneNumber || null,
+    publicMetadata: user.publicMetadata as { role?: string | null },
+  });
+}
+
+async function upsertOrganization(
+  supabase: ServiceClient,
+  org: {
+    id: string;
+    name: string;
+    slug: string | null;
+    createdBy?: string | null;
+  },
+  createdByClerkUserId: string
+): Promise<number> {
+  const { data, error } = await supabase
+    .from("auth_clerk_orgs")
+    .upsert(
+      {
+        clerk_org_id: org.id,
+        clerk_org_name: org.name,
+        clerk_org_slug: org.slug || org.id,
+        created_by_clerk_user_id: createdByClerkUserId,
+      },
+      { onConflict: "clerk_org_id" }
+    )
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw error;
+  if (data?.id != null) return data.id;
+
+  const { data: lookup, error: lookupError } = await supabase
+    .from("auth_clerk_orgs")
+    .select("id")
+    .eq("clerk_org_id", org.id)
+    .maybeSingle();
+  if (lookupError || lookup?.id == null) {
+    throw lookupError ?? new Error(`Failed to upsert org ${org.id}`);
+  }
+  return lookup.id;
+}
+
+async function upsertMembership(
+  supabase: ServiceClient,
+  input: {
+    userPk: number;
+    orgPk: number;
+    role: string | null | undefined;
+  }
+): Promise<void> {
+  const orgRole = mapClerkOrgRole(input.role);
+
+  const { data: existing, error: lookupError } = await supabase
+    .from("auth_clerk_orgs_members")
+    .select("id, clerk_org_role")
+    .eq("auth_clerk_users_id", input.userPk)
+    .eq("clerk_org_id", input.orgPk)
+    .maybeSingle();
+
+  if (lookupError) throw lookupError;
+
+  if (existing) {
+    const { error } = await supabase
+      .from("auth_clerk_orgs_members")
+      .update({ clerk_org_role: orgRole })
+      .eq("id", existing.id);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase.from("auth_clerk_orgs_members").insert({
+    auth_clerk_users_id: input.userPk,
+    clerk_org_id: input.orgPk,
+    clerk_org_role: orgRole,
+  });
+  if (error) throw error;
+}
+
+export async function syncExistingClerkData(
+  options: SyncClerkDataOptions = {}
+): Promise<SyncClerkDataResult> {
+  const clerk = clerkClientFromEnv();
+  const supabase = createServiceRoleClient();
+  const result: SyncClerkDataResult = {
+    clerkOrgId: options.clerkOrgId,
+    usersUpserted: 0,
+    orgsUpserted: 0,
+    membershipsUpserted: 0,
+  };
+
+  console.log(
+    options.clerkOrgId
+      ? `Starting Clerk sync for ${options.clerkOrgId}`
+      : "Starting full Clerk sync"
+  );
+
+  const orgs = options.clerkOrgId
+    ? [
+        await clerk.organizations.getOrganization({
+          organizationId: options.clerkOrgId,
+        }),
+      ]
+    : await listAllOrganizations(clerk);
+
+  if (!options.clerkOrgId) {
+    const users = await listAllUsers(clerk);
+    for (const user of users) {
+      const email = user.emailAddresses?.[0]?.emailAddress;
+      if (!email) continue;
+      await upsertClerkUser(supabase, {
+        clerkUserId: user.id,
+        email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        phone: user.phoneNumbers?.[0]?.phoneNumber || null,
+        publicMetadata: user.publicMetadata as { role?: string | null },
+      });
+      result.usersUpserted += 1;
+    }
+  }
+
+  for (const org of orgs) {
+    const memberships = await listOrganizationMemberships(clerk, org.id);
+    const userPkByClerkId = new Map<string, number>();
+
+    for (const membership of memberships) {
+      const clerkUserId = membership.publicUserData?.userId;
+      if (!clerkUserId) continue;
+      const userPk = await upsertClerkUserFromId(clerk, supabase, clerkUserId);
+      userPkByClerkId.set(clerkUserId, userPk);
+      result.usersUpserted += 1;
+    }
+
+    let createdBy = org.createdBy || undefined;
+    if (createdBy && !userPkByClerkId.has(createdBy)) {
+      try {
+        const createdByPk = await upsertClerkUserFromId(
+          clerk,
+          supabase,
+          createdBy
+        );
+        userPkByClerkId.set(createdBy, createdByPk);
+        result.usersUpserted += 1;
+      } catch (error) {
+        console.warn(
+          `Org ${org.id} createdBy ${createdBy} is missing or has no email; using a member instead`,
+          error
+        );
+        createdBy = undefined;
+      }
+    }
+    if (!createdBy) {
+      createdBy = userPkByClerkId.keys().next().value;
+    }
+    if (!createdBy) {
+      const message = `Organization ${org.id} has no createdBy user to satisfy FK`;
+      if (options.clerkOrgId) throw new Error(message);
+      console.warn(`Skipping org ${org.name} (${org.id}): ${message}`);
+      continue;
+    }
+
+    const orgPk = await upsertOrganization(supabase, org, createdBy);
+    result.orgsUpserted += 1;
+
+    for (const membership of memberships) {
+      const clerkUserId = membership.publicUserData?.userId;
+      if (!clerkUserId) continue;
+      const userPk = userPkByClerkId.get(clerkUserId);
+      if (userPk == null) continue;
+      await upsertMembership(supabase, {
+        userPk,
+        orgPk,
+        role: membership.role,
+      });
+      result.membershipsUpserted += 1;
+    }
+
+    console.log(
+      `Synced ${org.name} (${org.id}): ${memberships.length} memberships`
+    );
+  }
+
+  console.log("Clerk sync completed", result);
+  return result;
+}
+
+function parseCliOrgId(argv: string[]): string | undefined {
+  const flagIndex = argv.findIndex(
+    (arg) => arg === "--clerk-org-id" || arg === "--org"
+  );
+  if (flagIndex >= 0) return argv[flagIndex + 1];
+  const prefixed = argv.find((arg) => arg.startsWith("--clerk-org-id="));
+  return prefixed?.split("=")[1];
+}
+
+function isDirectRun(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  return fileURLToPath(import.meta.url) === path.resolve(entry);
+}
+
+if (isDirectRun()) {
+  syncExistingClerkData({ clerkOrgId: parseCliOrgId(process.argv.slice(2)) })
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error);
       process.exit(1);
     });
 }
-
-export { syncExistingClerkData };

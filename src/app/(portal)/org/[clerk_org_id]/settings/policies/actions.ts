@@ -24,7 +24,6 @@ import type {
   ResourceType,
   PolicyAction,
   OrgPolicyRow,
-  PolicyScope,
   NamedScopeRow,
   DealRoleTypeRow,
 } from "./constants";
@@ -34,12 +33,34 @@ import {
   LIVEBLOCKS_RESOURCES,
   API_RESOURCES,
   type IntegrationFeatureResource,
-  type PolicyAction as PA,
 } from "./constants";
+import {
+  assertCreateSelection,
+  assertPolicyMutable,
+  deriveLegacyScope,
+  fanOutResourceActions,
+  filterActionsForFeature,
+  hasValidPolicyConditions,
+  orgPoliciesListOrFilter,
+  policyFanOutKey,
+  sanitizePolicyConditions,
+  POLICY_UPSERT_RESTORE_FIELDS,
+  type PolicyMutationSubject,
+} from "@/lib/policies/policy-mutation";
+import {
+  resolveAuthClerkOrgPk,
+  throwMappedSupabaseError,
+} from "@/lib/org-lookup";
 
 type SavePolicyInput = {
   resourceType: ResourceType;
   resourceName?: string;
+  actions: PolicyAction[];
+  definition: PolicyDefinitionInput;
+};
+
+type SavePoliciesInput = {
+  resources: Array<{ resourceType: ResourceType; resourceName?: string }>;
   actions: PolicyAction[];
   definition: PolicyDefinitionInput;
 };
@@ -92,25 +113,13 @@ async function getOrgPk(
     );
   }
 
-  // ADAPTED: auth_clerk_orgs instead of organizations
   const { data, error } = await supabase
     .from("auth_clerk_orgs")
     .select("id")
-    .eq("clerk_org_id", orgId) // ADAPTED: clerk_org_id instead of clerk_organization_id
-    .single();
+    .eq("clerk_org_id", orgId)
+    .maybeSingle();
 
-  // ADAPTED: return BIGINT as number instead of UUID as string
-  if (data?.id) return data.id as number;
-
-  if (error) {
-    console.error(`getOrgPk: lookup failed for ${orgId}:`, error.message);
-  }
-
-  throw new Error(
-    `Organization not found in Supabase database. ` +
-      `This usually means Clerk webhooks haven't synced the organization or your membership. ` +
-      `Ensure your user appears in auth_clerk_orgs_members for this org.`
-  );
+  return resolveAuthClerkOrgPk({ clerkOrgId: orgId, data, error });
 }
 
 function normalizeRole(value?: string) {
@@ -119,23 +128,17 @@ function normalizeRole(value?: string) {
   return trimmed.toLowerCase().replace(/^org:/, "");
 }
 
-function deriveLegacyScope(definition: PolicyDefinitionInput): PolicyScope {
-  const sc = definition.scopeConditions ?? [];
-  if (sc.length === 0) return definition.scope || "all";
-
-  const hasOrgEquals = sc.some(
-    (c) => c.column === "org_id" && c.operator === "="
-  );
-  const hasUserEquals = sc.some(
-    (c) =>
-      (c.column === "created_by" || c.column === "user_id") &&
-      c.operator === "="
-  );
-
-  if (hasOrgEquals && hasUserEquals) return "org_and_user";
-  if (hasOrgEquals) return "org_records";
-  if (hasUserEquals) return "user_records";
-  return "all";
+function prepareDefinition(definition: PolicyDefinitionInput): PolicyDefinitionInput {
+  const sanitized = sanitizePolicyConditions(definition);
+  if (!hasValidPolicyConditions(sanitized)) {
+    throw new Error(
+      "At least one condition or internal-user allowance is required."
+    );
+  }
+  return {
+    ...sanitized,
+    scope: deriveLegacyScope(sanitized),
+  };
 }
 
 type CompiledCondition = { field: string; operator: string; values: string[] };
@@ -261,15 +264,16 @@ function buildDefinition(definition: PolicyDefinitionInput) {
 export async function getOrgDisplayName(): Promise<string> {
   const { orgId, token } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
-  
-  // ADAPTED: auth_clerk_orgs instead of organizations
-  const { data } = await supabase
+
+  const { data, error } = await supabase
     .from("auth_clerk_orgs")
     .select("clerk_org_name")
-    .eq("clerk_org_id", orgId) // ADAPTED: column name
-    .single();
-    
-  return (data?.clerk_org_name as string) ?? "This Organization"; // ADAPTED: column name
+    .eq("clerk_org_id", orgId)
+    .maybeSingle();
+
+  throwMappedSupabaseError(error);
+
+  return (data?.clerk_org_name as string) ?? "This Organization";
 }
 
 // ADAPTED: Return type changed from string to number (BIGINT)
@@ -289,9 +293,10 @@ export async function getOrgPolicies(): Promise<{
   const result = await supabase
     .from("organization_policies")
     .select(
-      "id,org_id,resource_type,resource_name,action,definition_json,compiled_config,scope,effect,version,is_active,is_protected_policy,created_at"
+      "id,org_id,resource_type,resource_name,action,definition_json,compiled_config,scope,effect,version,is_active,is_protected_policy,created_at,archived_at"
     )
-    .or(`org_id.eq.${orgPk},org_id.is.null`)
+    .or(orgPoliciesListOrFilter(orgPk))
+    .is("archived_at", null)
     .order("created_at", { ascending: false });
 
   if (result.error && result.error.message.includes("is_protected_policy")) {
@@ -299,9 +304,10 @@ export async function getOrgPolicies(): Promise<{
     const fallback = await supabase
       .from("organization_policies")
       .select(
-        "id,org_id,resource_type,resource_name,action,definition_json,compiled_config,scope,effect,version,is_active,created_at"
+        "id,org_id,resource_type,resource_name,action,definition_json,compiled_config,scope,effect,version,is_active,created_at,archived_at"
       )
-      .or(`org_id.eq.${orgPk},org_id.is.null`)
+      .or(orgPoliciesListOrFilter(orgPk))
+      .is("archived_at", null)
       .order("created_at", { ascending: false });
 
     data = (fallback.data ?? []).map((row: Record<string, unknown>) => ({
@@ -314,7 +320,7 @@ export async function getOrgPolicies(): Promise<{
     error = result.error as { message: string } | null;
   }
 
-  if (error) throw new Error(error.message);
+  throwMappedSupabaseError(error);
 
   return {
     orgPk,
@@ -322,24 +328,18 @@ export async function getOrgPolicies(): Promise<{
   };
 }
 
-export async function saveOrgPolicy(
-  input: SavePolicyInput
+export async function saveOrgPolicies(
+  input: SavePoliciesInput
 ): Promise<{ ok: true }> {
   const { orgId, token, orgRole, userId } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
   const orgPk = await getOrgPk(supabase, orgId);
 
-  const compiledConfig = compilePolicy(input.definition);
-  const definitionJson = buildDefinition(input.definition);
+  assertCreateSelection(input.resources, input.actions);
 
-  if (
-    !compiledConfig.allow_internal_users &&
-    (!compiledConfig.conditions || compiledConfig.conditions.length === 0)
-  ) {
-    throw new Error(
-      "At least one condition or internal-user allowance is required."
-    );
-  }
+  const definition = prepareDefinition(input.definition);
+  const compiledConfig = compilePolicy(definition);
+  const definitionJson = buildDefinition(definition);
 
   // Self-lockout protection: owners and admins can always save policies
   const normalizedOrgRole = normalizeRole(orgRole ?? "");
@@ -363,36 +363,64 @@ export async function saveOrgPolicy(
     }
   }
 
-  const actions = input.actions.length
-    ? input.actions
-    : ["select", "insert", "update", "delete"];
+  const seen = new Set<string>();
+  const fanOut: Array<{
+    resourceType: ResourceType;
+    resourceName: string;
+    action: PolicyAction;
+  }> = [];
+  for (const resource of input.resources) {
+    const actions =
+      resource.resourceType === "feature"
+        ? filterActionsForFeature(
+            resource.resourceName ?? "*",
+            input.actions,
+            FEATURE_RESOURCES
+          )
+        : input.actions;
+    for (const key of fanOutResourceActions(
+      orgPk,
+      resource.resourceType,
+      resource.resourceName || "*",
+      actions
+    )) {
+      const dedupeKey = policyFanOutKey(key);
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      fanOut.push(key);
+    }
+  }
 
-  const resourceName = input.resourceName || "*";
+  if (fanOut.length === 0) {
+    throw new Error(
+      "None of the selected actions apply to the selected resources."
+    );
+  }
 
   const rows = await Promise.all(
-    actions.map(async (action) => {
+    fanOut.map(async (key) => {
       const { data: existing } = await supabase
         .from("organization_policies")
         .select("id,version")
         .eq("org_id", orgPk)
-        .eq("resource_type", input.resourceType)
-        .eq("resource_name", resourceName)
-        .eq("action", action)
+        .eq("resource_type", key.resourceType)
+        .eq("resource_name", key.resourceName)
+        .eq("action", key.action)
         .maybeSingle();
 
       return {
         id: existing?.id ?? crypto.randomUUID(),
         org_id: orgPk,
-        resource_type: input.resourceType,
-        resource_name: resourceName,
-        action,
+        resource_type: key.resourceType,
+        resource_name: key.resourceName,
+        action: key.action,
         definition_json: definitionJson,
         compiled_config: compiledConfig,
-        scope: input.definition.scope || "all",
-        effect: input.definition.effect || "ALLOW",
+        scope: definition.scope || "all",
+        effect: definition.effect || "ALLOW",
         version: (existing?.version ?? 0) + 1,
-        is_active: true,
         created_by_clerk_sub: userId,
+        ...POLICY_UPSERT_RESTORE_FIELDS,
       };
     })
   );
@@ -401,40 +429,59 @@ export async function saveOrgPolicy(
     onConflict: "org_id,resource_type,resource_name,action",
   });
 
-  if (error) throw new Error(error.message);
+  throwMappedSupabaseError(error);
 
   return { ok: true };
+}
+
+export async function saveOrgPolicy(
+  input: SavePolicyInput
+): Promise<{ ok: true }> {
+  return saveOrgPolicies({
+    resources: [
+      { resourceType: input.resourceType, resourceName: input.resourceName },
+    ],
+    actions: input.actions,
+    definition: input.definition,
+  });
+}
+
+async function loadPolicyForMutation(
+  supabase: ReturnType<typeof supabaseForUser>,
+  orgPk: number,
+  id: string
+): Promise<PolicyMutationSubject> {
+  const { data, error } = await supabase
+    .from("organization_policies")
+    .select("org_id,is_protected_policy,compiled_config,definition_json")
+    .eq("id", id)
+    .eq("org_id", orgPk)
+    .maybeSingle();
+
+  throwMappedSupabaseError(error);
+  if (!data) throw new Error("Policy not found.");
+  return data as PolicyMutationSubject;
 }
 
 export async function setOrgPolicyActive(input: {
   id: string;
   isActive: boolean;
 }): Promise<{ ok: true }> {
-  const { token } = await requireAuthAndOrg();
+  const { orgId, token } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
-
-  // Prevent disabling system policies (gracefully handle missing column)
-  try {
-    const { data: policyRow } = await supabase
-      .from("organization_policies")
-      .select("is_protected_policy")
-      .eq("id", input.id)
-      .single();
-    if (policyRow?.is_protected_policy && !input.isActive) {
-      throw new Error(
-        "Protected policies cannot be disabled. They are required for core application security."
-      );
-    }
-  } catch (e) {
-    if (e instanceof Error && e.message.includes("Protected policies")) throw e;
-  }
+  const orgPk = await getOrgPk(supabase, orgId);
+  assertPolicyMutable(
+    await loadPolicyForMutation(supabase, orgPk, input.id),
+    "toggle"
+  );
 
   const { error } = await supabase
     .from("organization_policies")
     .update({ is_active: input.isActive })
-    .eq("id", input.id);
+    .eq("id", input.id)
+    .eq("org_id", orgPk);
 
-  if (error) throw new Error(error.message);
+  throwMappedSupabaseError(error);
 
   return { ok: true };
 }
@@ -446,35 +493,17 @@ export async function updateOrgPolicy(input: {
   resourceType?: ResourceType;
   resourceName?: string;
 }): Promise<{ ok: true }> {
-  const { userId, token, orgRole } = await requireAuthAndOrg();
+  const { userId, orgId, token, orgRole } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
+  const orgPk = await getOrgPk(supabase, orgId);
+  assertPolicyMutable(
+    await loadPolicyForMutation(supabase, orgPk, input.id),
+    "edit"
+  );
 
-  try {
-    const { data: policyRow } = await supabase
-      .from("organization_policies")
-      .select("is_protected_policy")
-      .eq("id", input.id)
-      .single();
-    if (policyRow?.is_protected_policy) {
-      throw new Error(
-        "Protected policies cannot be edited. They are required for core application security."
-      );
-    }
-  } catch (e) {
-    if (e instanceof Error && e.message.includes("Protected policies")) throw e;
-  }
-
-  const compiledConfig = compilePolicy(input.definition);
-  const definitionJson = buildDefinition(input.definition);
-
-  if (
-    !compiledConfig.allow_internal_users &&
-    (!compiledConfig.conditions || compiledConfig.conditions.length === 0)
-  ) {
-    throw new Error(
-      "At least one condition or internal-user allowance is required."
-    );
-  }
+  const definition = prepareDefinition(input.definition);
+  const compiledConfig = compilePolicy(definition);
+  const definitionJson = buildDefinition(definition);
 
   const normalizedOrgRole = normalizeRole(orgRole ?? "");
   const isPrivileged = ["owner", "admin"].includes(normalizedOrgRole);
@@ -511,8 +540,8 @@ export async function updateOrgPolicy(input: {
   const updatePayload: Record<string, unknown> = {
     definition_json: definitionJson,
     compiled_config: compiledConfig,
-    scope: input.definition.scope || "all",
-    effect: input.definition.effect || "ALLOW",
+    scope: definition.scope || "all",
+    effect: definition.effect || "ALLOW",
     created_by_clerk_sub: userId,
   };
 
@@ -524,9 +553,10 @@ export async function updateOrgPolicy(input: {
   const { error } = await supabase
     .from("organization_policies")
     .update(updatePayload)
-    .eq("id", input.id);
+    .eq("id", input.id)
+    .eq("org_id", orgPk);
 
-  if (error) throw new Error(error.message);
+  throwMappedSupabaseError(error);
 
   return { ok: true };
 }
@@ -621,31 +651,26 @@ export async function deleteOrgPolicy(input: {
   id: string;
   action?: "restore";
 }): Promise<{ ok: true }> {
-  const { token, userId } = await requireAuthAndOrg();
+  const { orgId, token, userId } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
-
-  // Prevent archiving system policies (gracefully handle missing column)
-  try {
-    const { data: policyRow } = await supabase
-      .from("organization_policies")
-      .select("is_protected_policy")
-      .eq("id", input.id)
-      .single();
-    if (policyRow?.is_protected_policy) {
-      throw new Error(
-        "Protected policies cannot be archived. They are required for core application security."
-      );
-    }
-  } catch (e) {
-    if (e instanceof Error && e.message.includes("Protected policies")) throw e;
+  const orgPk = await getOrgPk(supabase, orgId);
+  if (input.action === "restore") {
+    // Ownership check only — restoring an archived row is always allowed.
+    await loadPolicyForMutation(supabase, orgPk, input.id);
+  } else {
+    assertPolicyMutable(
+      await loadPolicyForMutation(supabase, orgPk, input.id),
+      "archive"
+    );
   }
 
   if (input.action === "restore") {
     const { error } = await supabase
       .from("organization_policies")
       .update({ archived_at: null, archived_by: null })
-      .eq("id", input.id);
-    if (error) throw new Error(error.message);
+      .eq("id", input.id)
+      .eq("org_id", orgPk);
+    throwMappedSupabaseError(error);
     return { ok: true };
   }
 
@@ -654,9 +679,10 @@ export async function deleteOrgPolicy(input: {
   const { error } = await supabase
     .from("organization_policies")
     .update({ archived_at: now, archived_by: userId })
-    .eq("id", input.id);
+    .eq("id", input.id)
+    .eq("org_id", orgPk);
 
-  if (error) throw new Error(error.message);
+  throwMappedSupabaseError(error);
 
   return { ok: true };
 }
