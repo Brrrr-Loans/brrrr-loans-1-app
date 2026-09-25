@@ -194,7 +194,8 @@ export function TransactionsDataTable() {
 
       // Filter by impersonated user if active
       // Admin users see all transactions via RLS, so we need client-side filtering when impersonating
-      let filteredTransactions = isTransactionWithDetailsArray(data) ? data : [];
+      let filteredTransactions: TransactionWithDetails[] =
+        isTransactionWithDetailsArray(data) ? data : [];
       
       if (isImpersonating && impersonatedUserId) {
         filteredTransactions = filteredTransactions.filter((tx) => {

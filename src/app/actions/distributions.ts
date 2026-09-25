@@ -52,7 +52,7 @@ export async function createDistribution(formData: FormData) {
           loan_amount_snapshot: 0,
           principal_amount: 0,
           rate_of_return_pct: 0,
-          statement_id: crypto.randomUUID(),
+          statement_id: null,
           servicing_fee: 0,
           wire_fee: 0,
         }));
