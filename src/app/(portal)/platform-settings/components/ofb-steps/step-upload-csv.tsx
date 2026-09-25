@@ -32,7 +32,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 // Custom file extractor that bypasses File System Access API entirely
 // This avoids the "NotAllowedError: getFile" error when dragging files
 async function getFilesFromEvent(
-  event: DropEvent
+  event: DropEvent | FileSystemFileHandle[]
 ): Promise<Array<File | DataTransferItem>> {
   // Handle FileSystemFileHandle array (from File System Access API)
   if (Array.isArray(event)) {

@@ -217,7 +217,7 @@ export async function GET() {
       clerkIsOrgAdmin || isOrgAdminFromMemberships(memberships) || isPlatformAdmin;
 
     let contactId = profile.contact_id ?? 0;
-    let primaryContactType: ContactType = "Balance Sheet Investor";
+    const primaryContactType: ContactType = "Balance Sheet Investor";
 
     const { data: contact, error: contactError } = profile.contact_id
       ? await supabase

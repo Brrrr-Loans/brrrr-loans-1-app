@@ -8,7 +8,7 @@ import {
   useOrganizationList,
   CreateOrganization,
 } from "@clerk/nextjs";
-import type { OrganizationResource } from "@clerk/types";
+import type { OrganizationResource } from "@clerk/nextjs/types";
 import Image from "next/image";
 
 import {

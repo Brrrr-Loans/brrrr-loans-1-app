@@ -393,7 +393,7 @@ export function StepColumnMapping({
                 <div className="flex-1 min-w-[150px] text-sm text-muted-foreground truncate">
                   {mapping[field.key] && (
                     <span className="italic">
-                      e.g., "{getSampleValue(mapping[field.key])}"
+                      e.g., &quot;{getSampleValue(mapping[field.key])}&quot;
                     </span>
                   )}
                 </div>

@@ -2,8 +2,7 @@
 
 import { GitHubIcon } from "@/components/assets/github-icon";
 import { Button, Checkbox, Input, Label, Separator } from "@/components/ui";
-import { useSignIn } from "@clerk/nextjs";
-import type { SignInResource } from "@clerk/types";
+import { useSignIn } from "@clerk/nextjs/legacy";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -47,6 +46,8 @@ const SECOND_FACTOR_COPY: Record<
     switchLabel: "Use a backup code",
   },
 };
+
+type SignInResource = NonNullable<ReturnType<typeof useSignIn>["signIn"]>;
 
 function pickSecondFactor(
   signIn: SignInResource

@@ -1,6 +1,6 @@
 "use client";
 
-import { useSignUp } from "@clerk/nextjs";
+import { useSignUp } from "@clerk/nextjs/legacy";
 import { useState } from "react";
 import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";

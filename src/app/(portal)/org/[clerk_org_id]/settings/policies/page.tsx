@@ -71,7 +71,7 @@ export default async function PoliciesPage({
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <ShieldCheck className="size-12 text-muted-foreground/50 mb-3" />
                   <p className="text-sm text-muted-foreground">
-                    No policies defined yet. Click "New Policy" to create your
+                    No policies defined yet. Click &quot;New Policy&quot; to create your
                     first access rule.
                   </p>
                 </div>
