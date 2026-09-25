@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "basehub dev & next dev --turbopack",
-    "build": "basehub && next build",
+    "dev": "next dev --turbopack",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -100,7 +100,6 @@
     "@uiw/react-color": "^2.10.3",
     "@xyflow/react": "^12.12.0",
     "ai": "^7.0.114",
-    "basehub": "^9.6.0",
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
