@@ -169,6 +169,53 @@ async function upsertClerkUser(
     ...privileges,
   };
 
+  if (!existing && (input.profile ?? "full") === "identity") {
+    const inserted = await supabase
+      .from("auth_clerk_users")
+      .insert({
+        clerk_user_id: row.clerk_user_id,
+        email: row.email,
+        clerk_username: row.clerk_username,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        phone_number: row.phone_number,
+        ...privileges,
+      })
+      .select("id")
+      .maybeSingle();
+    if (!inserted.error && inserted.data?.id != null) return inserted.data.id;
+
+    const code = (inserted.error as { code?: string } | null)?.code;
+    const message = inserted.error?.message ?? "";
+    const raced =
+      code === "23505" || message.toLowerCase().includes("duplicate");
+    if (!raced) {
+      if (inserted.error) throw inserted.error;
+      throw new Error(`Failed to insert user ${input.clerkUserId}`);
+    }
+
+    const { error: racedUpdateError } = await supabase
+      .from("auth_clerk_users")
+      .update({
+        email: row.email,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        phone_number: row.phone_number,
+      })
+      .eq("clerk_user_id", input.clerkUserId);
+    if (racedUpdateError) throw racedUpdateError;
+
+    const { data: racedLookup, error: racedLookupError } = await supabase
+      .from("auth_clerk_users")
+      .select("id")
+      .eq("clerk_user_id", input.clerkUserId)
+      .maybeSingle();
+    if (racedLookupError || racedLookup?.id == null) {
+      throw racedLookupError ?? new Error(`Failed to upsert user ${input.clerkUserId}`);
+    }
+    return racedLookup.id;
+  }
+
   if (existing) {
     const { error } = await supabase
       .from("auth_clerk_users")
