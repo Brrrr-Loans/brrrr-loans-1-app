@@ -35,12 +35,14 @@ import {
   type IntegrationFeatureResource,
 } from "./constants";
 import {
+  assertActionAllowedForResource,
   assertCreateSelection,
   assertPolicyMutable,
   deriveLegacyScope,
   fanOutResourceActions,
   filterActionsForFeature,
   hasValidPolicyConditions,
+  omittedFanOutResources,
   orgPoliciesListOrFilter,
   policyFanOutKey,
   sanitizePolicyConditions,
@@ -363,6 +365,17 @@ export async function saveOrgPolicies(
     }
   }
 
+  const omitted = omittedFanOutResources(
+    input.resources,
+    input.actions,
+    FEATURE_RESOURCES
+  );
+  if (omitted.length > 0) {
+    throw new Error(
+      `Selected actions do not apply to ${omitted.join(", ")}. Save those resources as separate policies.`
+    );
+  }
+
   const seen = new Set<string>();
   const fanOut: Array<{
     resourceType: ResourceType;
@@ -399,14 +412,21 @@ export async function saveOrgPolicies(
 
   const rows = await Promise.all(
     fanOut.map(async (key) => {
-      const { data: existing } = await supabase
+      const { data: existing, error: existingError } = await supabase
         .from("organization_policies")
-        .select("id,version")
+        .select("id,version,is_protected_policy")
         .eq("org_id", orgPk)
         .eq("resource_type", key.resourceType)
         .eq("resource_name", key.resourceName)
         .eq("action", key.action)
         .maybeSingle();
+      throwMappedSupabaseError(existingError);
+      if (existing?.is_protected_policy) {
+        assertPolicyMutable(
+          { org_id: orgPk, is_protected_policy: true },
+          "edit"
+        );
+      }
 
       return {
         id: existing?.id ?? crypto.randomUUID(),
@@ -453,7 +473,7 @@ async function loadPolicyForMutation(
 ): Promise<PolicyMutationSubject> {
   const { data, error } = await supabase
     .from("organization_policies")
-    .select("org_id,is_protected_policy,compiled_config,definition_json")
+    .select("org_id,is_protected_policy,compiled_config,definition_json,resource_type,resource_name,action")
     .eq("id", id)
     .eq("org_id", orgPk)
     .maybeSingle();
@@ -496,10 +516,16 @@ export async function updateOrgPolicy(input: {
   const { userId, orgId, token, orgRole } = await requireAuthAndOrg();
   const supabase = supabaseForUser(token);
   const orgPk = await getOrgPk(supabase, orgId);
-  assertPolicyMutable(
-    await loadPolicyForMutation(supabase, orgPk, input.id),
-    "edit"
-  );
+  const current = (await loadPolicyForMutation(
+    supabase,
+    orgPk,
+    input.id
+  )) as PolicyMutationSubject & {
+    resource_type: ResourceType;
+    resource_name: string;
+    action: PolicyAction;
+  };
+  assertPolicyMutable(current, "edit");
 
   const definition = prepareDefinition(input.definition);
   const compiledConfig = compilePolicy(definition);
@@ -544,6 +570,25 @@ export async function updateOrgPolicy(input: {
     effect: definition.effect || "ALLOW",
     created_by_clerk_sub: userId,
   };
+
+  const nextResourceType = input.resourceType ?? current.resource_type;
+  const nextResourceName =
+    input.resourceName !== undefined
+      ? input.resourceName || "*"
+      : current.resource_name;
+  const nextAction = input.action ?? current.action;
+  if (
+    input.action ||
+    input.resourceType ||
+    input.resourceName !== undefined
+  ) {
+    assertActionAllowedForResource({
+      resourceType: nextResourceType,
+      resourceName: nextResourceName,
+      action: nextAction,
+      featureResources: FEATURE_RESOURCES,
+    });
+  }
 
   if (input.action) updatePayload.action = input.action;
   if (input.resourceType) updatePayload.resource_type = input.resourceType;

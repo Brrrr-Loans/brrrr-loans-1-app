@@ -1,6 +1,7 @@
 /**
  * Sync Clerk users, organizations, and memberships into Supabase.
  * Used for preview-branch backfill when webhooks never ran.
+ * Additive only: rows that no longer exist in Clerk are left in place.
  *
  *   npx tsx scripts/sync-clerk-data.ts
  *   npx tsx scripts/sync-clerk-data.ts --clerk-org-id org_2rNqHTbc3gCIKwPSTXYudYB3Log
@@ -11,13 +12,17 @@ import path from "node:path";
 import { createClerkClient } from "@clerk/nextjs/server";
 import { createServiceRoleClient } from "../src/lib/supabase-server";
 import { resolveClerkProfileSync } from "../src/lib/internal-admin.ts";
-import { mapClerkOrgRole } from "../src/lib/clerk-org-sync.ts";
+import {
+  clerkUsernameCandidates,
+  mapClerkOrgRole,
+} from "../src/lib/clerk-org-sync.ts";
 
 export type SyncClerkDataOptions = {
   clerkOrgId?: string;
 };
 
 export type SyncClerkDataResult = {
+  mode: "backfill";
   clerkOrgId?: string;
   usersUpserted: number;
   orgsUpserted: number;
@@ -35,8 +40,24 @@ function clerkClientFromEnv(): ClerkClient {
   return createClerkClient({ secretKey });
 }
 
-function usernameFromEmail(email: string): string {
-  return email.split("@")[0].toLowerCase().replace(/[^a-z0-9._-]/g, "") || "user";
+async function allocateClerkUsername(
+  supabase: ServiceClient,
+  email: string,
+  clerkUserId: string
+): Promise<string> {
+  const candidates = clerkUsernameCandidates(email, clerkUserId);
+  for (const candidate of candidates) {
+    const { data, error } = await supabase
+      .from("auth_clerk_users")
+      .select("clerk_user_id")
+      .eq("clerk_username", candidate)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data || data.clerk_user_id === clerkUserId) return candidate;
+  }
+  const base = candidates[0] ?? "user";
+  const stamp = clerkUserId.toLowerCase().replace(/[^a-z0-9]/g, "").slice(-16);
+  return `${base}-${stamp}`.slice(0, 64);
 }
 
 async function listAllOrganizations(clerk: ClerkClient) {
@@ -130,7 +151,7 @@ async function upsertClerkUser(
     email: input.email,
     clerk_username: existing
       ? undefined
-      : usernameFromEmail(input.email),
+      : await allocateClerkUsername(supabase, input.email, input.clerkUserId),
     first_name: input.firstName || null,
     last_name: input.lastName || null,
     phone_number: input.phone || null,
@@ -289,6 +310,7 @@ export async function syncExistingClerkData(
   const clerk = clerkClientFromEnv();
   const supabase = createServiceRoleClient();
   const result: SyncClerkDataResult = {
+    mode: "backfill",
     clerkOrgId: options.clerkOrgId,
     usersUpserted: 0,
     orgsUpserted: 0,

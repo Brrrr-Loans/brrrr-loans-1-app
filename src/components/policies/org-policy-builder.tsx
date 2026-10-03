@@ -131,6 +131,7 @@ import {
   deriveLegacyScope,
   formActionForStoredPolicy,
   hasValidPolicyConditions,
+  sharedFeatureActions,
   isGlobalPolicy,
   isMultiRulePolicy as isMultiRuleSubject,
   isProtectedPolicy as isProtectedSubject,
@@ -329,18 +330,20 @@ function ChipsSelect({
   onChange,
   placeholder,
   disabled,
+  single,
 }: {
   options: Array<{ value: string; label: string }>;
   selected: string[];
   onChange: (values: string[]) => void;
   placeholder: string;
   disabled?: boolean;
+  single?: boolean;
 }) {
   function toggle(value: string) {
     if (selected.includes(value)) {
       onChange(selected.filter((v) => v !== value));
     } else {
-      onChange([...selected, value]);
+      onChange(single ? [value] : [...selected, value]);
     }
   }
 
@@ -440,17 +443,19 @@ function ResourceChipsSelect({
   selected,
   onChange,
   placeholder,
+  single,
 }: {
   options: ResourceOption[];
   selected: string[];
   onChange: (values: string[]) => void;
   placeholder: string;
+  single?: boolean;
 }) {
   function toggle(value: string) {
     if (selected.includes(value)) {
       onChange(selected.filter((v) => v !== value));
     } else {
-      onChange([...selected, value]);
+      onChange(single ? [value] : [...selected, value]);
     }
   }
 
@@ -1423,24 +1428,12 @@ export default function OrgPolicyBuilder({
       .filter((r) => r.startsWith("feature:"))
       .map((r) => r.slice("feature:".length));
 
-    // Multiple features narrow to the intersection of their declared actions.
-    let actionSet: Set<string> | null = null;
-    for (const name of selectedFeatureNames) {
-      const feat =
-        FEATURE_RESOURCES.find((f) => f.name === name) ??
-        dynamicIntegrationFeatures.find((f) => f.name === name);
-      const featActions = new Set<string>(feat?.actions ?? []);
-      if (actionSet === null) {
-        actionSet = featActions;
-      } else {
-        const next = new Set<string>();
-        for (const a of actionSet) {
-          if (featActions.has(a)) next.add(a);
-        }
-        actionSet = next;
-      }
-    }
-    if (!actionSet || actionSet.size === 0) actionSet = new Set(["submit"]);
+    const actionSet = new Set(
+      sharedFeatureActions(selectedFeatureNames, [
+        FEATURE_RESOURCES,
+        dynamicIntegrationFeatures,
+      ])
+    );
 
     return [...actionSet].map((a) => ({
       value: a,
@@ -1483,13 +1476,8 @@ export default function OrgPolicyBuilder({
 
   // Reset selected actions when the resource type mix changes
   useEffect(() => {
-    // A stored `all` policy keeps its verb while editing.
-    if (
-      editingPolicyId &&
-      policies.find((p) => p.id === editingPolicyId)?.action === "all"
-    ) {
-      return;
-    }
+    // Edit updates one row. Create-mode defaults must not replace that selection.
+    if (editingPolicyId) return;
     if (
       hasApiResourceSelected &&
       !hasDataSelected &&
@@ -1524,7 +1512,8 @@ export default function OrgPolicyBuilder({
       const featureVals = new Set(activeFeatureActionOptions.map((o) => o.value));
       setSelectedActions((prev) => {
         const valid = prev.filter((a) => featureVals.has(a));
-        return valid.length > 0 ? valid : [activeFeatureActionOptions[0]?.value ?? "submit"];
+        if (activeFeatureActionOptions.length === 0) return [];
+        return valid.length > 0 ? valid : [activeFeatureActionOptions[0].value];
       });
     } else if (
       hasRouteSelected &&
@@ -1552,7 +1541,7 @@ export default function OrgPolicyBuilder({
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasFeatureSelected, hasDataSelected, hasRouteSelected, hasLiveblocksSelected, hasApiResourceSelected, selectedResources]);
+  }, [editingPolicyId, hasFeatureSelected, hasDataSelected, hasRouteSelected, hasLiveblocksSelected, hasApiResourceSelected, selectedResources]);
 
   // Determine if row-level scope selector should be enabled based on selected data resources.
   // Features never have row-level scope; when mixed with data resources, only the data
@@ -1616,8 +1605,32 @@ export default function OrgPolicyBuilder({
       return;
     }
 
+    if (
+      hasFeatureSelected &&
+      !hasDataSelected &&
+      !hasRouteSelected &&
+      !hasLiveblocksSelected &&
+      !hasApiResourceSelected &&
+      activeFeatureActionOptions.length === 0
+    ) {
+      setError(
+        "Selected features do not share an action. Save them as separate policies."
+      );
+      return;
+    }
+
     if (selectedActions.length === 0) {
       setError("Select at least one action.");
+      return;
+    }
+
+    if (
+      editingPolicyId &&
+      (selectedActions.length !== 1 || selectedResources.length !== 1)
+    ) {
+      setError(
+        "Edit saves one resource and one action. Create a new policy for additional selections."
+      );
       return;
     }
 
@@ -2024,6 +2037,7 @@ export default function OrgPolicyBuilder({
             onChange={setSelectedActions}
             placeholder="Select permissions..."
             disabled={editingPolicy?.action === "all"}
+            single={Boolean(editingPolicyId)}
           />
           {editingPolicy?.action === "all" && (
             <p className="mt-1 text-xs text-muted-foreground">
@@ -2039,6 +2053,7 @@ export default function OrgPolicyBuilder({
             selected={selectedResources}
             onChange={setSelectedResources}
             placeholder="Select resources (tables, buckets)..."
+            single={Boolean(editingPolicyId)}
           />
         </div>
       </div>

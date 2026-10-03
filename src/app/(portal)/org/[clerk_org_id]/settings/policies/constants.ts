@@ -4,6 +4,9 @@
  * 
  * ADAPTED for lender-portal:
  * - OrgPolicyRow.org_id: string → number (BIGINT instead of UUID)
+ *
+ * Saved rows are the policy catalogue. This app does not evaluate
+ * organization_policies on request paths.
  */
 
 export type ConditionInput = {

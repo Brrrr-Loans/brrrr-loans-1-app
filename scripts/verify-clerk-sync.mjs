@@ -7,6 +7,7 @@ import {
   mapClerkOrgRole,
   parseSyncClerkScope,
   resolveOrganizationCreatedWrite,
+  clerkUsernameCandidates,
   verifiedClerkEmails,
 } from "../src/lib/clerk-org-sync.ts";
 
@@ -215,8 +216,24 @@ assert(
     scopedClerkOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
     sessionOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
     sessionOrgRole: "org:admin",
+  }) === false,
+  "org-admin claims without a user id cannot scoped-sync"
+);
+
+assert(
+  isScopedClerkOrgAdmin({
+    clerkUserId: "user_org_admin",
+    scopedClerkOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
+    sessionOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
+    sessionOrgRole: "org:admin",
   }) === true,
   "active Clerk org admin can sync that org"
+);
+
+assert(
+  clerkUsernameCandidates("sam@company-a.com", "user_aaaa1111")[1] !==
+    clerkUsernameCandidates("sam@company-b.com", "user_bbbb2222")[1],
+  "shared email prefixes get distinct username candidates"
 );
 
 assert(

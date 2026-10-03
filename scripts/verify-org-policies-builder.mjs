@@ -10,8 +10,11 @@ import {
   fanOutResourceActions,
   fanOutResourcesActions,
   actionForPolicyUpdate,
+  assertActionAllowedForResource,
   filterActionsForFeature,
   filterActionsForResourceType,
+  omittedFanOutResources,
+  sharedFeatureActions,
   hasValidPolicyConditions,
   humanizeRole,
   isGlobalPolicy,
@@ -530,5 +533,52 @@ assertEqual(
   "Loan Processor",
   "snake_case member roles humanize for picker labels"
 );
+
+const DISJOINT_FEATURES = [
+  { name: "organization_invitations", actions: ["submit", "view"] },
+  { name: "permanent_delete", actions: ["delete"] },
+];
+
+assertEqual(
+  sharedFeatureActions(
+    ["organization_invitations", "permanent_delete"],
+    [DISJOINT_FEATURES]
+  ),
+  [],
+  "disjoint features share no action and must not fall back to submit"
+);
+
+assertEqual(
+  omittedFanOutResources(
+    [
+      { resourceType: "feature", resourceName: "organization_invitations" },
+      { resourceType: "feature", resourceName: "permanent_delete" },
+    ],
+    ["submit"],
+    DISJOINT_FEATURES
+  ),
+  ["feature:permanent_delete"],
+  "fan-out reports resources the selected verb does not cover"
+);
+
+let invalidAction = false;
+try {
+  assertActionAllowedForResource({
+    resourceType: "feature",
+    resourceName: "permanent_delete",
+    action: "submit",
+    featureResources: DISJOINT_FEATURES,
+  });
+} catch {
+  invalidAction = true;
+}
+assert(invalidAction, "update rejects a verb the feature does not declare");
+
+assertActionAllowedForResource({
+  resourceType: "route",
+  resourceName: "*",
+  action: "view",
+  featureResources: DISJOINT_FEATURES,
+});
 
 console.log("verify-org-policies-builder: all assertions passed");

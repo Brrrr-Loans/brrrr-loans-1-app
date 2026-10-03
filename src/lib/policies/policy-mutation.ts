@@ -134,6 +134,76 @@ export function filterActionsForResourceType(
   return filtered;
 }
 
+/**
+ * Actions shared by every named feature. An empty list means the selection
+ * has no common verb — callers must not invent one.
+ */
+export function sharedFeatureActions(
+  featureNames: readonly string[],
+  catalogs: ReadonlyArray<ReadonlyArray<{ name: string; actions: readonly string[] }>>
+): string[] {
+  let shared: Set<string> | null = null;
+  for (const name of featureNames) {
+    let declared: readonly string[] | null = null;
+    for (const catalog of catalogs) {
+      const match = catalog.find((feature) => feature.name === name);
+      if (match) {
+        declared = match.actions;
+        break;
+      }
+    }
+    const next = new Set(declared ?? []);
+    if (shared === null) {
+      shared = next;
+      continue;
+    }
+    const narrowed = new Set<string>();
+    for (const action of shared) {
+      if (next.has(action)) narrowed.add(action);
+    }
+    shared = narrowed;
+  }
+  return shared ? [...shared] : [];
+}
+
+/** Resources whose selected verbs are all invalid for that resource. */
+export function omittedFanOutResources(
+  resources: ReadonlyArray<{ resourceType: PolicyResourceType; resourceName?: string | null }>,
+  actions: PolicyAction[],
+  featureResources: ReadonlyArray<{ name: string; actions: PolicyAction[] }>
+): string[] {
+  const omitted: string[] = [];
+  for (const resource of resources) {
+    const resourceName = resource.resourceName || "*";
+    const applicable =
+      resource.resourceType === "feature"
+        ? filterActionsForFeature(resourceName, actions, featureResources)
+        : filterActionsForResourceType(resource.resourceType, actions);
+    if (applicable.length === 0) {
+      omitted.push(`${resource.resourceType}:${resourceName}`);
+    }
+  }
+  return omitted;
+}
+
+export function assertActionAllowedForResource(input: {
+  resourceType: PolicyResourceType;
+  resourceName?: string | null;
+  action: PolicyAction;
+  featureResources: ReadonlyArray<{ name: string; actions: PolicyAction[] }>;
+}): void {
+  const resourceName = input.resourceName || "*";
+  const allowed =
+    input.resourceType === "feature"
+      ? filterActionsForFeature(resourceName, [input.action], input.featureResources)
+      : filterActionsForResourceType(input.resourceType, [input.action]);
+  if (!allowed.includes(input.action)) {
+    throw new Error(
+      `Action "${input.action}" is not valid for ${input.resourceType} ${resourceName}.`
+    );
+  }
+}
+
 /** Narrow verbs to those a specific feature declares; unknown features pass through unchanged. */
 export function filterActionsForFeature(
   resourceName: string,

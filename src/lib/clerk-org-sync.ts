@@ -169,12 +169,40 @@ export function verifiedClerkEmails(user?: {
   return emails;
 }
 
+export function usernameFromEmail(email: string): string {
+  const local = email.split("@")[0] ?? "";
+  const cleaned = local.toLowerCase().replace(/[^a-z0-9._-]/g, "");
+  return cleaned || "user";
+}
+
+/**
+ * First candidate is the email local-part. Later candidates append a stable
+ * slice of the Clerk user id so two people who share a prefix do not collide
+ * on auth_clerk_users.clerk_username.
+ */
+export function clerkUsernameCandidates(
+  email: string,
+  clerkUserId: string
+): string[] {
+  const base = usernameFromEmail(email).slice(0, 40);
+  const suffix =
+    clerkUserId
+      .replace(/^user_/i, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "")
+      .slice(-8) || "id";
+  const qualified = `${base}-${suffix}`.slice(0, 64);
+  return qualified === base ? [base] : [base, qualified];
+}
+
 export function isScopedClerkOrgAdmin(input: {
+  clerkUserId?: string | null;
   scopedClerkOrgId?: string | null;
   sessionOrgId?: string | null;
   sessionOrgRole?: string | null;
   sessionHasOrgAdmin?: boolean | null;
 }): boolean {
+  if (!input.clerkUserId) return false;
   if (!input.scopedClerkOrgId || !input.sessionOrgId) return false;
   if (input.scopedClerkOrgId !== input.sessionOrgId) return false;
   return (
@@ -219,6 +247,7 @@ export function authorizeClerkSync(input: {
 
   if (
     isScopedClerkOrgAdmin({
+      clerkUserId: input.clerkUserId,
       scopedClerkOrgId: input.scopedClerkOrgId,
       sessionOrgId: input.sessionOrgId,
       sessionOrgRole: input.sessionOrgRole,
