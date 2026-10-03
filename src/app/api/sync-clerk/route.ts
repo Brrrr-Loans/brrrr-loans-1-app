@@ -1,21 +1,105 @@
 import { NextResponse } from "next/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { syncExistingClerkData } from "../../../../scripts/sync-clerk-data";
+import {
+  CLERK_SYNC_SECRET_HEADER,
+  authorizeClerkSync,
+  clerkSyncProfileForAccess,
+  clerkSyncUnauthorizedBody,
+  parseSyncClerkScope,
+  verifiedClerkEmails,
+  type ClerkSyncAuthHint,
+  type ClerkSyncAuthResult,
+} from "@/lib/clerk-org-sync";
 
 /**
- * API endpoint to manually trigger sync of existing Clerk data
- * GET /api/sync-clerk
+ * Manual Clerk → Supabase backfill.
+ *
+ * GET/POST /api/sync-clerk?clerk_org_id=org_...
+ *
+ * Auth: platform admin session OR `x-clerk-sync-secret` / Bearer matching
+ * `CLERK_SYNC_SECRET`. Scoped sync also allows an authenticated Clerk org
+ * admin of that org, but that caller only writes identity fields.
+ * Full sync stays platform-admin/secret only. POST only.
+ * The route stays public in middleware so curl works; this handler still
+ * returns 401 without one of those.
  */
-export async function GET(_request: Request) {
-  try {
-    console.log("🔄 Manual sync triggered via API");
-    await syncExistingClerkData();
+async function authorizeSyncRequest(
+  request: Request,
+  scopedClerkOrgId: string | null
+): Promise<ClerkSyncAuthResult> {
+  const { userId, orgId, orgRole, has } = await auth();
+  let emails: string[] = [];
+  if (userId) {
+    emails = verifiedClerkEmails(await currentUser());
+  }
 
-    return NextResponse.json({
-      success: true,
-      message: "Clerk data sync completed successfully",
-    });
+  return authorizeClerkSync({
+    secretHeader: request.headers.get(CLERK_SYNC_SECRET_HEADER),
+    authorizationHeader: request.headers.get("authorization"),
+    expectedSecret: process.env.CLERK_SYNC_SECRET ?? null,
+    clerkUserId: userId,
+    emails,
+    scopedClerkOrgId,
+    sessionOrgId: orgId,
+    sessionOrgRole: orgRole,
+    sessionHasOrgAdmin: typeof has === "function" && has({ role: "org:admin" }),
+  });
+}
+
+function unauthorized(hint: ClerkSyncAuthHint) {
+  return NextResponse.json(clerkSyncUnauthorizedBody(hint), { status: 401 });
+}
+
+async function runSync(request: Request, body?: unknown) {
+  const scope = parseSyncClerkScope({
+    searchParams: new URL(request.url).searchParams,
+    body,
+  });
+  if (scope.mode === "invalid") {
+    return NextResponse.json(
+      {
+        success: false,
+        error: `Invalid clerk_org_id "${scope.value}". Expected an id starting with org_.`,
+      },
+      { status: 400 }
+    );
+  }
+
+  const scopedClerkOrgId = scope.mode === "one" ? scope.clerkOrgId : null;
+  const authResult = await authorizeSyncRequest(request, scopedClerkOrgId);
+
+  if (!authResult.authorized) {
+    return unauthorized(authResult);
+  }
+
+  const clerkOrgId = scope.mode === "one" ? scope.clerkOrgId : undefined;
+  const result = await syncExistingClerkData({
+    clerkOrgId,
+    profile: clerkSyncProfileForAccess(authResult.access),
+  });
+  return NextResponse.json({
+    success: true,
+    message: clerkOrgId
+      ? `Clerk org ${clerkOrgId} synced`
+      : "Clerk data sync completed",
+    ...result,
+  });
+}
+
+export async function GET() {
+  return NextResponse.json(
+    { success: false, error: "Use POST to run Clerk sync." },
+    { status: 405 }
+  );
+}
+
+export async function POST(request: Request) {
+  try {
+    const body = await request.json().catch(() => null);
+    return await runSync(request, body);
   } catch (error) {
-    console.error("Sync failed:", error);
+    console.error("Clerk sync failed:", error);
     return NextResponse.json(
       {
         success: false,
@@ -24,12 +108,4 @@ export async function GET(_request: Request) {
       { status: 500 }
     );
   }
-}
-
-/**
- * Require authentication for this endpoint in production
- */
-export async function POST(request: Request) {
-  // You could add auth checks here if needed
-  return GET(request);
 }

@@ -181,6 +181,17 @@ assert(
   "Chris email is a known platform admin email"
 );
 assert(
+  PLATFORM_ADMIN_EMAILS.includes("akraut@brrrr.com"), // pragma: allowlist secret
+  "Aaron email is a known platform admin email"
+);
+assert(
+  isPlatformAdminIdentity({
+    clerkUserId: "user_preview_session",
+    email: "akraut@brrrr.com", // pragma: allowlist secret
+  }) === true,
+  "Aaron is a platform admin by email even if session user id differs"
+);
+assert(
   isPlatformAdminIdentity({
     clerkUserId: AARON_KRAUT_CLERK_USER_ID,
     email: "unrelated@example.com",

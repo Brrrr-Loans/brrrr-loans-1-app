@@ -11,7 +11,6 @@ import {
   Globe,
   Shield,
   ShieldCheck,
-  FileText,
   Loader2,
 } from "lucide-react";
 import {
@@ -33,7 +32,7 @@ interface NavItem {
   isActive?: boolean;
 }
 
-export default function DocumentPermissionsLayout({
+export default function PoliciesSettingsLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -70,7 +69,6 @@ export default function DocumentPermissionsLayout({
       subtitle: "Document access control",
       icon: Shield,
       href: `/org/${clerkOrgId}/settings/documents/permissions`,
-      isActive: true,
     },
     {
       id: "policies",
@@ -78,6 +76,7 @@ export default function DocumentPermissionsLayout({
       subtitle: "Custom access rules",
       icon: ShieldCheck,
       href: `/org/${clerkOrgId}/settings/policies`,
+      isActive: true,
     },
   ];
 
@@ -94,14 +93,13 @@ export default function DocumentPermissionsLayout({
 
   return (
     <div className="flex flex-1 flex-col">
-      {/* Header with breadcrumbs */}
       <div className="border-b px-6 py-4">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
                 <Link
-                  href={`/org/${clerkOrgId}/settings`}
+                  href={`/org/${clerkOrgId}/settings?tab=general`}
                   className="text-muted-foreground hover:text-foreground"
                 >
                   {organization?.slug || clerkOrgId}
@@ -112,7 +110,7 @@ export default function DocumentPermissionsLayout({
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
                 <Link
-                  href={`/org/${clerkOrgId}/settings`}
+                  href={`/org/${clerkOrgId}/settings?tab=general`}
                   className="text-muted-foreground hover:text-foreground"
                 >
                   Settings
@@ -121,32 +119,19 @@ export default function DocumentPermissionsLayout({
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link
-                  href={`/org/${clerkOrgId}/settings/documents`}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  Documents
-                </Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>Permissions</BreadcrumbPage>
+              <BreadcrumbPage>Policies</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-        <h1 className="mt-4 text-2xl font-semibold">Document Permissions</h1>
+        <h1 className="mt-4 text-2xl font-semibold">Access Policies</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Configure which roles can access different document categories
+          Create conditional rules to customize user access. DENY always wins
+          over ALLOW when both match.
         </p>
       </div>
 
-      {/* Main content */}
       <div className="flex flex-1">
-        {/* Left sidebar navigation */}
         <div className="w-64 border-r bg-[var(--background)] p-6">
-          {/* Organization info */}
           {organization && (
             <div className="mb-6 flex items-center gap-3">
               {organization.imageUrl ? (
@@ -171,7 +156,6 @@ export default function DocumentPermissionsLayout({
             </div>
           )}
 
-          {/* Navigation */}
           <nav className="space-y-1">
             <p className="mb-2 px-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
               Organization
@@ -201,7 +185,6 @@ export default function DocumentPermissionsLayout({
           </nav>
         </div>
 
-        {/* Right content area */}
         <div className="flex-1 overflow-auto">
           <div className="p-8">{children}</div>
         </div>
