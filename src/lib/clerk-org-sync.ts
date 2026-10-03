@@ -220,6 +220,23 @@ export function usernameFromEmail(email: string): string {
  * slice of the Clerk user id so two people who share a prefix do not collide
  * on auth_clerk_users.clerk_username.
  */
+export function isUniqueViolation(error: {
+  code?: string;
+  message?: string;
+} | null): boolean {
+  if (!error) return false;
+  const message = (error.message ?? "").toLowerCase();
+  return error.code === "23505" || message.includes("duplicate");
+}
+
+export function uniqueViolationTargetsUsername(error: {
+  message?: string;
+  details?: string;
+} | null): boolean {
+  const blob = `${error?.message ?? ""} ${error?.details ?? ""}`.toLowerCase();
+  return blob.includes("clerk_username") || blob.includes("username");
+}
+
 export function clerkUsernameCandidates(
   email: string,
   clerkUserId: string

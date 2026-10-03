@@ -15,7 +15,9 @@ import { resolveClerkProfileSync } from "../src/lib/internal-admin.ts";
 import {
   clerkUsernameCandidates,
   clerkUserPrivilegeWrite,
+  isUniqueViolation,
   mapClerkOrgRole,
+  uniqueViolationTargetsUsername,
   type ClerkSyncProfile,
 } from "../src/lib/clerk-org-sync.ts";
 
@@ -170,50 +172,62 @@ async function upsertClerkUser(
   };
 
   if (!existing && (input.profile ?? "full") === "identity") {
-    const inserted = await supabase
-      .from("auth_clerk_users")
-      .insert({
-        clerk_user_id: row.clerk_user_id,
-        email: row.email,
-        clerk_username: row.clerk_username,
-        first_name: row.first_name,
-        last_name: row.last_name,
-        phone_number: row.phone_number,
-        ...privileges,
-      })
-      .select("id")
-      .maybeSingle();
-    if (!inserted.error && inserted.data?.id != null) return inserted.data.id;
+    const usernames = [
+      ...new Set([
+        row.clerk_username,
+        ...clerkUsernameCandidates(input.email, input.clerkUserId),
+        `${clerkUsernameCandidates(input.email, input.clerkUserId)[0]}-${input.clerkUserId
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "")
+          .slice(-16)}`.slice(0, 64),
+      ].filter((value): value is string => Boolean(value))),
+    ];
 
-    const code = (inserted.error as { code?: string } | null)?.code;
-    const message = inserted.error?.message ?? "";
-    const raced =
-      code === "23505" || message.toLowerCase().includes("duplicate");
-    if (!raced) {
-      if (inserted.error) throw inserted.error;
-      throw new Error(`Failed to insert user ${input.clerkUserId}`);
+    let lastError: { code?: string; message?: string; details?: string } | null = null;
+    for (const username of usernames) {
+      const inserted = await supabase
+        .from("auth_clerk_users")
+        .insert({
+          clerk_user_id: row.clerk_user_id,
+          email: row.email,
+          clerk_username: username,
+          first_name: row.first_name,
+          last_name: row.last_name,
+          phone_number: row.phone_number,
+          ...privileges,
+        })
+        .select("id")
+        .maybeSingle();
+      if (!inserted.error && inserted.data?.id != null) return inserted.data.id;
+      lastError = inserted.error;
+      if (!isUniqueViolation(lastError)) {
+        if (lastError) throw lastError;
+        throw new Error(`Failed to insert user ${input.clerkUserId}`);
+      }
+      if (uniqueViolationTargetsUsername(lastError)) continue;
+
+      const { data: racedLookup, error: racedLookupError } = await supabase
+        .from("auth_clerk_users")
+        .select("id")
+        .eq("clerk_user_id", input.clerkUserId)
+        .maybeSingle();
+      if (racedLookupError) throw racedLookupError;
+      if (!racedLookup?.id) continue;
+
+      const { error: racedUpdateError } = await supabase
+        .from("auth_clerk_users")
+        .update({
+          email: row.email,
+          first_name: row.first_name,
+          last_name: row.last_name,
+          phone_number: row.phone_number,
+        })
+        .eq("clerk_user_id", input.clerkUserId);
+      if (racedUpdateError) throw racedUpdateError;
+      return racedLookup.id;
     }
 
-    const { error: racedUpdateError } = await supabase
-      .from("auth_clerk_users")
-      .update({
-        email: row.email,
-        first_name: row.first_name,
-        last_name: row.last_name,
-        phone_number: row.phone_number,
-      })
-      .eq("clerk_user_id", input.clerkUserId);
-    if (racedUpdateError) throw racedUpdateError;
-
-    const { data: racedLookup, error: racedLookupError } = await supabase
-      .from("auth_clerk_users")
-      .select("id")
-      .eq("clerk_user_id", input.clerkUserId)
-      .maybeSingle();
-    if (racedLookupError || racedLookup?.id == null) {
-      throw racedLookupError ?? new Error(`Failed to upsert user ${input.clerkUserId}`);
-    }
-    return racedLookup.id;
+    throw lastError ?? new Error(`Failed to insert user ${input.clerkUserId}`);
   }
 
   if (existing) {

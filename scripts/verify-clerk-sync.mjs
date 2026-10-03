@@ -10,6 +10,8 @@ import {
   clerkSyncProfileForAccess,
   clerkUserPrivilegeWrite,
   clerkUsernameCandidates,
+  isUniqueViolation,
+  uniqueViolationTargetsUsername,
   verifiedClerkEmails,
 } from "../src/lib/clerk-org-sync.ts";
 
@@ -237,6 +239,19 @@ assert(
     clerkUsernameCandidates("sam@company-b.com", "user_bbbb2222")[1],
   "shared email prefixes get distinct username candidates"
 );
+assert(
+  uniqueViolationTargetsUsername({
+    message: 'duplicate key value violates unique constraint "auth_clerk_users_clerk_username_key"',
+  }) === true,
+  "username unique violations are not treated as a user-id race"
+);
+assert(
+  uniqueViolationTargetsUsername({
+    message: 'duplicate key value violates unique constraint "auth_clerk_users_clerk_user_id_key"',
+  }) === false,
+  "clerk user id conflicts recover the existing row"
+);
+assert(isUniqueViolation({ code: "23505" }) === true, "postgres unique violations are detected");
 
 const orgAdminSync = authorizeClerkSync({
   expectedSecret: null,
