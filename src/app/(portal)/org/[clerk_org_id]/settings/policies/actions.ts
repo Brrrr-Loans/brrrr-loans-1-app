@@ -45,10 +45,12 @@ import {
   omittedFanOutResources,
   orgPoliciesListOrFilter,
   policyFanOutKey,
+  policyWouldLockOutCaller,
   sanitizePolicyConditions,
   POLICY_UPSERT_RESTORE_FIELDS,
   type PolicyMutationSubject,
 } from "@/lib/policies/policy-mutation";
+import { isPlatformAdminIdentity } from "@/lib/internal-admin";
 import {
   resolveAuthClerkOrgPk,
   throwMappedSupabaseError,
@@ -122,12 +124,6 @@ async function getOrgPk(
     .maybeSingle();
 
   return resolveAuthClerkOrgPk({ clerkOrgId: orgId, data, error });
-}
-
-function normalizeRole(value?: string) {
-  const trimmed = (value ?? "").trim();
-  if (!trimmed) return "";
-  return trimmed.toLowerCase().replace(/^org:/, "");
 }
 
 function prepareDefinition(definition: PolicyDefinitionInput): PolicyDefinitionInput {
@@ -343,26 +339,17 @@ export async function saveOrgPolicies(
   const compiledConfig = compilePolicy(definition);
   const definitionJson = buildDefinition(definition);
 
-  // Self-lockout protection: owners and admins can always save policies
-  const normalizedOrgRole = normalizeRole(orgRole ?? "");
-  const isPrivileged = ["owner", "admin"].includes(normalizedOrgRole);
-
-  if (!isPrivileged) {
-    // For non-admin users, check if the policy would still grant them access
-    const currentUserAllowed =
-      compiledConfig.allow_internal_users ||
-      compiledConfig.conditions.some(
-        (c: { field: string; operator: string; values: string[] }) =>
-          c.field === "org_role" &&
-          c.operator === "is" &&
-          (c.values.includes("*") || c.values.includes(normalizedOrgRole))
-      );
-
-    if (!currentUserAllowed) {
-      throw new Error(
-        "This policy would deny your access based on your org role. Update the conditions or use an owner/admin account."
-      );
-    }
+  if (
+    policyWouldLockOutCaller({
+      orgRole,
+      isPlatformAdmin: isPlatformAdminIdentity({ clerkUserId: userId }),
+      allowInternalUsers: compiledConfig.allow_internal_users,
+      conditions: compiledConfig.conditions,
+    })
+  ) {
+    throw new Error(
+      "This policy would deny your access based on your org role. Update the conditions or use an owner/admin account."
+    );
   }
 
   const omitted = omittedFanOutResources(
@@ -414,18 +401,17 @@ export async function saveOrgPolicies(
     fanOut.map(async (key) => {
       const { data: existing, error: existingError } = await supabase
         .from("organization_policies")
-        .select("id,version,is_protected_policy")
+        .select(
+          "id,version,org_id,is_protected_policy,compiled_config,definition_json"
+        )
         .eq("org_id", orgPk)
         .eq("resource_type", key.resourceType)
         .eq("resource_name", key.resourceName)
         .eq("action", key.action)
         .maybeSingle();
       throwMappedSupabaseError(existingError);
-      if (existing?.is_protected_policy) {
-        assertPolicyMutable(
-          { org_id: orgPk, is_protected_policy: true },
-          "edit"
-        );
+      if (existing) {
+        assertPolicyMutable(existing as PolicyMutationSubject, "edit");
       }
 
       return {
@@ -531,36 +517,17 @@ export async function updateOrgPolicy(input: {
   const compiledConfig = compilePolicy(definition);
   const definitionJson = buildDefinition(definition);
 
-  const normalizedOrgRole = normalizeRole(orgRole ?? "");
-  const isPrivileged = ["owner", "admin"].includes(normalizedOrgRole);
-
-  if (!isPrivileged) {
-    const hasOrgRoleDenyCondition = compiledConfig.conditions.some(
-      (c: { field: string; operator: string; values: string[] }) =>
-        c.field === "org_role" &&
-        c.operator === "is_not" &&
-        c.values.includes(normalizedOrgRole)
+  if (
+    policyWouldLockOutCaller({
+      orgRole,
+      isPlatformAdmin: isPlatformAdminIdentity({ clerkUserId: userId }),
+      allowInternalUsers: compiledConfig.allow_internal_users,
+      conditions: compiledConfig.conditions,
+    })
+  ) {
+    throw new Error(
+      "This policy would deny your access based on your org role. Update the conditions or use an owner/admin account."
     );
-
-    const hasOrgRoleRestriction = compiledConfig.conditions.some(
-      (c: { field: string; operator: string; values: string[] }) =>
-        c.field === "org_role" && c.operator === "is"
-    );
-
-    const orgRoleAllowed =
-      !hasOrgRoleRestriction ||
-      compiledConfig.conditions.some(
-        (c: { field: string; operator: string; values: string[] }) =>
-          c.field === "org_role" &&
-          c.operator === "is" &&
-          (c.values.includes("*") || c.values.includes(normalizedOrgRole))
-      );
-
-    if (hasOrgRoleDenyCondition || !orgRoleAllowed) {
-      throw new Error(
-        "This policy would deny your access based on your org role. Update the conditions or use an owner/admin account."
-      );
-    }
   }
 
   const updatePayload: Record<string, unknown> = {
@@ -577,11 +544,12 @@ export async function updateOrgPolicy(input: {
       ? input.resourceName || "*"
       : current.resource_name;
   const nextAction = input.action ?? current.action;
-  if (
-    input.action ||
-    input.resourceType ||
-    input.resourceName !== undefined
-  ) {
+  const resourceUnchanged =
+    nextResourceType === current.resource_type &&
+    nextResourceName === (current.resource_name || "*");
+  const actionUnchanged =
+    input.action === undefined || input.action === current.action;
+  if (!(resourceUnchanged && actionUnchanged)) {
     assertActionAllowedForResource({
       resourceType: nextResourceType,
       resourceName: nextResourceName,

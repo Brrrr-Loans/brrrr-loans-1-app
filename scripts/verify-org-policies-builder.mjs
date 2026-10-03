@@ -14,6 +14,7 @@ import {
   filterActionsForFeature,
   filterActionsForResourceType,
   omittedFanOutResources,
+  policyWouldLockOutCaller,
   sharedFeatureActions,
   hasValidPolicyConditions,
   humanizeRole,
@@ -546,6 +547,34 @@ assertEqual(
   ),
   [],
   "disjoint features share no action and must not fall back to submit"
+);
+
+const SETTINGS_FEATURES = [
+  { name: "settings_general", actions: ["view", "update"] },
+  { name: "settings_members", actions: ["view", "insert", "update", "delete"] },
+];
+assert(
+  sharedFeatureActions(["settings_*"], [SETTINGS_FEATURES]).includes("view"),
+  "All Settings keeps verbs shared by settings features"
+);
+assert(
+  sharedFeatureActions(["*"], [DISJOINT_FEATURES]).includes("submit"),
+  "All Features wildcard keeps feature-type verbs"
+);
+assert(
+  policyWouldLockOutCaller({
+    orgRole: "org:member",
+    conditions: [{ field: "member_role", operator: "is", values: ["loan_processor"] }],
+  }) === false,
+  "create lockout allows policies that do not restrict org_role"
+);
+assert(
+  policyWouldLockOutCaller({
+    orgRole: "org:member",
+    isPlatformAdmin: true,
+    conditions: [{ field: "org_role", operator: "is", values: ["admin"] }],
+  }) === false,
+  "platform admins are not locked out by an org-role condition"
 );
 
 assertEqual(

@@ -138,21 +138,52 @@ export function filterActionsForResourceType(
  * Actions shared by every named feature. An empty list means the selection
  * has no common verb — callers must not invent one.
  */
+export function actionsDeclaredByFeatureName(
+  featureName: string,
+  catalogs: ReadonlyArray<ReadonlyArray<{ name: string; actions: readonly string[] }>>
+): string[] {
+  const name = featureName.replace(/^feature:/, "");
+  const typeActions = [...RESOURCE_TYPE_ACTIONS.feature];
+  if (!name || name === "*") return typeActions;
+
+  if (name.endsWith("*")) {
+    const prefix = name.slice(0, -1);
+    const matches = catalogs
+      .flat()
+      .filter((feature) => feature.name.startsWith(prefix));
+    if (matches.length === 0) return typeActions;
+    let shared: Set<string> | null = null;
+    for (const feature of matches) {
+      const next = new Set(feature.actions);
+      if (shared === null) {
+        shared = next;
+        continue;
+      }
+      const narrowed = new Set<string>();
+      for (const action of shared) {
+        if (next.has(action)) narrowed.add(action);
+      }
+      shared = narrowed;
+    }
+    const list = shared ? [...shared] : [];
+    return list.length > 0 ? list : typeActions;
+  }
+
+  for (const catalog of catalogs) {
+    const match = catalog.find((feature) => feature.name === name);
+    if (match) return [...match.actions];
+  }
+  return typeActions;
+}
+
 export function sharedFeatureActions(
   featureNames: readonly string[],
   catalogs: ReadonlyArray<ReadonlyArray<{ name: string; actions: readonly string[] }>>
 ): string[] {
+  if (featureNames.length === 0) return [];
   let shared: Set<string> | null = null;
   for (const name of featureNames) {
-    let declared: readonly string[] | null = null;
-    for (const catalog of catalogs) {
-      const match = catalog.find((feature) => feature.name === name);
-      if (match) {
-        declared = match.actions;
-        break;
-      }
-    }
-    const next = new Set(declared ?? []);
+    const next = new Set(actionsDeclaredByFeatureName(name, catalogs));
     if (shared === null) {
       shared = next;
       continue;
@@ -164,6 +195,49 @@ export function sharedFeatureActions(
     shared = narrowed;
   }
   return shared ? [...shared] : [];
+}
+
+type LockoutCondition = {
+  field?: string;
+  operator?: string;
+  values?: string[];
+};
+
+/**
+ * True when saving this definition would remove the caller's own access.
+ * Owners, org admins, and platform admins are not locked out. A policy with
+ * no top-level org_role condition is allowed, matching the edit path.
+ */
+export function policyWouldLockOutCaller(input: {
+  orgRole?: string | null;
+  isPlatformAdmin?: boolean;
+  allowInternalUsers?: boolean;
+  conditions?: LockoutCondition[] | null;
+}): boolean {
+  if (input.isPlatformAdmin) return false;
+  const role = (input.orgRole ?? "").trim().toLowerCase().replace(/^org:/, "");
+  if (role === "owner" || role === "admin") return false;
+  if (input.allowInternalUsers) return false;
+
+  const conditions = input.conditions ?? [];
+  const deniesCaller = conditions.some(
+    (condition) =>
+      condition.field === "org_role" &&
+      condition.operator === "is_not" &&
+      (condition.values ?? []).includes(role)
+  );
+  if (deniesCaller) return true;
+
+  const restrictions = conditions.filter(
+    (condition) =>
+      condition.field === "org_role" && condition.operator === "is"
+  );
+  if (restrictions.length === 0) return false;
+  return !restrictions.some(
+    (condition) =>
+      (condition.values ?? []).includes("*") ||
+      (condition.values ?? []).includes(role)
+  );
 }
 
 /** Resources whose selected verbs are all invalid for that resource. */
@@ -210,11 +284,11 @@ export function filterActionsForFeature(
   actions: PolicyAction[],
   featureResources: ReadonlyArray<{ name: string; actions: PolicyAction[] }>
 ): PolicyAction[] {
-  const feature = featureResources.find((f) => f.name === resourceName);
-  if (!feature) return filterActionsForResourceType("feature", actions);
-  const allowed = new Set(feature.actions);
-  return filterActionsForResourceType("feature", actions).filter((a) =>
-    allowed.has(a)
+  const allowed = new Set(
+    actionsDeclaredByFeatureName(resourceName, [featureResources])
+  );
+  return filterActionsForResourceType("feature", actions).filter((action) =>
+    allowed.has(action)
   );
 }
 

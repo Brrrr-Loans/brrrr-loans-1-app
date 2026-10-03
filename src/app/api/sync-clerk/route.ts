@@ -4,6 +4,7 @@ import { syncExistingClerkData } from "../../../../scripts/sync-clerk-data";
 import {
   CLERK_SYNC_SECRET_HEADER,
   authorizeClerkSync,
+  clerkSyncProfileForAccess,
   clerkSyncUnauthorizedBody,
   parseSyncClerkScope,
   verifiedClerkEmails,
@@ -18,7 +19,8 @@ import {
  *
  * Auth: platform admin session OR `x-clerk-sync-secret` / Bearer matching
  * `CLERK_SYNC_SECRET`. Scoped sync also allows an authenticated Clerk org
- * admin of that org. Full sync stays platform-admin/secret only.
+ * admin of that org, but that caller only writes identity fields.
+ * Full sync stays platform-admin/secret only. POST only.
  * The route stays public in middleware so curl works; this handler still
  * returns 401 without one of those.
  */
@@ -72,7 +74,10 @@ async function runSync(request: Request, body?: unknown) {
   }
 
   const clerkOrgId = scope.mode === "one" ? scope.clerkOrgId : undefined;
-  const result = await syncExistingClerkData({ clerkOrgId });
+  const result = await syncExistingClerkData({
+    clerkOrgId,
+    profile: clerkSyncProfileForAccess(authResult.access),
+  });
   return NextResponse.json({
     success: true,
     message: clerkOrgId
@@ -82,19 +87,11 @@ async function runSync(request: Request, body?: unknown) {
   });
 }
 
-export async function GET(request: Request) {
-  try {
-    return await runSync(request);
-  } catch (error) {
-    console.error("Clerk sync failed:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
-    );
-  }
+export async function GET() {
+  return NextResponse.json(
+    { success: false, error: "Use POST to run Clerk sync." },
+    { status: 405 }
+  );
 }
 
 export async function POST(request: Request) {

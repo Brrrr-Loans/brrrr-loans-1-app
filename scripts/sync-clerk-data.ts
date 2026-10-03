@@ -14,11 +14,15 @@ import { createServiceRoleClient } from "../src/lib/supabase-server";
 import { resolveClerkProfileSync } from "../src/lib/internal-admin.ts";
 import {
   clerkUsernameCandidates,
+  clerkUserPrivilegeWrite,
   mapClerkOrgRole,
+  type ClerkSyncProfile,
 } from "../src/lib/clerk-org-sync.ts";
 
 export type SyncClerkDataOptions = {
   clerkOrgId?: string;
+  /** Org-admin callers use identity so they cannot rewrite portal privileges. */
+  profile?: ClerkSyncProfile;
 };
 
 export type SyncClerkDataResult = {
@@ -130,6 +134,7 @@ async function upsertClerkUser(
     lastName?: string | null;
     phone?: string | null;
     publicMetadata?: { role?: string | null } | null;
+    profile?: ClerkSyncProfile;
   }
 ): Promise<number> {
   const { data: existing } = await supabase
@@ -145,6 +150,12 @@ async function upsertClerkUser(
     existingPersonalRole: existing?.personal_role,
     existingIsInternalYn: existing?.is_internal_yn,
   });
+  const privileges = clerkUserPrivilegeWrite({
+    profile: input.profile ?? "full",
+    existing: Boolean(existing),
+    personalRole: sync.personal_role,
+    isInternalYn: sync.is_internal_yn,
+  });
 
   const row = {
     clerk_user_id: input.clerkUserId,
@@ -155,9 +166,7 @@ async function upsertClerkUser(
     first_name: input.firstName || null,
     last_name: input.lastName || null,
     phone_number: input.phone || null,
-    personal_role: sync.personal_role,
-    is_internal_yn: sync.is_internal_yn,
-    is_active_yn: true,
+    ...privileges,
   };
 
   if (existing) {
@@ -168,9 +177,7 @@ async function upsertClerkUser(
         first_name: row.first_name,
         last_name: row.last_name,
         phone_number: row.phone_number,
-        personal_role: row.personal_role,
-        is_internal_yn: row.is_internal_yn,
-        is_active_yn: true,
+        ...privileges,
       })
       .eq("clerk_user_id", input.clerkUserId);
     if (error) throw error;
@@ -187,9 +194,7 @@ async function upsertClerkUser(
         first_name: row.first_name,
         last_name: row.last_name,
         phone_number: row.phone_number,
-        personal_role: row.personal_role,
-        is_internal_yn: row.is_internal_yn,
-        is_active_yn: true,
+        ...privileges,
       },
       { onConflict: "clerk_user_id" }
     )
@@ -213,7 +218,8 @@ async function upsertClerkUser(
 async function upsertClerkUserFromId(
   clerk: ClerkClient,
   supabase: ServiceClient,
-  clerkUserId: string
+  clerkUserId: string,
+  profile: ClerkSyncProfile
 ): Promise<number> {
   const user = await clerk.users.getUser(clerkUserId);
   const email = user.emailAddresses?.[0]?.emailAddress;
@@ -227,6 +233,7 @@ async function upsertClerkUserFromId(
     lastName: user.lastName,
     phone: user.phoneNumbers?.[0]?.phoneNumber || null,
     publicMetadata: user.publicMetadata as { role?: string | null },
+    profile,
   });
 }
 
@@ -309,6 +316,7 @@ export async function syncExistingClerkData(
 ): Promise<SyncClerkDataResult> {
   const clerk = clerkClientFromEnv();
   const supabase = createServiceRoleClient();
+  const profile = options.profile ?? "full";
   const result: SyncClerkDataResult = {
     mode: "backfill",
     clerkOrgId: options.clerkOrgId,
@@ -343,6 +351,7 @@ export async function syncExistingClerkData(
         lastName: user.lastName,
         phone: user.phoneNumbers?.[0]?.phoneNumber || null,
         publicMetadata: user.publicMetadata as { role?: string | null },
+        profile,
       });
       result.usersUpserted += 1;
     }
@@ -355,7 +364,12 @@ export async function syncExistingClerkData(
     for (const membership of memberships) {
       const clerkUserId = membership.publicUserData?.userId;
       if (!clerkUserId) continue;
-      const userPk = await upsertClerkUserFromId(clerk, supabase, clerkUserId);
+      const userPk = await upsertClerkUserFromId(
+        clerk,
+        supabase,
+        clerkUserId,
+        profile
+      );
       userPkByClerkId.set(clerkUserId, userPk);
       result.usersUpserted += 1;
     }
@@ -366,7 +380,8 @@ export async function syncExistingClerkData(
         const createdByPk = await upsertClerkUserFromId(
           clerk,
           supabase,
-          createdBy
+          createdBy,
+          profile
         );
         userPkByClerkId.set(createdBy, createdByPk);
         result.usersUpserted += 1;

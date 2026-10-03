@@ -108,9 +108,49 @@ export type ClerkSyncAuthHint = {
   emailMatched: boolean;
 };
 
+export type ClerkSyncAccess = "secret" | "platform-admin" | "org-admin" | "none";
+
+export type ClerkSyncProfile = "full" | "identity";
+
 export type ClerkSyncAuthResult = ClerkSyncAuthHint & {
   authorized: boolean;
+  access: ClerkSyncAccess;
 };
+
+export function clerkSyncProfileForAccess(
+  access: ClerkSyncAccess
+): ClerkSyncProfile {
+  return access === "org-admin" ? "identity" : "full";
+}
+
+/**
+ * Org-admin scoped sync may create a user row, but it must not rewrite
+ * portal role, internal flag, or active flag on users who already exist.
+ */
+export function clerkUserPrivilegeWrite(input: {
+  profile: ClerkSyncProfile;
+  existing: boolean;
+  personalRole: string;
+  isInternalYn: boolean;
+}): {
+  personal_role?: string;
+  is_internal_yn?: boolean;
+  is_active_yn?: boolean;
+} {
+  if (input.profile === "identity") {
+    if (input.existing) return {};
+    return {
+      personal_role: "balance_sheet_investor",
+      is_internal_yn: false,
+      is_active_yn: true,
+    };
+  }
+  return {
+    personal_role: input.personalRole,
+    is_internal_yn: input.isInternalYn,
+    is_active_yn: true,
+  };
+}
 
 export function clerkSyncUnauthorizedBody(hint: ClerkSyncAuthHint): {
   success: false;
@@ -233,7 +273,7 @@ export function authorizeClerkSync(input: {
 
   const providedSecret = input.secretHeader || bearerToken(input.authorizationHeader);
   if (isValidClerkSyncSecret(providedSecret, input.expectedSecret)) {
-    return { authorized: true, ...hint };
+    return { authorized: true, access: "secret", ...hint };
   }
 
   if (
@@ -242,7 +282,7 @@ export function authorizeClerkSync(input: {
       email: matchingEmail ?? input.email,
     })
   ) {
-    return { authorized: true, ...hint };
+    return { authorized: true, access: "platform-admin", ...hint };
   }
 
   if (
@@ -254,8 +294,8 @@ export function authorizeClerkSync(input: {
       sessionHasOrgAdmin: input.sessionHasOrgAdmin,
     })
   ) {
-    return { authorized: true, ...hint };
+    return { authorized: true, access: "org-admin", ...hint };
   }
 
-  return { authorized: false, ...hint };
+  return { authorized: false, access: "none", ...hint };
 }

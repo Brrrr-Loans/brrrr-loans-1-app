@@ -7,6 +7,8 @@ import {
   mapClerkOrgRole,
   parseSyncClerkScope,
   resolveOrganizationCreatedWrite,
+  clerkSyncProfileForAccess,
+  clerkUserPrivilegeWrite,
   clerkUsernameCandidates,
   verifiedClerkEmails,
 } from "../src/lib/clerk-org-sync.ts";
@@ -236,15 +238,29 @@ assert(
   "shared email prefixes get distinct username candidates"
 );
 
-assert(
-  authorizeClerkSync({
-    expectedSecret: null,
-    clerkUserId: "user_org_admin",
-    scopedClerkOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
-    sessionOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
-    sessionOrgRole: "org:admin",
-  }).authorized === true,
-  "scoped sync allows the org's Clerk admin"
+const orgAdminSync = authorizeClerkSync({
+  expectedSecret: null,
+  clerkUserId: "user_org_admin",
+  scopedClerkOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
+  sessionOrgId: "org_2rNqHTbc3gCIKwPSTXYudYB3Log",
+  sessionOrgRole: "org:admin",
+});
+assert(orgAdminSync.authorized === true, "scoped sync allows the org's Clerk admin");
+assertEqual(orgAdminSync.access, "org-admin", "scoped org admin is not a platform sync");
+assertEqual(
+  clerkSyncProfileForAccess(orgAdminSync.access),
+  "identity",
+  "org-admin sync does not rewrite portal privileges"
+);
+assertEqual(
+  clerkUserPrivilegeWrite({
+    profile: "identity",
+    existing: true,
+    personalRole: "admin",
+    isInternalYn: true,
+  }),
+  {},
+  "identity sync leaves an existing user's role and internal flag alone"
 );
 
 assert(
