@@ -466,6 +466,92 @@
   font-style: italic;
 }
 
+/* Policy builder resource / status chips (ported from pricing-engine) */
+.badge-resource-table {
+  border-color: hsl(217 91% 60% / 30%);
+  background: hsl(217 91% 60% / 10%);
+  color: hsl(217 91% 45%);
+}
+.badge-resource-storage {
+  border-color: hsl(262 83% 58% / 30%);
+  background: hsl(262 83% 58% / 10%);
+  color: hsl(262 83% 48%);
+}
+.badge-resource-feature {
+  border-color: hsl(142 76% 36% / 30%);
+  background: hsl(142 76% 36% / 10%);
+  color: hsl(142 76% 28%);
+}
+.badge-resource-route {
+  border-color: hsl(24 95% 53% / 30%);
+  background: hsl(24 95% 53% / 10%);
+  color: hsl(24 95% 40%);
+}
+.badge-resource-liveblocks {
+  border-color: hsl(330 81% 60% / 30%);
+  background: hsl(330 81% 60% / 10%);
+  color: hsl(330 81% 45%);
+}
+.badge-resource-api {
+  border-color: hsl(190 90% 40% / 30%);
+  background: hsl(190 90% 40% / 10%);
+  color: hsl(190 90% 30%);
+}
+.border-l-resource-table {
+  border-left-color: hsl(217 91% 60%);
+}
+.border-l-resource-storage {
+  border-left-color: hsl(262 83% 58%);
+}
+.border-l-resource-feature {
+  border-left-color: hsl(142 76% 36%);
+}
+.border-l-resource-route {
+  border-left-color: hsl(24 95% 53%);
+}
+.border-l-resource-liveblocks {
+  border-left-color: hsl(330 81% 60%);
+}
+.border-l-resource-api {
+  border-left-color: hsl(190 90% 40%);
+}
+.text-resource-table {
+  color: hsl(217 91% 45%);
+}
+.text-resource-storage {
+  color: hsl(262 83% 48%);
+}
+.text-resource-feature {
+  color: hsl(142 76% 28%);
+}
+.text-resource-route {
+  color: hsl(24 95% 40%);
+}
+.text-resource-liveblocks {
+  color: hsl(330 81% 45%);
+}
+.text-resource-api {
+  color: hsl(190 90% 30%);
+}
+.bg-success-muted {
+  background: hsl(var(--success) / 40%);
+}
+.text-success {
+  color: hsl(var(--success-foreground));
+}
+.bg-danger-muted {
+  background: hsl(var(--destructive) / 12%);
+}
+.text-danger {
+  color: hsl(var(--destructive));
+}
+.bg-warning-muted {
+  background: hsl(var(--warning) / 15%);
+}
+.text-warning {
+  color: hsl(var(--warning-foreground));
+}
+
 .tiptap-content ul,
 .tiptap-content ol {
   color: hsl(var(--foreground));

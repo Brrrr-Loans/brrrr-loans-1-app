@@ -5,6 +5,7 @@ import type { NextRequest } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-server";
 import type { Database } from "@/types/supabase";
 import { resolveClerkProfileSync } from "@/lib/internal-admin";
+import { mapClerkOrgRole, resolveOrganizationCreatedWrite } from "@/lib/clerk-org-sync";
 
 // Debug logging for service role key
 console.log(
@@ -45,9 +46,15 @@ interface ClerkOrganizationMembership {
     id: string;
     name?: string;
     slug?: string;
+    created_by?: string;
   };
   public_user_data: {
     user_id: string;
+    first_name?: string | null;
+    last_name?: string | null;
+    identifier?: string | null;
+    image_url?: string | null;
+    has_image?: boolean;
   };
   role: string;
 }
@@ -136,20 +143,6 @@ async function handleUserCreated(
     );
   }
 
-  // Generate unique username using helper function
-  const username = await generateUniqueUsername(
-    first_name || "",
-    last_name || "",
-    primaryEmail,
-    supabase
-  );
-
-  const sync = resolveClerkProfileSync({
-    clerkUserId: clerkId,
-    email: primaryEmail,
-    publicMetadata: public_metadata,
-  });
-
   // Test service role access
   const { data: testAccess, error: testError } = await supabase
     .from("auth_clerk_users")
@@ -162,23 +155,48 @@ async function handleUserCreated(
     hasServiceKey: !!supabase.auth.admin,
   });
 
+  const { data: existing } = await supabase
+    .from("auth_clerk_users")
+    .select("id, clerk_username, personal_role, is_internal_yn")
+    .eq("clerk_user_id", clerkId)
+    .maybeSingle();
+
+  const resolvedUsername =
+    existing?.clerk_username ||
+    (await generateUniqueUsername(
+      first_name || "",
+      last_name || "",
+      primaryEmail,
+      supabase
+    ));
+  const resolvedSync = resolveClerkProfileSync({
+    clerkUserId: clerkId,
+    email: primaryEmail,
+    publicMetadata: public_metadata,
+    existingPersonalRole: existing?.personal_role,
+    existingIsInternalYn: existing?.is_internal_yn,
+  });
+
   const { data: profile, error } = await supabase
     .from("auth_clerk_users")
-    .insert({
-      clerk_user_id: clerkId,
-      email: primaryEmail,
-      clerk_username: username,
-      first_name: first_name || null,
-      last_name: last_name || null,
-      phone_number: primaryPhone,
-      personal_role: sync.personal_role as Database["public"]["Enums"]["user_role_internal"],
-      is_internal_yn: sync.is_internal_yn,
-      is_active_yn: true,
-      image_url: image_url || null,
-      has_image: has_image || false,
-    })
+    .upsert(
+      {
+        clerk_user_id: clerkId,
+        email: primaryEmail,
+        clerk_username: resolvedUsername,
+        first_name: first_name || null,
+        last_name: last_name || null,
+        phone_number: primaryPhone,
+        personal_role: resolvedSync.personal_role as Database["public"]["Enums"]["user_role_internal"],
+        is_internal_yn: resolvedSync.is_internal_yn,
+        is_active_yn: true,
+        image_url: image_url || null,
+        has_image: has_image || false,
+      },
+      { onConflict: "clerk_user_id" }
+    )
     .select()
-    .single();
+    .maybeSingle();
 
   if (error) {
     console.error("Error creating user profile:", error);
@@ -394,18 +412,57 @@ async function handleOrganizationCreated(
 ) {
   const { id: org_id, name, slug, created_by } = data;
 
-  const { error } = await supabase.from("auth_clerk_orgs").insert({
-    clerk_org_id: org_id,
-    clerk_org_name: name,
-    clerk_org_slug: slug,
-    created_by_clerk_user_id: created_by,
+  const { data: creator } = await supabase
+    .from("auth_clerk_users")
+    .select("id")
+    .eq("clerk_user_id", created_by)
+    .maybeSingle();
+
+  const { data: existing } = await supabase
+    .from("auth_clerk_orgs")
+    .select("created_by_clerk_user_id, clerk_org_slug")
+    .eq("clerk_org_id", org_id)
+    .maybeSingle();
+
+  const write = resolveOrganizationCreatedWrite({
+    orgId: org_id,
+    name,
+    slug,
+    createdBy: created_by,
+    creatorExists: creator?.id != null,
+    existing,
   });
+
+  if (!existing && !write.created_by_clerk_user_id) {
+    throw new Error(
+      `Cannot create org ${org_id}: creator ${created_by} is not in auth_clerk_users yet`
+    );
+  }
+
+  const { error } = existing
+    ? await supabase
+        .from("auth_clerk_orgs")
+        .update({
+          clerk_org_name: write.clerk_org_name,
+          clerk_org_slug: write.clerk_org_slug,
+          ...(write.created_by_clerk_user_id
+            ? { created_by_clerk_user_id: write.created_by_clerk_user_id }
+            : {}),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("clerk_org_id", org_id)
+    : await supabase.from("auth_clerk_orgs").insert({
+        clerk_org_id: org_id,
+        clerk_org_name: write.clerk_org_name,
+        clerk_org_slug: write.clerk_org_slug,
+        created_by_clerk_user_id: write.created_by_clerk_user_id as string,
+      });
 
   if (error) {
     console.error("Error creating organization:", error);
     throw error;
   }
-  console.log("Successfully created organization:", { org_id, name, slug });
+  console.log("Successfully created organization:", { org_id, name, slug: write.clerk_org_slug });
 }
 
 async function handleOrganizationUpdated(
@@ -449,6 +506,206 @@ async function handleOrganizationDeleted(
   console.log("Successfully deleted organization:", { org_id });
 }
 
+async function ensureUserForMembership(
+  publicUserData: ClerkOrganizationMembership["public_user_data"],
+  supabase: ReturnType<typeof createServiceRoleClient>
+): Promise<{ id: number }> {
+  const clerkUserId = publicUserData?.user_id;
+  if (!clerkUserId) {
+    throw new Error("Membership event missing public_user_data.user_id");
+  }
+
+  const { data: existing, error: lookupError } = await supabase
+    .from("auth_clerk_users")
+    .select("id")
+    .eq("clerk_user_id", clerkUserId)
+    .maybeSingle();
+
+  if (lookupError) throw lookupError;
+  if (existing) return existing;
+
+  let email = publicUserData.identifier?.includes("@")
+    ? publicUserData.identifier
+    : null;
+  let firstName = publicUserData.first_name ?? null;
+  let lastName = publicUserData.last_name ?? null;
+  let imageUrl = publicUserData.image_url ?? null;
+  let hasImage = publicUserData.has_image ?? false;
+  let publicMetadata: { role?: string | null } | null = null;
+
+  try {
+    const client = await clerkClient();
+    const clerkUser = await client.users.getUser(clerkUserId);
+    email = email || clerkUser.emailAddresses?.[0]?.emailAddress || null;
+    firstName = firstName || clerkUser.firstName;
+    lastName = lastName || clerkUser.lastName;
+    imageUrl = imageUrl || clerkUser.imageUrl || null;
+    hasImage = hasImage || clerkUser.hasImage || false;
+    publicMetadata = clerkUser.publicMetadata as { role?: string | null };
+  } catch (clerkError) {
+    console.warn(
+      `Could not fetch Clerk user ${clerkUserId} while creating membership:`,
+      clerkError
+    );
+  }
+
+  if (!email) {
+    throw new Error(
+      `Cannot create user ${clerkUserId} for membership: no email in payload or Clerk`
+    );
+  }
+
+  const username = await generateUniqueUsername(
+    firstName || "",
+    lastName || "",
+    email,
+    supabase
+  );
+  const sync = resolveClerkProfileSync({
+    clerkUserId,
+    email,
+    publicMetadata,
+  });
+
+  const { data, error } = await supabase
+    .from("auth_clerk_users")
+    .upsert(
+      {
+        clerk_user_id: clerkUserId,
+        email,
+        clerk_username: username,
+        first_name: firstName,
+        last_name: lastName,
+        personal_role: sync.personal_role as Database["public"]["Enums"]["user_role_internal"],
+        is_internal_yn: sync.is_internal_yn,
+        is_active_yn: true,
+        image_url: imageUrl,
+        has_image: hasImage,
+      },
+      { onConflict: "clerk_user_id" }
+    )
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw error;
+  if (data?.id != null) return { id: data.id };
+
+  const { data: created, error: createdError } = await supabase
+    .from("auth_clerk_users")
+    .select("id")
+    .eq("clerk_user_id", clerkUserId)
+    .maybeSingle();
+  if (createdError || !created) {
+    throw createdError ?? new Error(`Failed to create user ${clerkUserId}`);
+  }
+  return created;
+}
+
+async function ensureOrgForMembership(
+  organization: ClerkOrganizationMembership["organization"],
+  fallbackCreatedBy: string,
+  supabase: ReturnType<typeof createServiceRoleClient>
+): Promise<{ id: number }> {
+  const orgId = organization?.id;
+  if (!orgId) {
+    throw new Error("Membership event missing organization.id");
+  }
+
+  const { data: existing, error: lookupError } = await supabase
+    .from("auth_clerk_orgs")
+    .select("id")
+    .eq("clerk_org_id", orgId)
+    .maybeSingle();
+
+  if (lookupError) throw lookupError;
+  if (existing) return existing;
+
+  let name = organization.name ?? null;
+  let slug = organization.slug ?? null;
+  let createdBy = organization.created_by || fallbackCreatedBy;
+
+  if (!name || !slug) {
+    const client = await clerkClient();
+    const clerkOrg = await client.organizations.getOrganization({
+      organizationId: orgId,
+    });
+    name = name || clerkOrg.name;
+    slug = slug || clerkOrg.slug;
+    createdBy = createdBy || clerkOrg.createdBy || fallbackCreatedBy;
+  }
+
+  if (!name) {
+    throw new Error(`Cannot create org ${orgId} for membership: missing name`);
+  }
+
+  const { data: creator } = await supabase
+    .from("auth_clerk_users")
+    .select("id")
+    .eq("clerk_user_id", createdBy)
+    .maybeSingle();
+  if (!creator) {
+    createdBy = fallbackCreatedBy;
+  }
+
+  const { data, error } = await supabase
+    .from("auth_clerk_orgs")
+    .upsert(
+      {
+        clerk_org_id: orgId,
+        clerk_org_name: name,
+        clerk_org_slug: slug || orgId,
+        created_by_clerk_user_id: createdBy,
+      },
+      { onConflict: "clerk_org_id" }
+    )
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw error;
+  if (data?.id != null) return { id: data.id };
+
+  const { data: created, error: createdError } = await supabase
+    .from("auth_clerk_orgs")
+    .select("id")
+    .eq("clerk_org_id", orgId)
+    .maybeSingle();
+  if (createdError || !created) {
+    throw createdError ?? new Error(`Failed to create org ${orgId}`);
+  }
+  return created;
+}
+
+async function upsertOrganizationMembershipRow(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  input: { userPk: number; orgPk: number; role: string }
+) {
+  const orgRole = mapClerkOrgRole(input.role);
+  const { data: existing, error: lookupError } = await supabase
+    .from("auth_clerk_orgs_members")
+    .select("id")
+    .eq("auth_clerk_users_id", input.userPk)
+    .eq("clerk_org_id", input.orgPk)
+    .maybeSingle();
+
+  if (lookupError) throw lookupError;
+
+  if (existing) {
+    const { error } = await supabase
+      .from("auth_clerk_orgs_members")
+      .update({ clerk_org_role: orgRole })
+      .eq("id", existing.id);
+    if (error) throw error;
+    return;
+  }
+
+  const { error } = await supabase.from("auth_clerk_orgs_members").insert({
+    auth_clerk_users_id: input.userPk,
+    clerk_org_id: input.orgPk,
+    clerk_org_role: orgRole,
+  });
+  if (error) throw error;
+}
+
 // Organization membership event handlers
 async function handleOrganizationMembershipCreated(
   data: ClerkOrganizationMembership,
@@ -459,61 +716,17 @@ async function handleOrganizationMembershipCreated(
   const userId = public_user_data?.user_id;
 
   if (!orgId || !userId) {
-    console.error("Missing org or user ID in membership created event:", data);
-    return;
+    throw new Error("Missing org or user ID in membership created event");
   }
 
-  // Get our internal user ID
-  const { data: user, error: userError } = await supabase
-    .from("auth_clerk_users")
-    .select("id")
-    .eq("clerk_user_id", userId)
-    .single();
+  const user = await ensureUserForMembership(public_user_data, supabase);
+  const org = await ensureOrgForMembership(organization, userId, supabase);
 
-  if (userError || !user) {
-    console.error("User not found for membership:", userId, userError);
-    return;
-  }
-
-  // Get our internal org ID
-  const { data: org, error: orgError } = await supabase
-    .from("auth_clerk_orgs")
-    .select("id")
-    .eq("clerk_org_id", orgId)
-    .single();
-
-  if (orgError || !org) {
-    console.error("Organization not found for membership:", orgId, orgError);
-    return;
-  }
-
-  // Map Clerk organization role to org permissions
-  // clerk_org_role enum accepts: "admin" | "member" | "viewer"
-  let orgRole: "admin" | "member" | "viewer";
-
-  if (role === "admin" || role === "Admin" || role?.includes("admin")) {
-    orgRole = "admin";
-  } else if (
-    role === "viewer" ||
-    role === "Viewer" ||
-    role?.includes("viewer")
-  ) {
-    orgRole = "viewer";
-  } else {
-    // All other roles (including custom business roles) are "member" at org level
-    orgRole = "member";
-  }
-
-  const { error } = await supabase.from("auth_clerk_orgs_members").insert({
-    auth_clerk_users_id: user.id,
-    clerk_org_id: org.id,
-    clerk_org_role: orgRole,
+  await upsertOrganizationMembershipRow(supabase, {
+    userPk: user.id,
+    orgPk: org.id,
+    role,
   });
-
-  if (error) {
-    console.error("Error creating organization membership:", error);
-    throw error;
-  }
   console.log("Successfully created organization membership:", {
     userId: user.id,
     orgId: org.id,
@@ -529,50 +742,18 @@ async function handleOrganizationMembershipUpdated(
   const orgId = organization?.id;
   const userId = public_user_data?.user_id;
 
-  if (!orgId || !userId) return;
-
-  // Get our internal IDs
-  const { data: user } = await supabase
-    .from("auth_clerk_users")
-    .select("id")
-    .eq("clerk_user_id", userId)
-    .single();
-
-  const { data: org } = await supabase
-    .from("auth_clerk_orgs")
-    .select("id")
-    .eq("clerk_org_id", orgId)
-    .single();
-
-  if (!user || !org) return;
-
-  // Map Clerk organization role to org permissions
-  let orgRole: "admin" | "member" | "viewer";
-
-  if (role === "admin" || role === "Admin" || role?.includes("admin")) {
-    orgRole = "admin";
-  } else if (
-    role === "viewer" ||
-    role === "Viewer" ||
-    role?.includes("viewer")
-  ) {
-    orgRole = "viewer";
-  } else {
-    orgRole = "member";
+  if (!orgId || !userId) {
+    throw new Error("Missing org or user ID in membership updated event");
   }
 
-  const { error } = await supabase
-    .from("auth_clerk_orgs_members")
-    .update({
-      clerk_org_role: orgRole,
-    })
-    .eq("auth_clerk_users_id", user.id)
-    .eq("clerk_org_id", org.id);
+  const user = await ensureUserForMembership(public_user_data, supabase);
+  const org = await ensureOrgForMembership(organization, userId, supabase);
 
-  if (error) {
-    console.error("Error updating organization membership:", error);
-    throw error;
-  }
+  await upsertOrganizationMembershipRow(supabase, {
+    userPk: user.id,
+    orgPk: org.id,
+    role,
+  });
   console.log("Successfully updated organization membership");
 }
 
