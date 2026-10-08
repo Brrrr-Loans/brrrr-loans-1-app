@@ -217,6 +217,12 @@ export function StepLedgerSync({
             continue;
           }
 
+          if (!transfer.process_date) {
+            errors.push(`${transfer.counterparty_name}: missing process date`);
+            failed++;
+            continue;
+          }
+
           // Determine ledger entry type based on amount
           // Negative = money going out (could be contribution from their perspective)
           // Positive = money coming in (distribution)

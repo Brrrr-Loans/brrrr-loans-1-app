@@ -71,7 +71,7 @@ export function formatTransactionsForExport(
   transactions: TransactionWithDetails[]
 ): Record<string, string | number>[] {
   return transactions.map((tx) => ({
-    Date: tx.transaction_date,
+    Date: tx.transaction_date ?? "",
     From:
       tx.investors?.[0]?.auth_clerk_users?.full_name ||
       tx.investors?.[0]?.auth_clerk_orgs?.clerk_org_name ||
