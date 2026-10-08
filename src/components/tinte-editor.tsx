@@ -136,7 +136,7 @@ export function TinteEditor({ onChange, open, onOpenChange }: TinteEditorProps) 
   const setIsOpen = isControlled ? onOpenChange || (() => {}) : setInternalOpen;
   const [theme, setTheme] = useState<ShadcnTheme>({ light: {}, dark: {} });
   const themeRef = useRef<ShadcnTheme>({ light: {}, dark: {} });
-  const [_originalFormats, setOriginalFormats] = useState<
+  const [, setOriginalFormats] = useState<
     Record<string, Record<string, string>>
   >({
     light: {},
@@ -318,11 +318,6 @@ export function TinteEditor({ onChange, open, onOpenChange }: TinteEditorProps) 
     setThemeLoaded(true);
     setReloading(false);
   }, [convertToHex]);
-
-  const reloadTheme = useCallback(() => {
-    setReloading(true);
-    void loadTheme();
-  }, [loadTheme]);
 
   // Fetch Tinte themes
   const fetchTinteThemes = useCallback(async (page = 1, search?: string) => {
@@ -680,10 +675,6 @@ export function TinteEditor({ onChange, open, onOpenChange }: TinteEditorProps) 
     saveNewTheme,
     convertToHex,
   ]);
-
-  const _availableTokens = TOKEN_GROUPS.flatMap((group) =>
-    group.tokens.filter((token) => theme[mode]?.[token] !== undefined)
-  );
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>

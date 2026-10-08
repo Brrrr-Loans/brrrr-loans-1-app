@@ -8,6 +8,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useClerk } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 import {
   Avatar,
@@ -40,17 +41,18 @@ export function NavUser({
   };
 }) {
   const { isMobile } = useSidebar();
+  const router = useRouter();
   const { signOut, openUserProfile } = useClerk();
 
   const handleSignOut = async () => {
     try {
       await signOut({ redirectUrl: "/sign-in" });
       // Force page reload to ensure clean state
-      window.location.href = "/sign-in";
+      router.push("/sign-in");
     } catch (error) {
       console.error("Sign out error:", error);
       // Force redirect even if signOut fails
-      window.location.href = "/sign-in";
+      router.push("/sign-in");
     }
   };
 

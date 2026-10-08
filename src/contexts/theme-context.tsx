@@ -13,13 +13,11 @@ import { useSupabaseWithRefresh } from "@/hooks/use-supabase";
 import {
   applyTheme,
   removeTheme,
-  fetchDefaultTheme,
   fetchOrgThemes,
   saveTheme as saveThemeToDb,
   updateTheme as updateThemeInDb,
   deleteTheme as deleteThemeFromDb,
   setDefaultTheme as setDefaultThemeInDb,
-  createDefaultTheme,
   type OrgTheme,
 } from "@/lib/theme";
 

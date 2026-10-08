@@ -35,12 +35,6 @@ interface ClerkOrganization {
   created_by: string;
 }
 
-interface ClerkEmail {
-  id: string;
-  email_address: string;
-  user_id: string;
-}
-
 interface ClerkOrganizationMembership {
   organization: {
     id: string;
@@ -292,7 +286,7 @@ async function handleSessionCreated(
   const { user_id } = data;
 
   // First, check if user exists in database
-  const { data: existingUser, error: lookupError } = await supabase
+  const { error: lookupError } = await supabase
     .from("auth_clerk_users")
     .select("id")
     .eq("clerk_user_id", user_id)
@@ -385,12 +379,7 @@ async function handleSessionCreated(
   }
 }
 
-async function handleSessionEnded(
-  data: { id: string },
-  _supabase: ReturnType<typeof createServiceRoleClient>
-) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { id: session_id } = data;
+async function handleSessionEnded() {
 
   // TODO: The 'clerk_user_sessions' table does not exist in the Supabase types. Replace with a valid table or add to schema.
   // const { error } = await supabase
@@ -796,12 +785,7 @@ async function handleOrganizationMembershipDeleted(
 }
 
 // Email event handlers
-async function handleEmailVerified(
-  data: ClerkEmail,
-  _supabase: ReturnType<typeof createServiceRoleClient>
-) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { user_id } = data;
+async function handleEmailVerified() {
 
   // TODO: The 'user_profile' table does not have 'email_verified' or 'email_verified_at' fields in the Supabase types. Remove or add to schema.
   // const { error } = await supabase
@@ -850,12 +834,12 @@ export async function POST(req: NextRequest) {
         break;
       case "session.ended":
         if (evt.data.id) {
-          await handleSessionEnded({ id: evt.data.id }, supabase);
+          await handleSessionEnded();
         }
         break;
       case "session.removed":
         if (evt.data.id) {
-          await handleSessionEnded({ id: evt.data.id }, supabase);
+          await handleSessionEnded();
         }
         break;
       case "organization.created":
@@ -901,14 +885,7 @@ export async function POST(req: NextRequest) {
           typeof eventData.email_address === "string" &&
           typeof eventData.user_id === "string"
         ) {
-          await handleEmailVerified(
-            {
-              id: eventData.user_id,
-              email_address: eventData.email_address,
-              user_id: eventData.user_id,
-            },
-            supabase
-          );
+          await handleEmailVerified();
         } else {
           console.log("Unhandled event type:", eventType);
         }

@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useHydrated } from "@/hooks/use-hydrated";
 
 import { MoonIcon, SunIcon } from "lucide-react";

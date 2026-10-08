@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
 import { useHydrated } from "@/hooks/use-hydrated";
 import {
   ResponsiveContainer,

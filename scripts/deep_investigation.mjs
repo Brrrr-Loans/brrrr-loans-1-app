@@ -81,7 +81,7 @@ async function deepInvestigation() {
   
   console.log('\n📋 Test 3: Verifying the correct table works...');
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('auth_user_profile')
       .select('id, clerk_id, role, clerk_role')
       .limit(1);

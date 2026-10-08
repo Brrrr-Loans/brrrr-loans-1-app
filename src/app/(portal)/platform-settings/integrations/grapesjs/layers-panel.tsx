@@ -12,7 +12,13 @@ import {
   X,
 } from "lucide-react";
 import type { Component } from "grapesjs";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { useGrapesEditor } from "./grapesjs-editor";
 

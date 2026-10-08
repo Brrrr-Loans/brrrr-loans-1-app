@@ -4,6 +4,7 @@ import { GitHubIcon } from "@/components/assets/github-icon";
 import { Button, Checkbox, Input, Label, Separator } from "@/components/ui";
 import { useSignIn } from "@clerk/nextjs/legacy";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type SignInStep =
@@ -60,6 +61,7 @@ function pickSecondFactor(
 
 export function SignInForm() {
   const { isLoaded, signIn, setActive } = useSignIn();
+  const router = useRouter();
   const [step, setStep] = useState<SignInStep>("start");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -129,7 +131,7 @@ export function SignInForm() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        window.location.href = "/dashboard";
+        router.push("/dashboard");
       } else if (result.status === "needs_first_factor") {
         // Need to verify with a code
         setSecondFactor(null);
@@ -159,7 +161,7 @@ export function SignInForm() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        window.location.href = "/dashboard";
+        router.push("/dashboard");
       } else if (result.status === "needs_second_factor") {
         await startSecondFactor(result, pickSecondFactor(result));
       }
@@ -215,7 +217,7 @@ export function SignInForm() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        window.location.href = "/dashboard";
+        router.push("/dashboard");
       } else if (result.status === "needs_second_factor") {
         await startSecondFactor(result, pickSecondFactor(result));
       }

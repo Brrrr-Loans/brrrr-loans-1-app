@@ -8,7 +8,6 @@ import {
   CardContent,
   Button,
   Input,
-  Badge,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -32,13 +31,12 @@ import { useCurrentOrganization } from "@/contexts/organization-context";
 import {
   Search,
   Upload,
-  FolderPlus,
   MoreHorizontal,
   Download,
   Trash2,
   File,
   Folder,
-  Image,
+  Image as ImageIcon,
   FileText,
   Sheet,
   Archive,
@@ -211,7 +209,7 @@ export function FileManager({
       case "png":
       case "gif":
       case "svg":
-        return <Image className="h-5 w-5 text-green-500" />;
+        return <ImageIcon className="h-5 w-5 text-green-500" />;
       case "xlsx":
       case "xls":
       case "csv":

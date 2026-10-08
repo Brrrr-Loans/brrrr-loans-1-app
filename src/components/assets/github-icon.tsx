@@ -2,7 +2,6 @@
 
 import { useTheme } from "next-themes";
 import { useHydrated } from "@/hooks/use-hydrated";
-import { useEffect, useState } from "react";
 import Image from "next/image";
 
 interface GitHubIconProps {

@@ -54,19 +54,6 @@ export function MatchImpactDialog({
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
 
-  const loadPreview = async () => {
-    if (transferIds.length === 0 || !vendorId) {
-      onOpenChange(false);
-      return;
-    }
-
-    setLoading(true);
-    setSyncError(null);
-    setStep("preview");
-    setPreview(null);
-    await fetchPreview();
-  };
-
   // Reset to the preview step whenever the dialog (re)opens
   const previewKey = open ? `${vendorId ?? ""}:${transferIds.length}` : null;
   const [syncedPreviewKey, setSyncedPreviewKey] = useState<string | null>(null);
@@ -113,7 +100,10 @@ export function MatchImpactDialog({
 
   useEffect(() => {
     if (open && transferIds.length > 0 && vendorId) {
-      void fetchPreview();
+      async function load() {
+        await fetchPreview();
+      }
+      void load();
     }
   }, [open, transferIds.length, vendorId, fetchPreview]);
 

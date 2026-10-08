@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useOrgTheme } from "@/contexts/theme-context";
-import { Palette, Save, Check, Plus, Star, Trash2, X } from "lucide-react";
+import { Palette, Save, Check, Star, Trash2 } from "lucide-react";
 import { 
   Dialog, 
   DialogContent, 
@@ -58,15 +58,12 @@ export function ThemeEditorWrapper({ open, onOpenChange }: ThemeEditorWrapperPro
   const {
     currentTheme,
     availableThemes,
-    isLoading,
     isOrgAdmin,
     internalOrgId,
     saveNewTheme,
-    updateExistingTheme,
     deleteTheme,
     setAsDefaultTheme,
     applyThemeById,
-    loadThemes,
   } = useOrgTheme();
 
   const [showSaveDialog, setShowSaveDialog] = useState(false);

@@ -134,12 +134,6 @@ function removeGeneratedColumns(
   });
 }
 
-async function disableForeignKeys(client: SupabaseClient): Promise<void> {
-  console.log('🔓 Temporarily disabling foreign key checks...');
-  // Note: This requires superuser - may not work with service role
-  // We'll handle FK order instead
-}
-
 async function migrateTable(
   prodClient: SupabaseClient,
   devClient: SupabaseClient,
@@ -197,9 +191,6 @@ async function migrateTable(
       }));
     }
     
-    // For tables with FK to auth_clerk_users.clerk_user_id, nullify temporarily
-    const tablesWithClerkUserIdFK = ['auth_clerk_orgs'];
-    
     // Insert data in batches of 50
     const batchSize = 50;
     let insertedCount = 0;
@@ -242,7 +233,7 @@ function getPrimaryKey(tableName: string): string {
   return pkMap[tableName] || 'id';
 }
 
-async function updateClerkOrgCreatedBy(devClient: SupabaseClient): Promise<void> {
+async function updateClerkOrgCreatedBy(): Promise<void> {
   console.log('\n🔗 Updating auth_clerk_orgs.created_by_clerk_user_id references...');
   
   // Get all orgs with their original created_by values from prod
@@ -291,7 +282,7 @@ async function main() {
   }
   
   // Update FK references
-  await updateClerkOrgCreatedBy(devClient);
+  await updateClerkOrgCreatedBy();
   
   // Summary
   console.log('\n\n📊 Migration Summary');

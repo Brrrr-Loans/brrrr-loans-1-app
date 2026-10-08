@@ -64,7 +64,6 @@ interface StepVendorMatchingProps {
 }
 
 export function StepVendorMatching({
-  transferIds,
   onMatchComplete,
 }: StepVendorMatchingProps) {
   const [transfers, setTransfers] = useState<Transfer[]>([]);

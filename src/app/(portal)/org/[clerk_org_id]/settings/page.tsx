@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { useOrganization, useOrganizationList } from "@clerk/nextjs";
+import { useOrganization } from "@clerk/nextjs";
 import {
   ArrowLeft,
   Building2,
@@ -79,7 +79,6 @@ export default function OrganizationSettingsPage() {
   const clerkOrgIdFromUrl = params.clerk_org_id as string;
   
   const { organization, isLoaded: orgLoaded } = useOrganization();
-  const { setActive } = useOrganizationList();
   
   // Get active tab from URL query param, default to "general"
   const activeTab = (searchParams.get("tab") as SettingsTab) || "general";

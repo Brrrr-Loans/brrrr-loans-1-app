@@ -40,14 +40,14 @@ async function verifyDatabaseFix() {
       console.log('❌ auth_user_profiles table still exists\n');
       allTestsPassed = false;
     }
-  } catch (err) {
+  } catch {
     console.log('✅ auth_user_profiles table successfully removed\n');
   }
   
   // Test 2: Check that correct table exists with both columns
   console.log('📋 Test 2: Correct table structure');
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('auth_user_profile')
       .select('id, email, clerk_id, role, clerk_role, is_internal_yn, is_active_yn')
       .limit(1);

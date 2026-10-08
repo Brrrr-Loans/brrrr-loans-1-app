@@ -68,7 +68,6 @@ const initialState: ImportState = {
 export function OFBImportWizard() {
   const [currentStep, setCurrentStep] = useState<StepId>("bank");
   const [importState, setImportState] = useState<ImportState>(initialState);
-  const [isProcessing, setIsProcessing] = useState(false);
 
   const currentStepIndex = useMemo(
     () => STEPS.findIndex((s) => s.id === currentStep),
@@ -171,7 +170,7 @@ export function OFBImportWizard() {
         >
           {/* Step List - Horizontal layout with justified spacing */}
           <StepperList className="w-full justify-between">
-            {STEPS.map((step, index) => (
+            {STEPS.map((step) => (
               <StepperItem key={step.id} value={step.id} className="flex-1">
                 <StepperTrigger className="flex items-center gap-3">
                   <StepperIndicator />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { useRouter } from "next/navigation";
 import { ChevronsUpDown, Plus, Building2, Settings } from "lucide-react";

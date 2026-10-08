@@ -50,7 +50,15 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/shadcn/radio-group";
 import { Label } from "@/components/ui/shadcn/label";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { CalendarIcon, Plus, Trash2, AlertCircle, Check, ChevronsUpDown, Building2, User } from "lucide-react";
+import {
+  CalendarIcon,
+  Plus,
+  Trash2,
+  AlertCircle,
+  ChevronsUpDown,
+  Building2,
+  User,
+} from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { Alert, AlertDescription } from "@/components/ui";
 
@@ -598,11 +606,11 @@ export function CreateTransactionForm({
                           <User className="h-4 w-4 text-muted-foreground" />
                         )}
                         <span className="text-xs uppercase text-muted-foreground">
-                          {form.watch(`investorAllocations.${index}.investorType`)}
+                          {investorAllocations?.[index]?.investorType}
                         </span>
                       </FormLabel>
                       <div className="font-medium">
-                        {form.watch(`investorAllocations.${index}.investorName`) || "Unknown"}
+                        {investorAllocations?.[index]?.investorName || "Unknown"}
                       </div>
                     </div>
 

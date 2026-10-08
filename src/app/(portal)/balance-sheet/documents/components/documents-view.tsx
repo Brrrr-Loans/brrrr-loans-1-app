@@ -872,17 +872,14 @@ export function DocumentsView({
       : documentsUploadProps;
 
   // Open upload dialog handler
+  const organizationId = organization?.id;
   const handleOpenUpload = useCallback(() => {
     // Default to current org if available, otherwise personal
-    if (organization?.id) {
-      setUploadTarget(organization.id);
-    } else {
-      setUploadTarget("personal");
-    }
+    setUploadTarget(organizationId ?? "personal");
     // Reset files and open dialog
     uploadProps.setFiles([]);
     setDialogOpen(true);
-  }, [organization?.id, setDialogOpen, uploadProps.setFiles]);
+  }, [organizationId, setDialogOpen, uploadProps]);
 
   // Handler for view settings changes that ensures groupBy is always set
   const handleViewSettingsChange = useCallback((settings: ViewSettings) => {

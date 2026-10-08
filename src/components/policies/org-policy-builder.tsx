@@ -4,11 +4,7 @@ import * as React from "react";
 import { useState, useTransition, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import {
-  getMemberRolesForPolicies,
-  getOrgRolesForPolicies,
-  type MemberRoleOption,
-} from "@/app/(portal)/org/[clerk_org_id]/settings/policies/member-roles-api";
+import { getMemberRolesForPolicies, getOrgRolesForPolicies } from "@/app/(portal)/org/[clerk_org_id]/settings/policies/member-roles-api";
 import {
   saveOrgPolicies,
   setOrgPolicyActive,
@@ -33,7 +29,6 @@ import {
   type PolicyAction,
   type ResourceType,
   type NamedScopeRow,
-  type RoomScopeInput,
   type DealRoleTypeRow,
 } from "@/app/(portal)/org/[clerk_org_id]/settings/policies/constants";
 import {
@@ -68,17 +63,6 @@ import {
 } from "@/components/ui/shadcn/command";
 import { Separator } from "@/components/ui/shadcn/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/shadcn/radio-group";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/shadcn/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -118,7 +102,6 @@ import {
   LayoutGrid,
   MoreHorizontal,
   Trash2,
-  AlertTriangle,
   ShieldAlert,
   Info,
 } from "lucide-react";
@@ -163,11 +146,6 @@ const dataActionOptions = [
   { value: "insert", label: "Insert" },
   { value: "update", label: "Update" },
   { value: "delete", label: "Delete" },
-];
-
-const featureActionOptions = [
-  { value: "submit", label: "Submit" },
-  { value: "view", label: "View" },
 ];
 
 const liveblocksActionOptions = [
@@ -3080,7 +3058,6 @@ function PolicyTableRow({
   onDelete,
   visibleColumns,
   orgDisplayName,
-  colCount,
 }: {
   policy: OrgPolicyRow;
   isEditing: boolean;

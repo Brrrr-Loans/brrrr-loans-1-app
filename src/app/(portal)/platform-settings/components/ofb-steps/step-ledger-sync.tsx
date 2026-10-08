@@ -14,7 +14,6 @@ import {
   TableRow,
 } from "@/components/ui/shadcn/table";
 import {
-  Check,
   AlertCircle,
   ArrowRight,
   Banknote,
@@ -26,6 +25,7 @@ import {
 } from "lucide-react";
 import { useSupabaseWithRefresh } from "@/hooks/use-supabase";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
 
 interface Transfer {
@@ -50,10 +50,10 @@ interface StepLedgerSyncProps {
 }
 
 export function StepLedgerSync({
-  transferIds,
   onSyncComplete,
   onReset,
 }: StepLedgerSyncProps) {
+  const router = useRouter();
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -364,7 +364,7 @@ export function StepLedgerSync({
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Start New Import
               </Button>
-              <Button onClick={() => window.location.href = "/balance-sheet/transactions"}>
+              <Button onClick={() => router.push("/balance-sheet/transactions")}>
                 View Transactions
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>

@@ -1,7 +1,6 @@
 "use client";
 
 import type { Column, Table } from "@tanstack/react-table";
-import { useState } from "react";
 import {
   Sheet,
   SheetContent,

@@ -46,7 +46,6 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const searchParams = url.searchParams;
     const category = searchParams.get("category") ?? "";
-    const dealId = searchParams.get("dealId") ?? "";
     const search = searchParams.get("search") ?? "";
 
     // Get documents uploaded by this user

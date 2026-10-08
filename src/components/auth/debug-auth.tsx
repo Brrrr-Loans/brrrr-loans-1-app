@@ -1,10 +1,12 @@
 "use client";
 
 import { useUser, useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 import { useMemo, useState } from "react";
 
 export function DebugAuth() {
+  const router = useRouter();
   const { user, isLoaded } = useUser();
   const { signOut } = useAuth();
   const [debugInfo, setDebugInfo] = useState<unknown>(null);
@@ -32,7 +34,7 @@ export function DebugAuth() {
 
   const handleForceSignOut = async () => {
     await signOut();
-    window.location.href = "/sign-in";
+    router.push("/sign-in");
   };
 
   if (!isLoaded) return <div>Loading...</div>;
