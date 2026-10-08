@@ -204,27 +204,36 @@ async function fetchDocumentsForUser(
 function transformDocuments(
   data: Array<{
     id: number;
-    document_name: string;
-    storage_bucket: string;
-    storage_path: string;
+    document_name: string | null;
+    storage_bucket: string | null;
+    storage_path: string | null;
     file_type: string | null;
     file_size: number | null;
-    uploaded_at: string;
+    uploaded_at: string | null;
     document_category: { name: string } | null;
-    document_files_deals: Array<{ deal: { deal_name: string } | null }> | null;
+    document_files_deals: Array<{
+      deal: { deal_name: string | null } | null;
+    }> | null;
   }>,
 ): DealDocumentResult[] {
-  return data.map((df) => ({
-    id: df.id,
-    document_name: df.document_name,
-    storage_bucket: df.storage_bucket,
-    storage_path: df.storage_path,
-    file_type: df.file_type,
-    file_size: df.file_size,
-    uploaded_at: df.uploaded_at,
-    category_name: df.document_category?.name || null,
-    deal_names: (df.document_files_deals || [])
-      .map((d) => d.deal?.deal_name)
-      .filter((n): n is string => Boolean(n)),
-  }));
+  return data.flatMap((df) => {
+    if (!df.storage_bucket || !df.storage_path || !df.uploaded_at) {
+      return [];
+    }
+    return [
+      {
+        id: df.id,
+        document_name: df.document_name ?? "Untitled Document",
+        storage_bucket: df.storage_bucket,
+        storage_path: df.storage_path,
+        file_type: df.file_type,
+        file_size: df.file_size,
+        uploaded_at: df.uploaded_at,
+        category_name: df.document_category?.name || null,
+        deal_names: (df.document_files_deals || [])
+          .map((d) => d.deal?.deal_name)
+          .filter((n): n is string => Boolean(n)),
+      },
+    ];
+  });
 }

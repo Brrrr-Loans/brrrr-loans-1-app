@@ -224,7 +224,7 @@ export async function getTransactionDocuments(
   transactionId: number
 ) {
   const { data, error } = await supabase
-    .from("transaction_documents_view")
+    .from("view_transaction_documents")
     .select("*")
     .eq("transaction_id", transactionId)
     .order("uploaded_at", { ascending: false });
@@ -285,7 +285,7 @@ export async function getTransactionWithRelations(
 
   // Get documents
   const { data: documents } = await supabase
-    .from("transaction_documents_view")
+    .from("view_transaction_documents")
     .select("*")
     .eq("transaction_id", transactionId);
 

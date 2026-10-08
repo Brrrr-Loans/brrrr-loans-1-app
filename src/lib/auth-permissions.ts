@@ -1,7 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { createServiceRoleClient } from "@/lib/supabase-server";
 import { getUserInvestmentOrgs } from "@/lib/auth-helpers";
-import { getUserInvestmentOrgs } from "@/lib/auth-helpers";
 import type { ContactType, UserRole, UserPermissions } from "@/types/auth";
 import {
   canAccessDeals as computeCanAccessDeals,
