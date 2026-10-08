@@ -37,19 +37,19 @@ export function applyTheme(theme: Pick<OrgTheme, "tokens_light" | "tokens_dark" 
 
   // Build CSS for light mode
   const lightVars = Object.entries(theme.tokens_light)
-    .filter(([key]) => EDITABLE_THEME_TOKENS.includes(key as any))
+    .filter(([key]) => (EDITABLE_THEME_TOKENS as readonly string[]).includes(key))
     .map(([key, value]) => `--${key}: ${value};`)
     .join("\n    ");
 
   // Build CSS for dark mode
   const darkVars = Object.entries(theme.tokens_dark)
-    .filter(([key]) => EDITABLE_THEME_TOKENS.includes(key as any))
+    .filter(([key]) => (EDITABLE_THEME_TOKENS as readonly string[]).includes(key))
     .map(([key, value]) => `--${key}: ${value};`)
     .join("\n    ");
 
   // Build CSS for radius (applies to both modes)
   const radiusVars = Object.entries(theme.radius)
-    .filter(([key]) => EDITABLE_RADIUS_TOKENS.includes(key as any))
+    .filter(([key]) => (EDITABLE_RADIUS_TOKENS as readonly string[]).includes(key))
     .map(([key, value]) => `--${key}: ${value};`)
     .join("\n    ");
 

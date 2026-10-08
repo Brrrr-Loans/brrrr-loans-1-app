@@ -118,7 +118,7 @@ export function StepLedgerSync({
     // Merge data
     const enrichedTransfers = (transferData || []).map((t) => {
       const vendorMatch = vendorMatches?.find((v) => v.ofb_transfer_id === t.ofb_transfer_id);
-      const vendorName = (vendorMatch?.api_ofb_vendors as any)?.name || null;
+      const vendorName = vendorMatch?.api_ofb_vendors?.name || null;
       
       let orgName = null;
       let orgId = null;
@@ -127,11 +127,11 @@ export function StepLedgerSync({
       
       if (vendorMatch?.ofb_vendor_id) {
         const orgLink = orgLinks?.find((o) => o.ofb_vendor_id === vendorMatch.ofb_vendor_id);
-        orgName = (orgLink?.auth_clerk_orgs as any)?.clerk_org_name || null;
+        orgName = orgLink?.auth_clerk_orgs?.clerk_org_name || null;
         orgId = orgLink?.clerk_org_id || null;
         
         const userLink = userLinks?.find((u) => u.ofb_vendor_id === vendorMatch.ofb_vendor_id);
-        userName = (userLink?.auth_clerk_users as any)?.full_name || null;
+        userName = userLink?.auth_clerk_users?.full_name || null;
         userId = userLink?.clerk_user_id || null;
       }
 
@@ -259,9 +259,10 @@ export function StepLedgerSync({
           if (linkError) throw linkError;
 
           synced++;
-        } catch (error: any) {
+        } catch (error) {
           console.error("Sync error for transfer:", transfer.ofb_transfer_id, error);
-          errors.push(`${transfer.counterparty_name}: ${error.message}`);
+          const message = error instanceof Error ? error.message : String(error);
+          errors.push(`${transfer.counterparty_name}: ${message}`);
           failed++;
         }
       }

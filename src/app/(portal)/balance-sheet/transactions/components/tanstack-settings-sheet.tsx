@@ -1,6 +1,6 @@
 "use client";
 
-import { Table } from "@tanstack/react-table";
+import type { Column, Table } from "@tanstack/react-table";
 import { useState } from "react";
 import {
   Sheet,
@@ -48,18 +48,11 @@ interface TableSettingsSheetProps<TData> {
   setTableDensity: (density: "compact" | "simple" | "detailed") => void;
 }
 
-interface SortableColumnItemProps {
-  column: {
-    id: string;
-    getIsVisible: () => boolean;
-    toggleVisibility: (visible: boolean) => void;
-    columnDef: {
-      header?: any;
-    };
-  };
+interface SortableColumnItemProps<TData> {
+  column: Column<TData, unknown>;
 }
 
-function SortableColumnItem({ column }: SortableColumnItemProps) {
+function SortableColumnItem<TData>({ column }: SortableColumnItemProps<TData>) {
   const {
     attributes,
     listeners,

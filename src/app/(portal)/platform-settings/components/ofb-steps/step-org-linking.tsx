@@ -89,9 +89,9 @@ export function StepOrgLinking({ onLinkComplete }: StepOrgLinkingProps) {
       return {
         ...v,
         linked_org_id: orgLink?.clerk_org_id || null,
-        linked_org_name: (orgLink?.auth_clerk_orgs as any)?.clerk_org_name || null,
+        linked_org_name: orgLink?.auth_clerk_orgs?.clerk_org_name || null,
         linked_user_id: userLink?.clerk_user_id || null,
-        linked_user_name: (userLink?.auth_clerk_users as any)?.full_name || null,
+        linked_user_name: userLink?.auth_clerk_users?.full_name || null,
       };
     });
 

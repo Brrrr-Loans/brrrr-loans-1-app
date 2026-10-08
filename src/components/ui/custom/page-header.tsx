@@ -13,7 +13,7 @@ interface PageHeaderProps {
     label: string;
     content: React.ReactNode;
     href?: string; // Optional href for making tabs into links
-    icon?: any; // Changed from LucideIcon to any to avoid serialization issues
+    icon?: LucideIcon;
   }>;
   defaultTab?: string;
 }

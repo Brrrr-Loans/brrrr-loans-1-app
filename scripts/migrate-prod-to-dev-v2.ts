@@ -116,7 +116,10 @@ const TABLES_IN_ORDER = [
   'bsi_transactions_api_brex_transfers',
 ];
 
-function removeGeneratedColumns(tableName: string, data: any[]): any[] {
+function removeGeneratedColumns(
+  tableName: string,
+  data: Record<string, unknown>[]
+): Record<string, unknown>[] {
   const columnsToRemove = GENERATED_COLUMNS[tableName];
   if (!columnsToRemove || columnsToRemove.length === 0) {
     return data;
@@ -173,15 +176,17 @@ async function migrateTable(
     // For auth_clerk_users, we need to update clerk_user_id to dev values
     let dataToInsert = cleanData;
     if (tableName === 'auth_clerk_users') {
+      const emailOf = (row: Record<string, unknown>) =>
+        typeof row.email === 'string' ? row.email.toLowerCase() : undefined;
       dataToInsert = cleanData.map(row => {
-        const email = row.email?.toLowerCase();
+        const email = emailOf(row);
         const devClerkId = email ? CLERK_ID_MAPPING[email] : null;
         return {
           ...row,
           clerk_user_id: devClerkId || row.clerk_user_id, // Use dev ID if available
         };
       });
-      console.log(`  🔄 Updated ${dataToInsert.filter(r => CLERK_ID_MAPPING[r.email?.toLowerCase()]).length} clerk_user_ids to dev values`);
+      console.log(`  🔄 Updated ${dataToInsert.filter(r => { const e = emailOf(r); return e ? CLERK_ID_MAPPING[e] : false; }).length} clerk_user_ids to dev values`);
     }
     
     // For auth_clerk_orgs, we need to handle created_by_clerk_user_id FK

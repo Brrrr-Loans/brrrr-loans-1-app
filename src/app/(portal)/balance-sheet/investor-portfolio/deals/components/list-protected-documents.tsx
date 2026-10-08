@@ -44,12 +44,12 @@ function UnprotectedDocumentsList({ dealId }: DocumentsListProps) {
 
       if (!error && data) {
         // Map Supabase data to Document interface
-        const mapped = data.map((doc: any) => ({
+        const mapped = data.map((doc) => ({
           id: String(doc.id),
-          name: doc.name ?? "Untitled Document",
-          description: doc.description ?? null,
+          name: doc.document_name ?? "Untitled Document",
+          description: doc.public_notes ?? null,
           created_at: doc.created_at ?? "",
-          storage_path: doc.file_path ?? doc.storage_path ?? "",
+          storage_path: doc.storage_path ?? "",
         }));
         setDocuments(mapped);
       }

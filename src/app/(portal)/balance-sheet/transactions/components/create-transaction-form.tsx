@@ -293,7 +293,7 @@ export function CreateTransactionForm({
       });
 
       await createMultiPartyTransaction(
-        supabase as any,
+        supabase,
         transaction,
         dealAllocations,
         investorAllocations

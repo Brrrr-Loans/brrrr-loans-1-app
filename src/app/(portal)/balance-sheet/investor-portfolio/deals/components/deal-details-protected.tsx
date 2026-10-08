@@ -1,5 +1,6 @@
 "use client";
 
+import type { ComponentProps } from "react";
 import { withInvestorPermission } from "@/components/auth/with-investor-permission";
 import { DealDetails } from "./deal-details";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui";
@@ -7,11 +8,11 @@ import { AlertCircle } from "lucide-react";
 
 interface ProtectedDealDetailsProps {
   dealId: string;
-  deal: unknown;
+  deal: ComponentProps<typeof DealDetails>["deal"];
 }
 
 function UnprotectedDealDetails({ deal }: ProtectedDealDetailsProps) {
-  return <DealDetails deal={deal as any} />;
+  return <DealDetails deal={deal} />;
 }
 
 // Create a permission-protected version of DealDetails
