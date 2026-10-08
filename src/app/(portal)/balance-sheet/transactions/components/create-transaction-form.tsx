@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useSupabase } from "@/hooks/use-supabase";
@@ -151,6 +151,10 @@ export function CreateTransactionForm({
       dealAllocations: [{ dealId: "", amount: "" }],
       investorAllocations: [],
     },
+  });
+  const investorAllocations = useWatch({
+    control: form.control,
+    name: "investorAllocations",
   });
 
   const {
@@ -588,7 +592,7 @@ export function CreateTransactionForm({
                     {/* Investor Display */}
                     <div className="flex-1 space-y-2">
                       <FormLabel className="flex items-center gap-2">
-                        {form.watch(`investorAllocations.${index}.investorType`) === "entity" ? (
+                        {investorAllocations?.[index]?.investorType === "entity" ? (
                           <Building2 className="h-4 w-4 text-muted-foreground" />
                         ) : (
                           <User className="h-4 w-4 text-muted-foreground" />

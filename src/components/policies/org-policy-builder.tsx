@@ -1187,9 +1187,11 @@ export default function OrgPolicyBuilder({
 
   // Policies in local state for optimistic updates (synced from server)
   const [policies, setPolicies] = useState<OrgPolicyRow[]>(initialPolicies);
-  useEffect(() => {
+  const [syncedInitialPolicies, setSyncedInitialPolicies] = useState(initialPolicies);
+  if (initialPolicies !== syncedInitialPolicies) {
+    setSyncedInitialPolicies(initialPolicies);
     setPolicies(initialPolicies);
-  }, [initialPolicies]);
+  }
 
   // Status
   const [error, setError] = useState<string | null>(null);
@@ -1474,11 +1476,23 @@ export default function OrgPolicyBuilder({
     activeFeatureActionOptions,
   ]);
 
-  // Reset selected actions when the resource type mix changes
-  useEffect(() => {
+  // Reset selected actions when the resource type mix changes (derived during render)
+  const resourceMixKey = [
+    editingPolicyId ?? "",
+    hasFeatureSelected,
+    hasDataSelected,
+    hasRouteSelected,
+    hasLiveblocksSelected,
+    hasApiResourceSelected,
+    selectedResources.join("|"),
+  ].join("\u0000");
+  const [syncedResourceMixKey, setSyncedResourceMixKey] = useState("");
+  if (resourceMixKey !== syncedResourceMixKey) {
+    setSyncedResourceMixKey(resourceMixKey);
     // Edit updates one row. Create-mode defaults must not replace that selection.
-    if (editingPolicyId) return;
-    if (
+    if (editingPolicyId) {
+      // no-op
+    } else if (
       hasApiResourceSelected &&
       !hasDataSelected &&
       !hasFeatureSelected &&
@@ -1540,8 +1554,7 @@ export default function OrgPolicyBuilder({
         return valid.length > 0 ? valid : ["select", "insert", "update", "delete"];
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingPolicyId, hasFeatureSelected, hasDataSelected, hasRouteSelected, hasLiveblocksSelected, hasApiResourceSelected, selectedResources]);
+  }
 
   // Determine if row-level scope selector should be enabled based on selected data resources.
   // Features never have row-level scope; when mixed with data resources, only the data

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/shadcn/card";
 import { Button } from "@/components/ui/shadcn/button";
 import { Input } from "@/components/ui/shadcn/input";
@@ -56,11 +56,7 @@ export function StepSelectBank({ selectedBankId, onSelect }: StepSelectBankProps
 
   const supabase = useSupabase();
 
-  useEffect(() => {
-    if (supabase) fetchBanks();
-  }, [supabase]);
-
-  const fetchBanks = async () => {
+  const fetchBanks = useCallback(async () => {
     if (!supabase) return;
     setIsLoading(true);
     const { data, error } = await supabase
@@ -73,16 +69,26 @@ export function StepSelectBank({ selectedBankId, onSelect }: StepSelectBankProps
       console.error("Error fetching banks:", error);
     } else {
       setBanks(data || []);
-      // Auto-select OFB if it exists and nothing is selected
-      if (!selectedBankId) {
-        const ofb = data?.find((b) => b.bank_code === "ofb");
-        if (ofb) {
-          onSelect(ofb.id, ofb.bank_code);
-        }
-      }
     }
     setIsLoading(false);
-  };
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    async function load() {
+      await fetchBanks();
+    }
+    void load();
+  }, [supabase, fetchBanks]);
+
+  // Auto-select OFB if it exists and nothing is selected
+  useEffect(() => {
+    if (selectedBankId) return;
+    const ofb = banks.find((b) => b.bank_code === "ofb");
+    if (ofb) {
+      onSelect(ofb.id, ofb.bank_code);
+    }
+  }, [banks, selectedBankId, onSelect]);
 
   const handleAddBank = async () => {
     if (!supabase || !newBank.bank_name || !newBank.bank_code || !newBank.account_name) {

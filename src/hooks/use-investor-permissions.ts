@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef } from "react";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { useSupabase } from "@/hooks/use-supabase";
 import { useAuth, useUser } from "@clerk/nextjs";
 import { isClerkOrgAdminRole } from "@/lib/deal-access";
@@ -29,7 +30,6 @@ function platformAdminFromClerkUser(user: {
 }
 
 export function useInvestorPermissions(): InvestorPermissions {
-  const [isLoading, setIsLoading] = useState(true);
   const { user } = useUser();
   const { orgRole } = useAuth();
   const supabase = useSupabase();
@@ -287,8 +287,9 @@ export function useInvestorPermissions(): InvestorPermissions {
     }
   };
 
+  const isLoading = !useHydrated();
+
   useEffect(() => {
-    setIsLoading(false);
     const currentCache = permissionCacheRef.current;
     return () => {
       currentCache.clear();

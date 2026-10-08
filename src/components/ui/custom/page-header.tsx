@@ -27,16 +27,14 @@ export function PageHeader({
   
   // Use the first tab as fallback if defaultTab is not provided or not found
   const fallbackTab = tabs[0]?.id;
-  const [activeTab, setActiveTab] = useState(defaultTab || fallbackTab);
+  const requestedTab = defaultTab || fallbackTab;
+  const [activeTab, setActiveTab] = useState(requestedTab);
+  const [syncedTab, setSyncedTab] = useState(requestedTab);
 
-  useEffect(() => {
-    const nextTab = defaultTab || fallbackTab;
-
-    if (nextTab && nextTab !== activeTab) {
-      setActiveTab(nextTab);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultTab, fallbackTab]);
+  if (requestedTab !== syncedTab) {
+    setSyncedTab(requestedTab);
+    if (requestedTab) setActiveTab(requestedTab);
+  }
 
   const activeTabContent = tabs.find((tab) => tab.id === activeTab)?.content;
 

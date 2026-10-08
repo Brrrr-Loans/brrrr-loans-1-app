@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/shadcn/card";
 import { Button } from "@/components/ui/shadcn/button";
 import { Badge } from "@/components/ui/shadcn/badge";
@@ -67,11 +67,7 @@ export function StepLedgerSync({
 
   const { client: supabase, refreshToken } = useSupabaseWithRefresh();
 
-  useEffect(() => {
-    if (supabase) fetchData();
-  }, [supabase]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!supabase) return;
     setIsLoading(true);
 
@@ -154,7 +150,15 @@ export function StepLedgerSync({
     setTransfers(readyToSync);
     setSelectedTransfers(new Set(readyToSync.map((t) => t.ofb_transfer_id)));
     setIsLoading(false);
-  };
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    async function load() {
+      await fetchData();
+    }
+    void load();
+  }, [supabase, fetchData]);
 
   const handleSelectAll = () => {
     if (selectedTransfers.size === transfers.length) {

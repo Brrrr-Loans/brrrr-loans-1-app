@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
@@ -32,6 +32,16 @@ import { convertTinteToShadcn, type TinteTheme } from "@/lib/tinte-to-shadcn";
 import { ChatInput } from "./ai-assistant/chat-input";
 import { Message as ChatMessage } from "./ai-assistant/chat-message";
 import { ColorInput } from "./color-input";
+
+// Subscribes to class changes on <html> (next-themes toggles the "dark" class)
+function subscribeToDocumentClass(onChange: () => void) {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+  return () => observer.disconnect();
+}
 
 type ShadcnTokens = Record<string, string>;
 
@@ -132,8 +142,15 @@ export function TinteEditor({ onChange, open, onOpenChange }: TinteEditorProps) 
     light: {},
     dark: {},
   });
-  const [mode, setMode] = useState<"light" | "dark">("light");
-  const [loading, setLoading] = useState(false);
+  const mode = useSyncExternalStore<"light" | "dark">(
+    subscribeToDocumentClass,
+    () =>
+      document.documentElement.classList.contains("dark") ? "dark" : "light",
+    () => "light"
+  );
+  const [themeLoaded, setThemeLoaded] = useState(false);
+  const [reloading, setReloading] = useState(false);
+  const loading = reloading || !themeLoaded;
   const [rawCss, setRawCss] = useState("");
 
   const [tinteThemes, setTinteThemes] = useState<TinteThemePreview[]>([]);
@@ -254,7 +271,6 @@ export function TinteEditor({ onChange, open, onOpenChange }: TinteEditorProps) 
 
   // Load theme from DOM CSS variables
   const loadTheme = useCallback(async () => {
-    setLoading(true);
     try {
       const root = document.documentElement;
       const computedStyle = getComputedStyle(root);
@@ -299,8 +315,14 @@ export function TinteEditor({ onChange, open, onOpenChange }: TinteEditorProps) 
       console.error("Error loading theme from DOM:", error);
       toast.error("Failed to load theme from CSS");
     }
-    setLoading(false);
+    setThemeLoaded(true);
+    setReloading(false);
   }, [convertToHex]);
+
+  const reloadTheme = useCallback(() => {
+    setReloading(true);
+    void loadTheme();
+  }, [loadTheme]);
 
   // Fetch Tinte themes
   const fetchTinteThemes = useCallback(async (page = 1, search?: string) => {
@@ -417,17 +439,19 @@ export function TinteEditor({ onChange, open, onOpenChange }: TinteEditorProps) 
 
   // Initialize theme
   useEffect(() => {
-    const root = document.documentElement;
-    const isDark = root.classList.contains("dark");
-    setMode(isDark ? "dark" : "light");
-    loadTheme();
+    async function load() {
+      await loadTheme();
+    }
+    void load();
   }, [loadTheme]);
 
   // Fetch Tinte themes when dialog opens
   useEffect(() => {
-    if (isOpen && tinteThemes.length === 0) {
-      fetchTinteThemes();
+    if (!isOpen || tinteThemes.length !== 0) return;
+    async function load() {
+      await fetchTinteThemes();
     }
+    void load();
   }, [isOpen, tinteThemes.length, fetchTinteThemes]);
 
   const handleTokenEdit = useCallback(
@@ -460,20 +484,6 @@ export function TinteEditor({ onChange, open, onOpenChange }: TinteEditorProps) 
     [mode, onChange]
   );
 
-  // Sync mode with DOM changes (controlled by next-themes)
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      const isDark = document.documentElement.classList.contains("dark");
-      setMode(isDark ? "dark" : "light");
-    });
-
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-
-    return () => observer.disconnect();
-  }, []);
 
   // Generate raw CSS from theme
   const generateRawCss = useCallback(() => {
@@ -536,10 +546,13 @@ export function TinteEditor({ onChange, open, onOpenChange }: TinteEditorProps) 
     [onChange]
   );
 
-  // Update raw CSS when theme changes
-  useEffect(() => {
-    setRawCss(generateRawCss());
-  }, [generateRawCss]);
+  // Reset raw CSS whenever the theme changes
+  const generatedRawCss = generateRawCss();
+  const [syncedRawCss, setSyncedRawCss] = useState<string | null>(null);
+  if (generatedRawCss !== syncedRawCss) {
+    setSyncedRawCss(generatedRawCss);
+    setRawCss(generatedRawCss);
+  }
 
   // Write to globals.css file
   const [saveStatus, setSaveStatus] = useState<

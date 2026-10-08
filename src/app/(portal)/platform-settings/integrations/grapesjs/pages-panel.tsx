@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Check, Files, FileText, MoreVertical, Pencil, Plus, Settings, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import { useGrapesEditor } from "./grapesjs-editor";
 
@@ -18,7 +18,6 @@ interface PageItem {
 
 export function PagesPanel({ onClose }: PagesPanelProps) {
   const { editor } = useGrapesEditor();
-  const [pages, setPages] = useState<PageItem[]>([]);
   const [isAddingPage, setIsAddingPage] = useState(false);
   const [newPageName, setNewPageName] = useState("");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -44,53 +43,59 @@ export function PagesPanel({ onClose }: PagesPanelProps) {
     };
   }, [openMenuId]);
 
-  // Build pages list from GrapesJS
-  const buildPagesList = useCallback(() => {
-    if (!editor?.Pages) return;
+  // Subscribe to page changes; the snapshot is a change counter bumped per event
+  const pagesVersionRef = useRef(0);
+  const subscribeToPages = useCallback(
+    (onChange: () => void) => {
+      if (!editor?.on) return () => {};
+      const handler = () => {
+        pagesVersionRef.current += 1;
+        onChange();
+      };
+      const events = ["page:add", "page:remove", "page:select", "page:update"];
+      try {
+        for (const event of events) {
+          editor.on(event, handler);
+        }
+      } catch {
+        // Editor may be in an invalid state
+      }
+      return () => {
+        try {
+          for (const event of events) {
+            editor.off(event, handler);
+          }
+        } catch {
+          // Editor may already be destroyed
+        }
+      };
+    },
+    [editor]
+  );
+  const pagesVersion = useSyncExternalStore(
+    subscribeToPages,
+    () => pagesVersionRef.current,
+    () => 0
+  );
 
+  // Build pages list from GrapesJS
+  const pages = useMemo<PageItem[]>(() => {
+    void pagesVersion;
+    if (!editor?.Pages) return [];
     try {
       const pm = editor.Pages;
       const allPages = pm.getAll();
       const selectedPage = pm.getSelected();
-
-      const pageItems: PageItem[] = allPages.map((page) => ({
+      return allPages.map((page) => ({
         id: page.getId(),
         name: page.get("name") || `Page ${page.getId()}`,
         isSelected: selectedPage?.getId() === page.getId(),
       }));
-
-      setPages(pageItems);
     } catch {
       // Editor may be in an invalid state
+      return [];
     }
-  }, [editor]);
-
-  // Subscribe to page changes
-  useEffect(() => {
-    if (!editor?.Pages) return;
-
-    buildPagesList();
-
-    const events = ["page:add", "page:remove", "page:select", "page:update"];
-
-    try {
-      for (const event of events) {
-        editor.on(event, buildPagesList);
-      }
-    } catch {
-      // Editor may be in an invalid state
-    }
-
-    return () => {
-      try {
-        for (const event of events) {
-          editor.off(event, buildPagesList);
-        }
-      } catch {
-        // Editor may already be destroyed
-      }
-    };
-  }, [editor, buildPagesList]);
+  }, [editor, pagesVersion]);
 
   const handleSelectPage = useCallback(
     (pageId: string) => {

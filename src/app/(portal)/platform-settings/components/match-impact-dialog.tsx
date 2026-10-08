@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui";
 import {
   Dialog,
@@ -54,27 +54,33 @@ export function MatchImpactDialog({
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (open && transferIds.length > 0 && vendorId) {
-      // Reset to preview step and load data when dialog opens
-      setStep("preview");
-      setPreview(null);
-      setSyncError(null);
-      loadPreview();
-    }
-  }, [open, transferIds.length, vendorId]);
-
   const loadPreview = async () => {
     if (transferIds.length === 0 || !vendorId) {
       onOpenChange(false);
       return;
     }
-    
+
     setLoading(true);
     setSyncError(null);
     setStep("preview");
     setPreview(null);
-    
+    await fetchPreview();
+  };
+
+  // Reset to the preview step whenever the dialog (re)opens
+  const previewKey = open ? `${vendorId ?? ""}:${transferIds.length}` : null;
+  const [syncedPreviewKey, setSyncedPreviewKey] = useState<string | null>(null);
+  if (previewKey !== syncedPreviewKey) {
+    setSyncedPreviewKey(previewKey);
+    if (previewKey && transferIds.length > 0) {
+      setStep("preview");
+      setPreview(null);
+      setSyncError(null);
+      setLoading(true);
+    }
+  }
+
+  const fetchPreview = useCallback(async () => {
     try {
       const response = await fetch("/api/brex/match-impact-preview", {
         method: "POST",
@@ -103,7 +109,13 @@ export function MatchImpactDialog({
     } finally {
       setLoading(false);
     }
-  };
+  }, [transferIds, vendorId, onOpenChange]);
+
+  useEffect(() => {
+    if (open && transferIds.length > 0 && vendorId) {
+      void fetchPreview();
+    }
+  }, [open, transferIds.length, vendorId, fetchPreview]);
 
   const handleConfirmMatch = async () => {
     setLoading(true);

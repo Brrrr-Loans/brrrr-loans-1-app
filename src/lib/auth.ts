@@ -30,18 +30,23 @@ export async function checkInternalAccess(userId: string) {
 export function useInternalAccess() {
   // React hook to check internal access
   const { user } = useUser();
-  const [isInternal, setIsInternal] = useState<boolean>(false);
-  const [loading, setLoading] = useState(true);
+  const [result, setResult] = useState<{
+    userId: string;
+    isInternal: boolean;
+  } | null>(null);
+  const userId = user?.id;
 
   useEffect(() => {
-    if (user?.id) {
-      checkInternalAccess(user.id)
-        .then(setIsInternal)
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
+    if (userId) {
+      checkInternalAccess(userId).then((isInternal) =>
+        setResult({ userId, isInternal })
+      );
     }
-  }, [user?.id]);
+  }, [userId]);
+
+  const isInternal =
+    result !== null && result.userId === userId ? result.isInternal : false;
+  const loading = !!userId && result?.userId !== userId;
 
   return { isInternal, loading };
 }

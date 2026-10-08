@@ -59,6 +59,10 @@ interface FileWithPreview extends File {
 
 type UseSupabaseUploadOptions = {
   /**
+   * Called once every file in the batch has uploaded without errors.
+   */
+  onUploadSuccess?: (successes: string[]) => void;
+  /**
    * Name of bucket to upload files to in your Supabase project
    */
   bucketName: string;
@@ -107,6 +111,7 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
     allowedMimeTypes = [],
     maxFileSize = Number.POSITIVE_INFINITY,
     maxFiles = 1,
+    onUploadSuccess,
     // cacheControl and upsert are handled server-side now
   } = options;
 
@@ -114,6 +119,27 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<{ name: string; message: string }[]>([]);
   const [successes, setSuccesses] = useState<string[]>([]);
+
+  const updateFiles = useCallback(
+    (nextFiles: FileWithPreview[]) => {
+      const normalized =
+        nextFiles.length <= maxFiles
+          ? nextFiles.map((file) => {
+              if (file.errors.some((e) => e.code === "too-many-files")) {
+                file.errors = file.errors.filter(
+                  (e) => e.code !== "too-many-files"
+                );
+              }
+              return file;
+            })
+          : nextFiles;
+      setFiles(normalized);
+      if (normalized.length === 0) {
+        setErrors([]);
+      }
+    },
+    [maxFiles]
+  );
 
   const isSuccess = useMemo(() => {
     if (errors.length === 0 && successes.length === 0) {
@@ -144,9 +170,9 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
 
       const newFiles = [...files, ...validFiles, ...invalidFiles];
 
-      setFiles(newFiles);
+      updateFiles(newFiles);
     },
-    [files, setFiles]
+    [files, updateFiles]
   );
 
   const dropzoneProps = useDropzone({
@@ -246,28 +272,11 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
     setSuccesses(newSuccesses);
 
     setLoading(false);
-  }, [files, path, bucketName, errors, successes]);
 
-  useEffect(() => {
-    if (files.length === 0) {
-      setErrors([]);
+    if (responseErrors.length === 0 && newSuccesses.length === files.length) {
+      onUploadSuccess?.(newSuccesses);
     }
-
-    // If the number of files doesn't exceed the maxFiles parameter, remove the error 'Too many files' from each file
-    if (files.length <= maxFiles) {
-      let changed = false;
-      const newFiles = files.map((file) => {
-        if (file.errors.some((e) => e.code === "too-many-files")) {
-          file.errors = file.errors.filter((e) => e.code !== "too-many-files");
-          changed = true;
-        }
-        return file;
-      });
-      if (changed) {
-        setFiles(newFiles);
-      }
-    }
-  }, [files.length, setFiles, maxFiles, files]);
+  }, [onUploadSuccess, files, path, bucketName, errors, successes]);
 
   useEffect(() => {
     // Clean up resources when component unmounts
@@ -282,7 +291,7 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
 
   return {
     files,
-    setFiles,
+    setFiles: updateFiles,
     successes,
     isSuccess,
     loading,

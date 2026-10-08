@@ -216,8 +216,10 @@ export function BrexSyncButtons() {
 
   // Load status and validate token on mount
   useEffect(() => {
-    loadStatus();
-    validateToken();
+    async function load() {
+      await Promise.all([loadStatus(), validateToken()]);
+    }
+    void load();
   }, []);
 
   return (

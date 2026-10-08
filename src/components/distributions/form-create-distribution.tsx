@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { createDistribution } from "@/app/actions/distributions";
 import { Button } from "@/components/ui";
@@ -96,8 +96,11 @@ export function CreateDistributionForm({
   });
 
   // Watch for changes to dealId and totalAmount
-  const watchDealId = form.watch("dealId");
-  const watchTotalAmount = form.watch("totalAmount");
+  const watchDealId = useWatch({ control: form.control, name: "dealId" });
+  const watchTotalAmount = useWatch({
+    control: form.control,
+    name: "totalAmount",
+  });
 
   // Fetch deals on component mount
   useEffect(() => {
@@ -220,9 +223,25 @@ export function CreateDistributionForm({
     fetchInvestors();
   }, [watchDealId, supabase]);
 
-  // Update investor payment amounts when total amount changes
-  useEffect(() => {
-    if (!watchTotalAmount || investors.length === 0) return;
+  // Recompute investor payment amounts when the total amount or investors change
+  const [syncedTotalInputs, setSyncedTotalInputs] = useState<{
+    watchTotalAmount: string | undefined;
+    investors: Investor[];
+  } | null>(null);
+  if (
+    syncedTotalInputs?.watchTotalAmount !== watchTotalAmount ||
+    syncedTotalInputs.investors !== investors
+  ) {
+    setSyncedTotalInputs({ watchTotalAmount, investors });
+    if (watchTotalAmount && investors.length !== 0) {
+      recomputePaymentsFromTotal(watchTotalAmount, investors);
+    }
+  }
+
+  function recomputePaymentsFromTotal(
+    watchTotalAmount: string,
+    investors: Investor[]
+  ) {
 
     // Parse the total amount (remove $ and commas)
     const parsedTotal =
@@ -239,7 +258,7 @@ export function CreateDistributionForm({
     });
 
     setInvestorPayments(updatedPayments);
-  }, [watchTotalAmount, investors]);
+  }
 
   // Update an individual investor's payment amount
   const updateInvestorPayment = (index: number, amount: string) => {

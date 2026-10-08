@@ -79,7 +79,8 @@ export function OrgThemeProvider({ children }: { children: ReactNode }) {
   
   const [currentTheme, setCurrentTheme] = useState<OrgTheme | null>(null);
   const [availableThemes, setAvailableThemes] = useState<OrgTheme[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadedOrgId, setLoadedOrgId] = useState<number | null | undefined>(undefined);
   const [internalOrgId, setInternalOrgId] = useState<number | null>(null);
   const [internalUserId, setInternalUserId] = useState<number | null>(null);
   
@@ -92,7 +93,7 @@ export function OrgThemeProvider({ children }: { children: ReactNode }) {
       if (!isOrgLoaded || !organization?.id || !supabase) {
         if (isOrgLoaded && supabase) {
           setInternalOrgId(null);
-          setIsLoading(false);
+          setLoadedOrgId(null);
         }
         return;
       }
@@ -110,7 +111,7 @@ export function OrgThemeProvider({ children }: { children: ReactNode }) {
           console.warn("Could not find internal org ID for", organization.id, orgError);
         }
         setInternalOrgId(null);
-        setIsLoading(false);
+        setLoadedOrgId(null);
         return;
       }
 
@@ -144,13 +145,10 @@ export function OrgThemeProvider({ children }: { children: ReactNode }) {
   }, [supabase, membership]);
 
   // Load themes when internal org ID is available
-  const loadThemes = useCallback(async () => {
+  const fetchThemes = useCallback(async () => {
     if (!internalOrgId || !supabase) {
-      setIsLoading(false);
       return;
     }
-
-    setIsLoading(true);
 
     try {
       // Load all themes for the org
@@ -169,16 +167,26 @@ export function OrgThemeProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Error loading themes:", error);
     } finally {
-      setIsLoading(false);
+      setLoadedOrgId(internalOrgId);
+      setRefreshing(false);
     }
   }, [internalOrgId, supabase]);
 
+  const loadThemes = useCallback(async () => {
+    setRefreshing(true);
+    await fetchThemes();
+  }, [fetchThemes]);
+
+  const isLoading = refreshing || loadedOrgId !== internalOrgId;
+
   // Auto-load themes when org changes
   useEffect(() => {
-    if (internalOrgId) {
-      loadThemes();
+    if (!internalOrgId) return;
+    async function load() {
+      await fetchThemes();
     }
-  }, [internalOrgId, loadThemes]);
+    void load();
+  }, [internalOrgId, fetchThemes]);
 
   // Apply a specific theme by ID
   const applyThemeById = useCallback(

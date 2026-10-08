@@ -23,19 +23,19 @@ interface DealNotice {
 
 export function DealNoticesWidget() {
   const [deals, setDeals] = useState<DealNotice[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
   const { user } = useUser();
   const router = useRouter();
   const supabase = createClient();
 
+  const loading = !!user && loadedUserId !== user.id;
+
   const fetchDealNotices = useCallback(async () => {
     if (!user) {
-      setLoading(false);
       return;
     }
 
     try {
-      setLoading(true);
 
       console.log(
         "Looking up user for deal notices with clerk_user_id:",
@@ -262,12 +262,15 @@ export function DealNoticesWidget() {
       console.error("Error in fetchDealNotices:", error);
       setDeals([]);
     } finally {
-      setLoading(false);
+      setLoadedUserId(user.id);
     }
   }, [supabase, user]);
 
   useEffect(() => {
-    void fetchDealNotices();
+    async function load() {
+      await fetchDealNotices();
+    }
+    void load();
   }, [fetchDealNotices]);
 
   const handleDealClick = (dealId: number) => {

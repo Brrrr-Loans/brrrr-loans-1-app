@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/shadcn/card";
 import { Button } from "@/components/ui/shadcn/button";
 import { Badge } from "@/components/ui/shadcn/badge";
@@ -58,11 +58,7 @@ export function StepOrgLinking({ onLinkComplete }: StepOrgLinkingProps) {
 
   const supabase = useSupabase();
 
-  useEffect(() => {
-    if (supabase) fetchData();
-  }, [supabase]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!supabase) return;
     setIsLoading(true);
 
@@ -113,7 +109,15 @@ export function StepOrgLinking({ onLinkComplete }: StepOrgLinkingProps) {
 
     setUsers(userData || []);
     setIsLoading(false);
-  };
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    async function load() {
+      await fetchData();
+    }
+    void load();
+  }, [supabase, fetchData]);
 
   const handleLinkOrg = async (vendorId: number, orgId: number | null) => {
     if (!supabase) return;

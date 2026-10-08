@@ -75,6 +75,7 @@ export function ThemeEditorWrapper({ open, onOpenChange }: ThemeEditorWrapperPro
   const [isDefault, setIsDefault] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedThemeId, setSelectedThemeId] = useState<string>("");
+  const [syncedTheme, setSyncedTheme] = useState(currentTheme);
 
   // Controlled/uncontrolled pattern
   const isControlled = open !== undefined;
@@ -84,11 +85,10 @@ export function ThemeEditorWrapper({ open, onOpenChange }: ThemeEditorWrapperPro
     : setShowManageDialog;
 
   // Sync selected theme with current theme
-  useEffect(() => {
-    if (currentTheme) {
-      setSelectedThemeId(String(currentTheme.id));
-    }
-  }, [currentTheme]);
+  if (currentTheme !== syncedTheme) {
+    setSyncedTheme(currentTheme);
+    if (currentTheme) setSelectedThemeId(String(currentTheme.id));
+  }
 
   /**
    * Captures current CSS variable values from the DOM.
