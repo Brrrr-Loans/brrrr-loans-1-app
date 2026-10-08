@@ -1,6 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
@@ -11,12 +12,8 @@ interface OpenAIIconProps {
 
 export function OpenAIIcon({ className = "", size = 16 }: OpenAIIconProps) {
   const { theme, systemTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHydrated();
 
-  // Only render theme-dependent content after hydration
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Use a default (light mode) during SSR to prevent hydration mismatch
   if (!mounted) {

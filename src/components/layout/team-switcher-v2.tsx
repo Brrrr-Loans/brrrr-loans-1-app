@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { useRouter } from "next/navigation";
 import { ChevronsUpDown, Plus, Building2, Settings } from "lucide-react";
 import {
@@ -43,13 +44,9 @@ export function TeamSwitcherV2() {
     },
   });
   
-  // Prevent hydration mismatch by only rendering dynamic content after mount
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // State for managing modals and dropdown
+  const mounted = useHydrated();
   const [showCreateOrg, setShowCreateOrg] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
 

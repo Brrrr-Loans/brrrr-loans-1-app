@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState, useEffect } from "react";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Button,
@@ -19,12 +20,8 @@ import Link from "next/link";
 function TransactionsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHydrated();
 
-  // Ensure client-only rendering for searchParams-dependent UI to prevent hydration mismatch
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const activeTab = mounted ? searchParams.get("tab") || "all" : "all";
 
