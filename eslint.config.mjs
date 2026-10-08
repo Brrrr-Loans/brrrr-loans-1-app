@@ -33,6 +33,7 @@ const eslintConfig = defineConfig([
     "playwright-report/**",
     "supabase/functions/**",
     "next-env.d.ts",
+    "basehub-types.d.ts",
   ]),
 ]);
 

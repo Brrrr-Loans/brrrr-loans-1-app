@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import {
   Building2,
+  FileText,
   ChevronDown,
   Check,
 } from "lucide-react";
@@ -34,6 +35,15 @@ const workspaces: Workspace[] = [
     icon: Building2,
     href: "/dashboard",
     prefixes: ["/dashboard", "/balance-sheet", "/platform-settings"],
+  },
+  {
+    id: "docs",
+    label: "Documentation",
+    shortLabel: "Docs",
+    description: "API & developer docs",
+    icon: FileText,
+    href: "/docs",
+    prefixes: ["/docs"],
   },
 ];
 
