@@ -2,6 +2,14 @@
 
 import { cn } from "@/lib/utils";
 import { motion } from "motion/react";
+import {
+  type CSSProperties,
+  type ElementType,
+  type JSX,
+  memo,
+  useMemo,
+  useState,
+} from "react";
 
 const motionComponents = new Map<keyof JSX.IntrinsicElements, ElementType>();
 
@@ -13,14 +21,6 @@ function getMotionComponent(tag: keyof JSX.IntrinsicElements): ElementType {
   }
   return component;
 }
-import {
-  type CSSProperties,
-  type ElementType,
-  type JSX,
-  memo,
-  useMemo,
-  useState,
-} from "react";
 
 export type TextShimmerProps = {
   children: string;
@@ -37,9 +37,17 @@ const ShimmerComponent = ({
   duration = 2,
   spread = 2,
 }: TextShimmerProps) => {
-  const [MotionComponent] = useState(() =>
-    getMotionComponent(Component as keyof JSX.IntrinsicElements)
-  );
+  const [motionEntry, setMotionEntry] = useState(() => ({
+    tag: Component,
+    motion: getMotionComponent(Component as keyof JSX.IntrinsicElements),
+  }));
+  if (motionEntry.tag !== Component) {
+    setMotionEntry({
+      tag: Component,
+      motion: getMotionComponent(Component as keyof JSX.IntrinsicElements),
+    });
+  }
+  const MotionComponent = motionEntry.motion;
 
   const dynamicSpread = useMemo(
     () => (children?.length ?? 0) * spread,
