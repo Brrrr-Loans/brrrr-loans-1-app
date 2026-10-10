@@ -349,12 +349,7 @@ export function LayersPanel({ onClose }: LayersPanelProps) {
       try {
         const component = findComponentById(id);
         if (component) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- GrapesJS components have dynamic types
-          const displayStyle = (component as any).getStyle("display");
-          const isHidden =
-            typeof displayStyle === "string"
-              ? displayStyle === "none"
-              : displayStyle?.display === "none";
+          const isHidden = component.getStyle().display === "none";
           if (isHidden) {
             component.removeStyle("display");
           } else {

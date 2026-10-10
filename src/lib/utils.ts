@@ -1,3 +1,4 @@
+import type { Json } from "@/types/database.types";
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
@@ -12,4 +13,9 @@ export function omit<T extends object, K extends keyof T>(
   const result = { ...obj };
   for (const key of keys) delete result[key];
   return result;
+}
+
+/** Serializes a plain object to a Postgres `Json` value (drops undefined fields, like JSON.stringify). */
+export function toJson(value: object): Json {
+  return JSON.parse(JSON.stringify(value)) as Json;
 }

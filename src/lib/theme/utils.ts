@@ -5,6 +5,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase";
 import {
   EDITABLE_THEME_TOKENS,
   EDITABLE_RADIUS_TOKENS,
@@ -14,9 +15,7 @@ import {
   type OrgTheme,
 } from "./constants";
 
-// Use generic SupabaseClient to be compatible with different Database type definitions
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type TypedSupabaseClient = SupabaseClient<any>;
+type TypedSupabaseClient = SupabaseClient<Database>;
 
 // ============================================================================
 // THEME APPLICATION
