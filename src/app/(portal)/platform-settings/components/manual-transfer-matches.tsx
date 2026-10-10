@@ -119,6 +119,8 @@ const formatDate = (dateStr: string | null) => {
 };
 
 export function ManualTransferMatches({ onMatchDeleted }: ManualTransferMatchesProps) {
+  "use no memo";
+
   const [matches, setMatches] = useState<ManualMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);

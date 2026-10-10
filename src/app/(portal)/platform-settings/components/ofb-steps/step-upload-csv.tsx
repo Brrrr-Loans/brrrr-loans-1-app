@@ -166,6 +166,7 @@ export function StepUploadCSV({
   onFileUpload,
   onManualEntryChange,
 }: StepUploadCSVProps) {
+  "use no memo";
   const [parseError, setParseError] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [previewData, setPreviewData] = useState<{

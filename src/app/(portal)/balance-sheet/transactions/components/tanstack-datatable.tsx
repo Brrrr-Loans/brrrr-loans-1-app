@@ -56,6 +56,8 @@ const isTransactionWithDetailsArray = (
 ): value is TransactionWithDetails[] => Array.isArray(value);
 
 export function TransactionsDataTable() {
+  "use no memo";
+
   // State
   const [data, setData] = useState<TransactionWithDetails[]>([]);
   const [loading, setLoading] = useState(true);

@@ -10,7 +10,6 @@ const eslintConfig = defineConfig([
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-this-alias": "error",
       "react-hooks/immutability": "error",
-      "react-hooks/incompatible-library": "error",
       "react-hooks/preserve-manual-memoization": "error",
       "react-hooks/purity": "error",
       "react-hooks/refs": "error",
