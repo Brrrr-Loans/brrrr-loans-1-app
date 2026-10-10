@@ -141,6 +141,7 @@ export function FileManager({
     maxFileSize: 50 * 1024 * 1024, // 50MB
     allowedMimeTypes: allowedTypes,
     onUploadSuccess: () => {
+      uploadProps.setFiles([]);
       refreshFiles();
       setShowUploader(false);
     },
@@ -150,7 +151,7 @@ export function FileManager({
   // Must be internal admin AND not explicitly set to readOnly
   const canWrite = canUpload && !readOnly;
 
-  const listKey = `${user?.id ?? ""}|${fullBasePath}|${currentPath.join("/")}`;
+  const listKey = `${bucketName}|${user?.id ?? ""}|${fullBasePath}|${currentPath.join("/")}`;
   const loading = refreshing || loadedListKey !== listKey;
 
   const fetchFiles = useCallback(async () => {

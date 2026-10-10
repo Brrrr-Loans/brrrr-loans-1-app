@@ -121,6 +121,7 @@ const useDocumentUploadRpc = (options: UseDocumentUploadRpcOptions) => {
       setFiles(normalized);
       if (normalized.length === 0) {
         setErrors([]);
+        setSuccesses([]);
       }
     },
     [maxFiles]

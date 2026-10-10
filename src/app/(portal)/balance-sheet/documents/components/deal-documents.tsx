@@ -114,6 +114,7 @@ export function DealDocuments() {
     maxFileSize: 50 * 1024 * 1024,
     onUploadSuccess: (uploaded) => {
       toast.success(`Uploaded ${uploaded.length} file(s)`);
+      uploadProps.setFiles([]);
       setShowUploadDialog(false);
       setSelectedCategoryId("");
       setSelectedDealId("");

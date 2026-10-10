@@ -136,6 +136,7 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
       setFiles(normalized);
       if (normalized.length === 0) {
         setErrors([]);
+        setSuccesses([]);
       }
     },
     [maxFiles]
