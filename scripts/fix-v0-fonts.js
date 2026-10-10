@@ -6,8 +6,6 @@
  */
 
 import { v0 } from 'v0-sdk';
-import fs from 'fs';
-import path from 'path';
 
 // Initialize v0 client with your API key
 const client = v0({
@@ -86,7 +84,7 @@ async function fixV0FontIssues() {
     console.log(`✅ Found project: ${cardTableProject.title} (ID: ${cardTableProject.id})`);
     
     // Get the project details
-    const projectDetails = await client.chats.get(cardTableProject.id);
+    await client.chats.get(cardTableProject.id);
     console.log('📁 Retrieved project details');
     
     // Create a new message with the fixed layout

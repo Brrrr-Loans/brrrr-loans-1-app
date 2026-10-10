@@ -40,10 +40,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         variables: {
           colorPrimary: "var(--primary)",
           colorBackground: "var(--background)",
-          colorInputBackground: "var(--input)",
-          colorInputText: "var(--foreground)",
-          colorText: "var(--foreground)",
-          colorTextSecondary: "var(--muted-foreground)",
+          colorInput: "var(--input)",
+          colorInputForeground: "var(--foreground)",
+          colorForeground: "var(--foreground)",
+          colorMutedForeground: "var(--muted-foreground)",
           colorDanger: "var(--destructive)",
         },
         elements: {

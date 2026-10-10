@@ -1,4 +1,7 @@
-import type { Appearance } from "@clerk/types";
+import type { ComponentProps } from "react";
+import type { ClerkProvider } from "@clerk/nextjs";
+
+type Appearance = NonNullable<ComponentProps<typeof ClerkProvider>["appearance"]>;
 
 // Clerk Theme - Light Mode Variables
 export const clerkThemeVariables = {
@@ -8,10 +11,10 @@ export const clerkThemeVariables = {
   colorDanger: "hsl(0 84.2% 60.2%)", // --destructive root
   colorSuccess: "hsl(12 76% 61%)", // --chart-2 root
   colorNeutral: "hsl(240 10% 3.9%)", // --foreground root
-  colorText: "hsl(240 5.9% 10%)", // --foreground root
-  colorTextSecondary: "hsl(240 3.8% 46.1%)", // --muted-foreground root
-  colorInputBackground: "hsl(0 0% 100%)", // --background root
-  colorInputText: "hsl(240 10% 3.9%)", // --foreground root
+  colorForeground: "hsl(240 5.9% 10%)", // --foreground root
+  colorMutedForeground: "hsl(240 3.8% 46.1%)", // --muted-foreground root
+  colorInput: "hsl(0 0% 100%)", // --background root
+  colorInputForeground: "hsl(240 10% 3.9%)", // --foreground root
 
   // Borders - direct value
   borderRadius: "0.5rem",
@@ -29,10 +32,10 @@ export const clerkDarkThemeVariables = {
   colorDanger: "hsl(0 62.8% 30.6%)", // --destructive dark mode
   colorSuccess: "hsl(12 76% 61%)", // --chart-2 dark mode
   colorNeutral: "hsl(0 0% 98%)", // --background dark mode
-  colorText: "hsl(0 0% 98%)", // --foreground dark mode
-  colorTextSecondary: "hsl(240 5% 64.9%)", // --muted-foreground dark mode
-  colorInputBackground: "hsl(240 10% 3.9%)", // --background dark mode
-  colorInputText: "hsl(0 0% 98%)", // --foreground dark mode
+  colorForeground: "hsl(0 0% 98%)", // --foreground dark mode
+  colorMutedForeground: "hsl(240 5% 64.9%)", // --muted-foreground dark mode
+  colorInput: "hsl(240 10% 3.9%)", // --background dark mode
+  colorInputForeground: "hsl(0 0% 98%)", // --foreground dark mode
 
   // Borders and typography can stay the same
   borderRadius: "0.5rem",

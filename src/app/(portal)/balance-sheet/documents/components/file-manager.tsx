@@ -8,7 +8,6 @@ import {
   CardContent,
   Button,
   Input,
-  Badge,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -32,13 +31,12 @@ import { useCurrentOrganization } from "@/contexts/organization-context";
 import {
   Search,
   Upload,
-  FolderPlus,
   MoreHorizontal,
   Download,
   Trash2,
   File,
   Folder,
-  Image,
+  Image as ImageIcon,
   FileText,
   Sheet,
   Archive,
@@ -91,7 +89,8 @@ export function FileManager({
   const { canUpload, isLoading: isCheckingPermission } = useCanUpload();
   const [files, setFiles] = useState<FileItem[]>([]);
   const [currentPath, setCurrentPath] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadedListKey, setLoadedListKey] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [showUploader, setShowUploader] = useState(false);
@@ -111,15 +110,16 @@ export function FileManager({
 
   // Construct the user/org prefixed base path
   // Format: users/{clerk_user_id}/{basePath} or orgs/{clerk_org_id}/{basePath}
+  const userId = user?.id;
   const ownerPrefix = useMemo(() => {
     if (clerkOrgId) {
       return `orgs/${clerkOrgId}`;
     }
-    if (user?.id) {
-      return `users/${user.id}`;
+    if (userId) {
+      return `users/${userId}`;
     }
     return "";
-  }, [clerkOrgId, user?.id]);
+  }, [clerkOrgId, userId]);
 
   // Full base path with owner prefix
   const fullBasePath = useMemo(() => {
@@ -140,16 +140,23 @@ export function FileManager({
     maxFiles: 10,
     maxFileSize: 50 * 1024 * 1024, // 50MB
     allowedMimeTypes: allowedTypes,
+    onUploadSuccess: () => {
+      uploadProps.setFiles([]);
+      refreshFiles();
+      setShowUploader(false);
+    },
   });
   
   // Determine if user can perform write operations (upload/delete)
   // Must be internal admin AND not explicitly set to readOnly
   const canWrite = canUpload && !readOnly;
 
+  const listKey = `${bucketName}|${user?.id ?? ""}|${fullBasePath}|${currentPath.join("/")}`;
+  const loading = refreshing || loadedListKey !== listKey;
+
   const fetchFiles = useCallback(async () => {
     if (!user) return;
 
-    setLoading(true);
     try {
       // Construct full path with owner prefix and basePath
       let listPath = fullBasePath;
@@ -173,21 +180,22 @@ export function FileManager({
     } catch (error) {
       console.error("Error fetching files:", error);
     } finally {
-      setLoading(false);
+      setLoadedListKey(listKey);
+      setRefreshing(false);
     }
-  }, [supabase, bucketName, currentPath, user, fullBasePath]);
+  }, [supabase, bucketName, currentPath, user, fullBasePath, listKey]);
 
-  useEffect(() => {
-    fetchFiles();
+  const refreshFiles = useCallback(() => {
+    setRefreshing(true);
+    void fetchFiles();
   }, [fetchFiles]);
 
-  // Handle upload completion
   useEffect(() => {
-    if (uploadProps.isSuccess) {
-      fetchFiles();
-      setShowUploader(false);
+    async function load() {
+      await fetchFiles();
     }
-  }, [uploadProps.isSuccess, fetchFiles]);
+    void load();
+  }, [fetchFiles]);
 
   const getFileIcon = (fileName: string, isFolder: boolean) => {
     if (isFolder) return <Folder className="h-5 w-5 text-blue-500" />;
@@ -202,7 +210,7 @@ export function FileManager({
       case "png":
       case "gif":
       case "svg":
-        return <Image className="h-5 w-5 text-green-500" />;
+        return <ImageIcon className="h-5 w-5 text-green-500" />;
       case "xlsx":
       case "xls":
       case "csv":

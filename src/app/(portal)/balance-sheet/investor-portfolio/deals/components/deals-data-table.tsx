@@ -17,6 +17,7 @@ import {
 import { DEAL_NEW_PATH, dealRecordPath } from "@/config/deal-routes";
 import { deleteDeal } from "@/app/actions/deals";
 import {
+  type Header,
   ColumnDef,
   ColumnFiltersState,
   SortingState,
@@ -122,8 +123,11 @@ function dealFromApi(deal: PortalDeal): DealWithRelations {
 }
 
 // Draggable Header Component
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const DraggableTableHeader = ({ header }: { header: any; table?: any }) => {
+const DraggableTableHeader = ({
+  header,
+}: {
+  header: Header<DealWithRelations, unknown>;
+}) => {
   const columnId = header.column.id;
   const isFixedColumn = columnId === "select" || columnId === "actions";
 
@@ -445,6 +449,8 @@ const createColumns = (
 ];
 
 export function DealsDataTable() {
+  "use no memo";
+
   const [data, setData] = useState<DealWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -878,7 +884,6 @@ export function DealsDataTable() {
                       <DraggableTableHeader
                         key={header.id}
                         header={header}
-                        table={table}
                       />
                     ))}
                   </SortableContext>

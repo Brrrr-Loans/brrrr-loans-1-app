@@ -182,11 +182,18 @@ export function TransactionDetailsSheet({
       }, 100);
 
       return () => clearTimeout(timer);
-    } else {
+    }
+  }, [open, transactionId, supabase, fetchTransaction]);
+
+  // Clear the loaded transaction when the sheet closes
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (!open) {
       setTransaction(null);
       setError(null);
     }
-  }, [open, transactionId, supabase, fetchTransaction]);
+  }
 
   const formatCurrency = (amount: number | null) => {
     if (amount === null) return "N/A";

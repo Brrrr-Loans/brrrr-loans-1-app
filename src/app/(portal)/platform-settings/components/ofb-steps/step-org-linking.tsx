@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/shadcn/card";
-import { Button } from "@/components/ui/shadcn/button";
+import { useState, useEffect, useCallback } from "react";
+import { Card, CardContent } from "@/components/ui/shadcn/card";
 import { Badge } from "@/components/ui/shadcn/badge";
 import { Skeleton } from "@/components/ui/shadcn/skeleton";
 import {
@@ -58,11 +57,7 @@ export function StepOrgLinking({ onLinkComplete }: StepOrgLinkingProps) {
 
   const supabase = useSupabase();
 
-  useEffect(() => {
-    if (supabase) fetchData();
-  }, [supabase]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!supabase) return;
     setIsLoading(true);
 
@@ -89,9 +84,9 @@ export function StepOrgLinking({ onLinkComplete }: StepOrgLinkingProps) {
       return {
         ...v,
         linked_org_id: orgLink?.clerk_org_id || null,
-        linked_org_name: (orgLink?.auth_clerk_orgs as any)?.clerk_org_name || null,
+        linked_org_name: orgLink?.auth_clerk_orgs?.clerk_org_name || null,
         linked_user_id: userLink?.clerk_user_id || null,
-        linked_user_name: (userLink?.auth_clerk_users as any)?.full_name || null,
+        linked_user_name: userLink?.auth_clerk_users?.full_name || null,
       };
     });
 
@@ -113,7 +108,15 @@ export function StepOrgLinking({ onLinkComplete }: StepOrgLinkingProps) {
 
     setUsers(userData || []);
     setIsLoading(false);
-  };
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    async function load() {
+      await fetchData();
+    }
+    void load();
+  }, [supabase, fetchData]);
 
   const handleLinkOrg = async (vendorId: number, orgId: number | null) => {
     if (!supabase) return;

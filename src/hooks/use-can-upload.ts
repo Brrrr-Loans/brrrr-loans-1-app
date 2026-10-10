@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useSupabase } from "@/hooks/use-supabase";
 
@@ -19,81 +19,65 @@ interface UseCanUploadReturn {
 export function useCanUpload(): UseCanUploadReturn {
   const { user, isLoaded: isUserLoaded } = useUser();
   const supabase = useSupabase();
-  const [canUpload, setCanUpload] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  // Track if we've already checked to avoid re-checking on every render
-  const hasCheckedRef = useRef(false);
-  const lastUserIdRef = useRef<string | null>(null);
+  const [result, setResult] = useState<{
+    userId: string;
+    canUpload: boolean;
+    error: Error | null;
+  } | null>(null);
+  const userId = user?.id;
+  const hasResult = !!userId && result?.userId === userId;
 
   useEffect(() => {
-    // Reset if user changes
-    if (user?.id !== lastUserIdRef.current) {
-      hasCheckedRef.current = false;
-      lastUserIdRef.current = user?.id || null;
-    }
-
-    if (!isUserLoaded) return;
-
-    if (!user) {
-      setCanUpload(false);
-      setIsLoading(false);
-      return;
-    }
-
-    if (!supabase) {
-      // Supabase client not ready yet
-      return;
-    }
-
-    // Avoid re-checking if we already have a result
-    if (hasCheckedRef.current) {
-      return;
-    }
+    if (!isUserLoaded || !userId || !supabase || hasResult) return;
 
     const checkPermission = async () => {
       try {
         const { data, error: queryError } = await supabase
           .from("auth_clerk_users")
           .select("personal_role, is_internal_yn")
-          .eq("clerk_user_id", user.id)
+          .eq("clerk_user_id", userId)
           .single();
 
         if (queryError) {
           // PGRST116 = no rows found, which means user not in table yet
           if (queryError.code === "PGRST116") {
             console.log("User not found in auth_clerk_users table");
-            setCanUpload(false);
+            setResult({ userId, canUpload: false, error: null });
           } else {
             console.error(
               "Error checking upload permission:",
               queryError.message || queryError
             );
-            setError(
-              new Error(queryError.message || "Failed to check permissions")
-            );
-            setCanUpload(false);
+            setResult({
+              userId,
+              canUpload: false,
+              error: new Error(
+                queryError.message || "Failed to check permissions"
+              ),
+            });
           }
         } else {
           // User can upload if they are an internal admin
           const hasPermission =
             data?.personal_role === "admin" && data?.is_internal_yn === true;
-          setCanUpload(hasPermission);
+          setResult({ userId, canUpload: hasPermission, error: null });
         }
-
-        hasCheckedRef.current = true;
       } catch (err) {
         console.error("Error in useCanUpload:", err);
-        setError(err instanceof Error ? err : new Error("Unknown error"));
-        setCanUpload(false);
-      } finally {
-        setIsLoading(false);
+        setResult({
+          userId,
+          canUpload: false,
+          error: err instanceof Error ? err : new Error("Unknown error"),
+        });
       }
     };
 
     checkPermission();
-  }, [user, isUserLoaded, supabase]);
+  }, [userId, isUserLoaded, supabase, hasResult]);
+
+  const canUpload = hasResult ? result.canUpload : false;
+  const error = hasResult ? result.error : null;
+  const isLoading = !isUserLoaded || (!!userId && !hasResult);
 
   return { canUpload, isLoading, error };
 }

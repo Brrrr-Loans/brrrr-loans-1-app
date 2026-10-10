@@ -110,7 +110,7 @@ export async function POST(req: Request) {
 
     const result = streamText({
       model: provider("gpt-4o-mini"),
-      system: SYSTEM_PROMPT,
+      instructions: SYSTEM_PROMPT,
       messages,
     });
 

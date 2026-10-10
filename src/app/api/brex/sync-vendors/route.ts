@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-server";
+import { toJson } from "@/lib/utils";
 import {
   listAllVendors,
   type BrexVendor,
@@ -46,8 +47,7 @@ export async function POST() {
         const vendorRow = mapVendorToRow(vendor);
 
         // Upsert vendor (insert if new, update if exists)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from("api_brex_vendors")
           .upsert(vendorRow, {
             onConflict: "brex_vendor_id",
@@ -62,8 +62,7 @@ export async function POST() {
         }
 
         // Check if this was an insert or update by querying
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: existing } = await (supabase as any)
+        const { data: existing } = await supabase
           .from("api_brex_vendors")
           .select("id")
           .eq("brex_vendor_id", vendor.id)
@@ -71,8 +70,7 @@ export async function POST() {
 
         if (existing) {
           // Check if it was just created (within last second) or updated
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { data: check } = await (supabase as any)
+          const { data: check } = await supabase
             .from("api_brex_vendors")
             .select("created_at, updated_at")
             .eq("brex_vendor_id", vendor.id)
@@ -184,7 +182,7 @@ function mapVendorToRow(vendor: BrexVendor) {
     vendor_type: null, // Not available in Brex API - reserved for manual categorization
     updated_at: new Date().toISOString(),
     synced_at: new Date().toISOString(),
-    raw_payload: vendor as Record<string, unknown>,
+    raw_payload: toJson(vendor),
   };
 }
 
@@ -195,8 +193,7 @@ export async function GET() {
   try {
     const supabase = createServiceRoleClient();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: lastSync, error } = await (supabase as any)
+    const { data: lastSync, error } = await supabase
       .from("api_brex_vendors")
       .select("synced_at")
       .order("synced_at", { ascending: false })
@@ -208,8 +205,7 @@ export async function GET() {
       throw error;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { count } = await (supabase as any)
+    const { count } = await supabase
       .from("api_brex_vendors")
       .select("*", { count: "exact", head: true });
 

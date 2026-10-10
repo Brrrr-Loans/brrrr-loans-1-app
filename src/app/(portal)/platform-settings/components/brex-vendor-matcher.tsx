@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSupabase } from "@/hooks/use-supabase";
 import {
   Button,
@@ -98,14 +98,7 @@ export function BrexVendorMatcher() {
     }
   };
 
-  useEffect(() => {
-    if (supabase) {
-      loadData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabase]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!supabase) return;
 
     setLoading(true);
@@ -171,7 +164,15 @@ export function BrexVendorMatcher() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    async function load() {
+      await loadData();
+    }
+    void load();
+  }, [supabase, loadData]);
 
   const createUserMatch = async () => {
     if (!supabase || !selectedVendor || !selectedUser) return;

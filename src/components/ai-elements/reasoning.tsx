@@ -9,7 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 import { BrainIcon, ChevronDownIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
-import { createContext, memo, useContext, useEffect, useState } from "react";
+import { createContext, memo, useContext, useEffect, useState, useSyncExternalStore } from "react";
 import { Streamdown } from "streamdown";
 import { Shimmer } from "./shimmer";
 
@@ -41,6 +41,32 @@ export type ReasoningProps = ComponentProps<typeof Collapsible> & {
 const AUTO_CLOSE_DELAY = 1000;
 const MS_IN_S = 1000;
 
+function createStreamTimer() {
+  const listeners = new Set<() => void>();
+  let startTime: number | null = null;
+  let duration: number | undefined;
+  return {
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    getSnapshot() {
+      return duration;
+    },
+    start() {
+      if (startTime === null) startTime = Date.now();
+    },
+    stop() {
+      if (startTime === null) return;
+      duration = Math.ceil((Date.now() - startTime) / MS_IN_S);
+      startTime = null;
+      for (const listener of listeners) listener();
+    },
+  };
+}
+
 export const Reasoning = memo(
   ({
     className,
@@ -57,25 +83,23 @@ export const Reasoning = memo(
       defaultProp: defaultOpen,
       onChange: onOpenChange,
     });
-    const [duration, setDuration] = useControllableState({
-      prop: durationProp,
-      defaultProp: undefined,
-    });
-
     const [hasAutoClosed, setHasAutoClosed] = useState(false);
-    const [startTime, setStartTime] = useState<number | null>(null);
+    const [timer] = useState(createStreamTimer);
+    const measuredDuration = useSyncExternalStore(
+      timer.subscribe,
+      timer.getSnapshot,
+      timer.getSnapshot
+    );
+    const duration = durationProp ?? measuredDuration;
 
-    // Track duration when streaming starts and ends
+    // Measure how long streaming takes (start/stop driven by isStreaming)
     useEffect(() => {
       if (isStreaming) {
-        if (startTime === null) {
-          setStartTime(Date.now());
-        }
-      } else if (startTime !== null) {
-        setDuration(Math.ceil((Date.now() - startTime) / MS_IN_S));
-        setStartTime(null);
+        timer.start();
+      } else {
+        timer.stop();
       }
-    }, [isStreaming, startTime, setDuration]);
+    }, [isStreaming, timer]);
 
     // Auto-open when streaming starts, auto-close when streaming ends (once only)
     useEffect(() => {
@@ -170,7 +194,7 @@ export const ReasoningContent = memo(
       )}
       {...props}
     >
-      <Streamdown {...props}>{children}</Streamdown>
+      <Streamdown>{children}</Streamdown>
     </CollapsibleContent>
   )
 );

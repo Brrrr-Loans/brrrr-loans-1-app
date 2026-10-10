@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { ChartContainer, ChartTooltip } from "@/components/ui";
 import { ChartAreaTooltip } from "@/components/once-ui";
 import {
@@ -71,12 +72,8 @@ export function ChartAreaInvestorROI({
   formatCurrency,
 }: ChartAreaInvestorROIProps) {
   // Prevent Recharts "removeChild" errors by deferring render until mounted
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useHydrated();
 
-  useEffect(() => {
-    setIsMounted(true);
-    return () => setIsMounted(false);
-  }, []);
 
   const dataLabels: Record<string, string> = {
     contributions: "Principal Balance Owed",

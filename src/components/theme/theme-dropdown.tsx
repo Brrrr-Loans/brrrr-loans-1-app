@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { useTheme } from "next-themes";
 import { Sun, Moon, Laptop } from "lucide-react";
 import {
@@ -13,14 +14,9 @@ import {
 import { Button } from "@/components/ui";
 
 export function ThemeDropdown() {
-  const [mounted, setMounted] = React.useState(false);
+  const mounted = useHydrated();
   const { theme, setTheme } = useTheme();
 
-  // Only render dropdown after mounting to prevent hydration mismatch
-  // (next-themes returns undefined on server, causing Radix ID differences)
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Render a placeholder button during SSR to prevent layout shift
   if (!mounted) {

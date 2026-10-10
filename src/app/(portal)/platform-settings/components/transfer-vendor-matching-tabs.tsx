@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui";
 import { UnmatchedTransfersTable } from "./unmatched-transfers-table";
 import { ManualTransferMatches } from "./manual-transfer-matches";
@@ -9,11 +9,7 @@ export function TransferVendorMatchingTabs() {
   const [unmatchedCount, setUnmatchedCount] = useState<number>(0);
   const [matchedCount, setMatchedCount] = useState<number>(0);
 
-  useEffect(() => {
-    loadCounts();
-  }, []);
-
-  const loadCounts = async () => {
+  const loadCounts = useCallback(async () => {
     try {
       // Get unmatched count
       const unmatchedResponse = await fetch("/api/brex/match-transfer-to-vendor");
@@ -27,7 +23,14 @@ export function TransferVendorMatchingTabs() {
     } catch (error) {
       console.error("Error loading counts:", error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    async function load() {
+      await loadCounts();
+    }
+    void load();
+  }, [loadCounts]);
 
   const handleMatchCreated = () => {
     // Refresh counts when a match is created

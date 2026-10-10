@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -32,7 +32,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 // Custom file extractor that bypasses File System Access API entirely
 // This avoids the "NotAllowedError: getFile" error when dragging files
 async function getFilesFromEvent(
-  event: DropEvent
+  event: DropEvent | FileSystemFileHandle[]
 ): Promise<Array<File | DataTransferItem>> {
   // Handle FileSystemFileHandle array (from File System Access API)
   if (Array.isArray(event)) {
@@ -166,6 +166,7 @@ export function StepUploadCSV({
   onFileUpload,
   onManualEntryChange,
 }: StepUploadCSVProps) {
+  "use no memo";
   const [parseError, setParseError] = useState<string | null>(null);
   const [isParsing, setIsParsing] = useState(false);
   const [previewData, setPreviewData] = useState<{

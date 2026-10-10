@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { type UseSupabaseUploadReturn } from "@/hooks/use-supabase-upload";
 import { Button } from "../shadcn/button";
@@ -166,12 +167,15 @@ const DropzoneContent = ({ className }: { className?: string }) => {
             key={`${file.name}-${idx}`}
             className="flex items-center gap-x-3 border-b py-2 first:mt-4 last:mb-4 min-w-0 w-full overflow-hidden"
           >
-            {file.type.startsWith("image/") ? (
+            {file.type.startsWith("image/") && file.preview ? (
               <div className="h-10 w-10 rounded border overflow-hidden shrink-0 bg-muted flex items-center justify-center">
-                <img
+                <Image
                   src={file.preview}
                   alt={file.name}
-                  className="object-cover"
+                  width={40}
+                  height={40}
+                  unoptimized
+                  className="h-full w-full object-cover"
                 />
               </div>
             ) : (

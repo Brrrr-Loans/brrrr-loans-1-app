@@ -9,7 +9,7 @@ import {
 // Custom file extractor that bypasses File System Access API entirely
 // This avoids the "NotAllowedError: getFile" error when dragging files in dialogs/modals
 async function getFilesFromEvent(
-  event: DropEvent,
+  event: DropEvent | FileSystemFileHandle[],
 ): Promise<Array<File | DataTransferItem>> {
   // Handle FileSystemFileHandle array (from File System Access API - we still need to handle it)
   if (Array.isArray(event)) {
@@ -53,6 +53,10 @@ interface FileWithPreview extends File {
 
 type UseDocumentUploadRpcOptions = {
   /**
+   * Called once every file in the batch has uploaded without errors.
+   */
+  onUploadSuccess?: (successes: string[]) => void;
+  /**
    * Document category ID (required for RPC)
    */
   documentCategoryId: number | null;
@@ -93,12 +97,35 @@ const useDocumentUploadRpc = (options: UseDocumentUploadRpcOptions) => {
     allowedMimeTypes = [],
     maxFileSize = Number.POSITIVE_INFINITY,
     maxFiles = 1,
+    onUploadSuccess,
   } = options;
 
   const [files, setFiles] = useState<FileWithPreview[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [errors, setErrors] = useState<{ name: string; message: string }[]>([]);
   const [successes, setSuccesses] = useState<string[]>([]);
+
+  const updateFiles = useCallback(
+    (nextFiles: FileWithPreview[]) => {
+      const normalized =
+        nextFiles.length <= maxFiles
+          ? nextFiles.map((file) => {
+              if (file.errors.some((e) => e.code === "too-many-files")) {
+                file.errors = file.errors.filter(
+                  (e) => e.code !== "too-many-files"
+                );
+              }
+              return file;
+            })
+          : nextFiles;
+      setFiles(normalized);
+      if (normalized.length === 0) {
+        setErrors([]);
+        setSuccesses([]);
+      }
+    },
+    [maxFiles]
+  );
 
   const isSuccess = useMemo(() => {
     if (errors.length === 0 && successes.length === 0) {
@@ -121,15 +148,16 @@ const useDocumentUploadRpc = (options: UseDocumentUploadRpcOptions) => {
         });
 
       const invalidFiles = fileRejections.map(({ file, errors }) => {
-        (file as FileWithPreview).preview = URL.createObjectURL(file);
-        (file as FileWithPreview).errors = errors;
-        return file as FileWithPreview;
+        const rejected: File = file;
+        (rejected as FileWithPreview).preview = URL.createObjectURL(rejected);
+        (rejected as FileWithPreview).errors = errors;
+        return rejected as FileWithPreview;
       });
 
       const newFiles = [...files, ...validFiles, ...invalidFiles];
-      setFiles(newFiles);
+      updateFiles(newFiles);
     },
-    [files, setFiles],
+    [files, updateFiles]
   );
 
   const dropzoneProps = useDropzone({
@@ -225,7 +253,11 @@ const useDocumentUploadRpc = (options: UseDocumentUploadRpcOptions) => {
     setSuccesses(newSuccesses);
 
     setLoading(false);
-  }, [
+
+    if (responseErrors.length === 0 && newSuccesses.length === files.length) {
+      onUploadSuccess?.(newSuccesses);
+    }
+  }, [onUploadSuccess, 
     files,
     documentCategoryId,
     dealId,
@@ -234,27 +266,6 @@ const useDocumentUploadRpc = (options: UseDocumentUploadRpcOptions) => {
     errors,
     successes,
   ]);
-
-  useEffect(() => {
-    if (files.length === 0) {
-      setErrors([]);
-    }
-
-    // If the number of files doesn't exceed maxFiles, remove the 'Too many files' error
-    if (files.length <= maxFiles) {
-      let changed = false;
-      const newFiles = files.map((file) => {
-        if (file.errors.some((e) => e.code === "too-many-files")) {
-          file.errors = file.errors.filter((e) => e.code !== "too-many-files");
-          changed = true;
-        }
-        return file;
-      });
-      if (changed) {
-        setFiles(newFiles);
-      }
-    }
-  }, [files.length, setFiles, maxFiles, files]);
 
   useEffect(() => {
     // Clean up resources when component unmounts
@@ -269,7 +280,7 @@ const useDocumentUploadRpc = (options: UseDocumentUploadRpcOptions) => {
 
   return {
     files,
-    setFiles,
+    setFiles: updateFiles,
     successes,
     isSuccess,
     loading,

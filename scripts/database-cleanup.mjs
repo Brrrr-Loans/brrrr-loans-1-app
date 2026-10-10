@@ -182,7 +182,7 @@ async function testAuthenticationFlow() {
   try {
     // Test 1: Basic connection
     console.log('Test 1: Basic database connection...');
-    const { data: healthCheck, error: healthError } = await supabase
+    const { error: healthError } = await supabase
       .from('auth_user_profile')
       .select('count(*)', { count: 'exact', head: true });
     
@@ -213,7 +213,7 @@ async function testAuthenticationFlow() {
     // Test 3: Check for any remaining plural references
     console.log('\nTest 3: Verifying no references to plural table...');
     try {
-      const { data: pluralCheck, error: pluralError } = await supabase
+      const { error: pluralError } = await supabase
         .from('auth_user_profiles')
         .select('count(*)', { count: 'exact', head: true });
       
@@ -225,7 +225,7 @@ async function testAuthenticationFlow() {
         console.log('  ⚠️  Plural table still exists - cleanup needed');
         return false;
       }
-    } catch (err) {
+    } catch {
       console.log('  ✅ Plural table correctly does not exist');
     }
     

@@ -106,7 +106,7 @@ export function InvestorSummaryWidget({
   };
 
   // Get chart data based on time period
-  const getChartData = () => {
+  const getChartData = (): Record<string, string | number>[] => {
     switch (timeFilter) {
       case "3m":
       case "6m":

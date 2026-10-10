@@ -408,6 +408,33 @@ const VIEW_DEFINITIONS: ViewDefinition[] = [
   { id: "gallery", label: "Gallery", icon: LayoutGrid },
 ];
 
+function getDocumentDescription(filename: string): string {
+  const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
+  return nameWithoutExt.replace(/[-_]/g, " ");
+}
+
+function getDocumentTags(
+  filename: string,
+  _metadata?: Record<string, unknown>,
+): string[] {
+  // Note: _metadata is available for future use (e.g., extracting tags from file metadata)
+  void _metadata;
+  const tags: string[] = [];
+  const ext = filename.split(".").pop()?.toUpperCase();
+  if (ext) tags.push(ext);
+
+  // Add tags based on filename patterns
+  const lowerName = filename.toLowerCase();
+  if (lowerName.includes("statement")) tags.push("Statement");
+  if (lowerName.includes("receipt")) tags.push("Receipt");
+  if (lowerName.includes("invoice")) tags.push("Invoice");
+  if (lowerName.includes("agreement")) tags.push("Agreement");
+  if (lowerName.includes("contract")) tags.push("Contract");
+
+  return tags;
+}
+
+
 export function DocumentsView({
   bucketName,
   basePath,
@@ -419,7 +446,7 @@ export function DocumentsView({
   // Note: _onUpload is available for future use (e.g., callback after successful upload)
   void _onUpload;
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isFetching, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [viewSettings, setViewSettings] = useState(DEFAULT_VIEW_SETTINGS);
@@ -524,6 +551,7 @@ export function DocumentsView({
   const [impersonationError, setImpersonationError] = useState<string | null>(
     null,
   );
+  const isLoading = isFetching && !(isImpersonating && impersonationError);
 
   // Document categories and deals for RPC upload (Deals bucket)
   const [documentCategories, setDocumentCategories] = useState<
@@ -591,11 +619,22 @@ export function DocumentsView({
     impersonationErrorRef.current = impersonationError;
   }, [impersonationError]);
 
+  // Clear impersonated user data when impersonation ends
+  const impersonationKey =
+    supabase && isImpersonating && impersonatedUserId ? impersonatedUserId : null;
+  const [syncedImpersonationKey, setSyncedImpersonationKey] =
+    useState(impersonationKey);
+  if (impersonationKey !== syncedImpersonationKey) {
+    setSyncedImpersonationKey(impersonationKey);
+    if (impersonationKey === null) {
+      setImpersonatedUserData(null);
+      setImpersonationError(null);
+    }
+  }
+
   // Fetch impersonated user's data when impersonation is active
   useEffect(() => {
     if (!supabase || !isImpersonating || !impersonatedUserId) {
-      setImpersonatedUserData(null);
-      setImpersonationError(null);
       return;
     }
 
@@ -808,6 +847,7 @@ export function DocumentsView({
     allowedMimeTypes: allowedTypes,
     maxFiles: 10,
     maxFileSize: 50 * 1024 * 1024, // 50MB
+    onUploadSuccess: (uploaded) => handleUploadSuccess(uploaded.length),
   });
 
   // Upload hook for documents bucket (RPC-based)
@@ -822,6 +862,7 @@ export function DocumentsView({
     allowedMimeTypes: allowedTypes,
     maxFiles: 10,
     maxFileSize: 50 * 1024 * 1024, // 50MB
+    onUploadSuccess: (uploaded) => handleUploadSuccess(uploaded.length),
   });
 
   // Select the active upload props based on selected bucket
@@ -830,25 +871,15 @@ export function DocumentsView({
       ? investorsUploadProps
       : documentsUploadProps;
 
-  // Refs to avoid dependency issues and track state
-  const setFilesRef = useRef(uploadProps.setFiles);
-  setFilesRef.current = uploadProps.setFiles;
-  const prevSuccessCountRef = useRef(0);
-
   // Open upload dialog handler
+  const organizationId = organization?.id;
   const handleOpenUpload = useCallback(() => {
     // Default to current org if available, otherwise personal
-    if (organization?.id) {
-      setUploadTarget(organization.id);
-    } else {
-      setUploadTarget("personal");
-    }
+    setUploadTarget(organizationId ?? "personal");
     // Reset files and open dialog
-    setFilesRef.current([]);
-    // Reset the success count ref to prevent false triggers
-    prevSuccessCountRef.current = 0;
+    uploadProps.setFiles([]);
     setDialogOpen(true);
-  }, [organization?.id, setDialogOpen]);
+  }, [organizationId, setDialogOpen, uploadProps]);
 
   // Handler for view settings changes that ensures groupBy is always set
   const handleViewSettingsChange = useCallback((settings: ViewSettings) => {
@@ -875,19 +906,17 @@ export function DocumentsView({
 
       // Wait for all required data to be loaded
       if (!currentSupabase || !currentUser) {
-        setIsLoading(false);
         return;
       }
 
       // If impersonating but data not loaded yet, wait
       if (currentIsImpersonating && !currentImpersonatedUserData) {
-        setIsLoading(true);
         return;
       }
 
-      // Only show loading spinner on initial fetch or forced refresh
-      // This prevents the table from disappearing during background refetches
-      if (!initialFetchDoneRef.current || forceRefresh) {
+      // Only show loading spinner on forced refresh (initial load starts in the
+      // loading state) so the table doesn't disappear during background refetches
+      if (forceRefresh) {
         setIsLoading(true);
       }
       try {
@@ -1530,6 +1559,17 @@ export function DocumentsView({
     ],
   );
 
+  // Handle successful upload (called by the upload hooks)
+  const handleUploadSuccess = (count: number) => {
+    toast.success(`Uploaded ${count} file(s)`);
+    setDialogOpen(false);
+    // Reset upload state after a brief delay to allow toast to show
+    setTimeout(() => {
+      uploadProps.setFiles([]);
+      fetchDocuments(true); // Force refresh to show new files
+    }, 100);
+  };
+
   // Track recent delete operations to prevent immediate refetch
   const recentDeleteRef = useRef(false);
 
@@ -1551,9 +1591,8 @@ export function DocumentsView({
       return;
     }
 
-    // If there's an impersonation error, stop loading and let UI show error
+    // If there's an impersonation error, let UI show error
     if (isImpersonating && impersonationError) {
-      setIsLoading(false);
       return;
     }
 
@@ -1567,7 +1606,10 @@ export function DocumentsView({
       if (isImpersonating && !impersonatedUserData) {
         return;
       }
-      fetchDocuments();
+      async function load() {
+        await fetchDocuments();
+      }
+      void load();
     }
   }, [
     supabase,
@@ -1586,30 +1628,6 @@ export function DocumentsView({
     editingInvestorsDocId,
   ]);
 
-  // Handle successful upload - only trigger on NEW successes
-  useEffect(() => {
-    const currentSuccessCount = uploadProps.successes.length;
-    const isNewSuccess =
-      uploadProps.isSuccess &&
-      currentSuccessCount > prevSuccessCountRef.current;
-
-    if (isNewSuccess) {
-      toast.success(`Uploaded ${currentSuccessCount} file(s)`);
-      setDialogOpen(false);
-      // Reset upload state after a brief delay to allow toast to show
-      setTimeout(() => {
-        setFilesRef.current([]);
-        fetchDocuments(true); // Force refresh to show new files
-      }, 100);
-    }
-
-    prevSuccessCountRef.current = currentSuccessCount;
-  }, [
-    uploadProps.isSuccess,
-    uploadProps.successes.length,
-    fetchDocuments,
-    setDialogOpen,
-  ]);
 
   // Filter documents by search query
   const filteredDocuments = useMemo(() => {
@@ -2536,32 +2554,6 @@ export function DocumentsView({
   );
 
   // Helper functions
-  function getDocumentDescription(filename: string): string {
-    const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
-    return nameWithoutExt.replace(/[-_]/g, " ");
-  }
-
-  function getDocumentTags(
-    filename: string,
-    _metadata?: Record<string, unknown>,
-  ): string[] {
-    // Note: _metadata is available for future use (e.g., extracting tags from file metadata)
-    void _metadata;
-    const tags: string[] = [];
-    const ext = filename.split(".").pop()?.toUpperCase();
-    if (ext) tags.push(ext);
-
-    // Add tags based on filename patterns
-    const lowerName = filename.toLowerCase();
-    if (lowerName.includes("statement")) tags.push("Statement");
-    if (lowerName.includes("receipt")) tags.push("Receipt");
-    if (lowerName.includes("invoice")) tags.push("Invoice");
-    if (lowerName.includes("agreement")) tags.push("Agreement");
-    if (lowerName.includes("contract")) tags.push("Contract");
-
-    return tags;
-  }
-
   function formatFileSize(bytes: number): string {
     if (bytes === 0) return "0 B";
     const k = 1024;

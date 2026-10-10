@@ -50,7 +50,7 @@ async function main() {
   // ============================================
   console.log('📦 Step 1: Dropping positive_transaction_amount constraint...');
   
-  const dropConstraintResponse = await fetch(`${DEV_URL}/rest/v1/rpc/exec_sql`, {
+  await fetch(`${DEV_URL}/rest/v1/rpc/exec_sql`, {
     method: 'POST',
     headers: {
       'apikey': DEV_KEY,

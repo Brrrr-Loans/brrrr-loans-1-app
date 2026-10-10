@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useOrganization } from "@clerk/nextjs";
-import type { OrganizationDomainResource } from "@clerk/types";
+import type { OrganizationDomainResource } from "@clerk/nextjs/types";
 import {
   Globe,
   Plus,

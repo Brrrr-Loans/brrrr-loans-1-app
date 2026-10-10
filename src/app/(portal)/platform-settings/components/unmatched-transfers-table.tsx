@@ -242,6 +242,8 @@ interface UnmatchedTransfersTableProps {
 }
 
 export function UnmatchedTransfersTable({ onMatchCreated }: UnmatchedTransfersTableProps) {
+  "use no memo";
+
   const supabase = useSupabase();
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
