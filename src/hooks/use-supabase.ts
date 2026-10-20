@@ -38,7 +38,8 @@ export function useSupabaseWithRefresh(): UseSupabaseReturn {
         detectSessionInUrl: false,
       },
       async accessToken() {
-        return getClerkSupabaseToken((options) => session.getToken(options));
+        // Null makes supabase-js send the anon key, so PostgREST uses the anon role.
+        return getClerkSupabaseToken(() => session.getToken());
       },
     });
   }, [session, isLoaded]);
