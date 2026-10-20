@@ -1,4 +1,4 @@
-type GetToken = (options?: { template?: string }) => Promise<string | null>;
+type GetToken = () => Promise<string | null>;
 
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
   try {
@@ -26,35 +26,26 @@ function isSupabaseCompatibleToken(token: string): boolean {
 }
 
 /**
- * Clerk token for Supabase PostgREST.
+ * Clerk session token for Supabase PostgREST.
  *
- * Native third-party Clerk auth uses the default session JWT after Clerk adds
- * `role: "authenticated"`. The legacy `supabase` JWT template is still tried
- * when the session token is missing that claim (or unavailable).
+ * Native third-party auth uses the default Clerk session JWT (`getToken()`),
+ * and only when that JWT carries a Postgres role claim (`authenticated`).
+ * A role-less token is rejected with "No suitable key or wrong key type", so
+ * this returns null. Callers pass that through `accessToken()`, and supabase-js
+ * then sends the anon key (the anon role).
  */
 export async function getClerkSupabaseToken(
   getToken: GetToken | undefined
 ): Promise<string | null> {
   if (!getToken) return null;
 
-  const attempts: Array<{ template?: string }> = [{}, { template: "supabase" }];
-  let fallback: string | null = null;
-
-  for (const options of attempts) {
-    try {
-      const token = options.template
-        ? await getToken({ template: options.template })
-        : await getToken();
-      if (!token) continue;
-      if (isSupabaseCompatibleToken(token)) return token;
-      if (!fallback) fallback = token;
-    } catch {
-      // Native session tokens and the optional supabase template can each fail
-      // independently depending on Clerk/Supabase configuration.
-    }
+  try {
+    const token = await getToken();
+    if (!token || !isSupabaseCompatibleToken(token)) return null;
+    return token;
+  } catch {
+    return null;
   }
-
-  return fallback;
 }
 
 export function supabaseErrorMessage(error: unknown): string {
