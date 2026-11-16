@@ -37,7 +37,7 @@ async function resolveOrgForRoleOptions(): Promise<{
   const { userId, orgId, getToken } = await auth();
   if (!userId || !orgId) return null;
 
-  const token = await getClerkSupabaseToken((opts) => getToken(opts));
+  const token = await getClerkSupabaseToken(() => getToken());
   if (!token) return null;
 
   // Resolve the org with a user-scoped client so RLS ("Users can view their

@@ -1,3 +1,10 @@
+# Clerk Frontend API domain for local Supabase third-party auth.
+# The Supabase CLI substitutes env() from the project-root .env (not .env.local).
+# Dev:  joint-reptile-94.clerk.accounts.dev
+# Prod: clerk.app.brrrrloans.com
+# Production (project gsxggtsgqskhchcbrmhe, api.app.brrrrloans.com) must register
+# Clerk domain clerk.app.brrrrloans.com under Authentication → Third-Party Auth.
+# Do not point prod at the dev Clerk instance.
 [auth.third_party.clerk]
 enabled = true
-domain = "joint-reptile-94.clerk.accounts.dev"
+domain = "env(CLERK_DOMAIN)"

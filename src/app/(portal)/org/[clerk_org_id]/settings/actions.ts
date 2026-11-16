@@ -51,7 +51,7 @@ async function requireAuthAndOrg() {
   const { userId, orgId, getToken } = await auth();
   if (!userId) throw new Error("Not authenticated");
   if (!orgId) throw new Error("No active organization selected");
-  const token = await getClerkSupabaseToken((options) => getToken(options));
+  const token = await getClerkSupabaseToken(() => getToken());
   if (!token) throw new Error("Missing Clerk Supabase token");
   return { orgId, token };
 }

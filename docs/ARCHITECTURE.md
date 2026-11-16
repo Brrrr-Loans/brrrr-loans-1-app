@@ -222,10 +222,24 @@ The **sidebar team-switcher** (org switcher) acts as a **data isolation layer**.
 └─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
                           │                    │
                           │                    │
-                    JWT Token            Service Role
-                    (supabase            Client (bypasses
-                     template)           RLS for API routes)
+                    Session JWT          Service Role
+                    (role=               Client (bypasses
+                     authenticated)      RLS for API routes)
 ```
+
+Clerk is a [Supabase third-party auth provider](https://supabase.com/docs/guides/auth/third-party/clerk). The app sends Clerk's default session token (`session.getToken()` / `auth().getToken()`). It does not mint a token from the legacy `supabase` JWT template.
+
+Dashboard setup (required before RLS accepts the session token):
+
+1. In the Clerk Dashboard, open the [Supabase integration](https://dashboard.clerk.com/setup/supabase) and activate it. That adds `role: "authenticated"` to session tokens. Production and development are separate Clerk instances.
+2. In the Supabase Dashboard, open **Authentication → Third-Party Auth** and add Clerk with that instance's Frontend API domain:
+   - Development: `joint-reptile-94.clerk.accounts.dev`
+   - Production (`api.app.brrrrloans.com`, project `gsxggtsgqskhchcbrmhe`): `clerk.app.brrrrloans.com`
+3. Local CLI config is `supabase/config.toml` (`domain = "env(CLERK_DOMAIN)"`). Set `CLERK_DOMAIN` in the project-root `.env` to the domain above. Production must use `clerk.app.brrrrloans.com`.
+
+A session token without a `role` claim is not attached. PostgREST rejects it with `401 No suitable key or wrong key type`. `getClerkSupabaseToken` returns null in that case. `@supabase/supabase-js` then sends the anon key as the bearer token, so the request runs as `anon`.
+
+Active organization id in SQL is `coalesce(auth.jwt()->'o'->>'id', auth.jwt()->>'org_id')`. Clerk v2 puts the org id on `o.id`. The top-level `org_id` claim remains a fallback.
 
 ### 3.2 Client-Side Security
 
@@ -233,24 +247,20 @@ The **sidebar team-switcher** (org switcher) acts as a **data isolation layer**.
 | -------------------- | ------------------------------------------------------ |
 | Clerk Authentication | Native Supabase third-party auth integration           |
 | Supabase Client      | accessToken() callback for automatic token management  |
-| Session Storage      | Disabled (`storage: null`) - Clerk manages sessions    |
+| Session Storage      | `persistSession: false` — Clerk manages sessions       |
 | Organization Context | Reads from Clerk's `useOrganization()` hook            |
 
 ```typescript
 // From src/hooks/use-supabase.ts
-supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+// Default Clerk session token only. Null falls back to the anon key.
+return createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false,
     detectSessionInUrl: false,
-    storage: null, // Clerk handles sessions
   },
-  global: {
-    fetch: async (url, options) => {
-      const clerkToken = await session?.getToken({ template: "supabase" });
-      headers.set("Authorization", `Bearer ${clerkToken}`);
-      return fetch(url, { ...options, headers });
-    },
+  async accessToken() {
+    return getClerkSupabaseToken(() => session.getToken());
   },
 });
 ```
