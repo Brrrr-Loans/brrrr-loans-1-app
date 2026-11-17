@@ -22,7 +22,7 @@ try {
     throw new Error('Missing environment variables: NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY');
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   console.log('   ✅ Supabase client created successfully');
   console.log(`   📡 URL: ${SUPABASE_URL}`);
   console.log(`   🔑 Key: ${SUPABASE_ANON_KEY.substring(0, 20)}...`);
@@ -66,7 +66,7 @@ const testTableStructures = async () => {
 
   for (const table of criticalTables) {
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from(table)
         .select('*')
         .limit(0); // Just test the query structure
@@ -102,7 +102,7 @@ const testValidation = () => {
     formData.append('roi', '8.5');
     formData.append('startDate', '2024-01-01');
     
-    const dealData = validation.validateDealData(formData);
+    validation.validateDealData(formData);
     console.log('   ✅ Deal validation working');
     
     // Test document validation
@@ -113,10 +113,10 @@ const testValidation = () => {
     docFormData.append('file_size', '1024');
     docFormData.append('file_type', 'application/pdf');
     
-    const docData = validation.validateDocumentData(docFormData);
+    validation.validateDocumentData(docFormData);
     console.log('   ✅ Document validation working');
     
-  } catch (error) {
+  } catch {
     console.log('   ⚠️  Validation test skipped (likely due to TypeScript import)');
     console.log('   💡 This is expected in a Node.js environment');
   }

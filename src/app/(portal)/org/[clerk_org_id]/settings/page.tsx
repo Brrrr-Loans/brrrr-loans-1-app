@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { useOrganization, useOrganizationList } from "@clerk/nextjs";
+import { useOrganization } from "@clerk/nextjs";
 import {
   ArrowLeft,
   Building2,
@@ -79,31 +79,21 @@ export default function OrganizationSettingsPage() {
   const clerkOrgIdFromUrl = params.clerk_org_id as string;
   
   const { organization, isLoaded: orgLoaded } = useOrganization();
-  const { setActive } = useOrganizationList();
   
   // Get active tab from URL query param, default to "general"
   const activeTab = (searchParams.get("tab") as SettingsTab) || "general";
-  const [isValidating, setIsValidating] = useState(true);
+  // Validating while the URL org doesn't match the active org (redirect pending)
+  const isValidating =
+    !orgLoaded || !clerkOrgIdFromUrl
+      ? true
+      : !!organization && organization.id !== clerkOrgIdFromUrl;
 
-  // Validate that the URL org matches the active org, or switch to it
+  // Redirect to the active org's settings when the URL org doesn't match
   useEffect(() => {
-    if (!orgLoaded || !clerkOrgIdFromUrl) return;
-
-    // If there's no organization context yet, wait
-    if (!organization) {
-      setIsValidating(false);
-      return;
-    }
-
-    // If URL org matches active org, we're good
-    if (organization.id === clerkOrgIdFromUrl) {
-      setIsValidating(false);
-      return;
-    }
-
-    // URL org doesn't match active org - redirect to correct URL
+    if (!orgLoaded || !clerkOrgIdFromUrl || !organization) return;
+    if (organization.id === clerkOrgIdFromUrl) return;
     router.replace(`/org/${organization.id}/settings`);
-  }, [orgLoaded, organization, clerkOrgIdFromUrl, router, setActive]);
+  }, [orgLoaded, organization, clerkOrgIdFromUrl, router]);
 
   if (!orgLoaded || isValidating) {
     return (

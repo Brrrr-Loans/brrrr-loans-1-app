@@ -1,6 +1,7 @@
 "use client";
 
-import "@grapesjs/studio-sdk/style";
+import "@grapesjs/studio-sdk/style.css";
+import { useHydrated } from "@/hooks/use-hydrated";
 
 import type { Editor } from "grapesjs";
 
@@ -390,17 +391,13 @@ function EditorPanel({
 // Wrapper component that handles theme changes via key-based remounting
 export function GrapesJSEditor({ licenseKey }: GrapesJSEditorProps) {
   const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHydrated();
   const [activePanel, setActivePanel] = useState<SidebarPanel>(null);
   const [editor, setEditor] = useState<Editor | null>(null);
 
   // Track theme for key-based remounting
   const editorTheme = resolvedTheme === "dark" ? "dark" : "light";
 
-  // Ensure we're mounted before rendering (to avoid hydration mismatch)
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const handleClosePanel = useCallback(() => {
     setActivePanel(null);

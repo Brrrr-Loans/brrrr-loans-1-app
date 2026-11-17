@@ -4,15 +4,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useOrganization } from "@clerk/nextjs";
-import {
-  ArrowLeft,
-  Building2,
-  Users,
-  Globe,
-  Shield,
-  ShieldCheck,
-  Loader2,
-} from "lucide-react";
+import { Building2, Users, Globe, Shield, ShieldCheck, Loader2 } from "lucide-react";
 import {
   Breadcrumb,
   BreadcrumbItem,

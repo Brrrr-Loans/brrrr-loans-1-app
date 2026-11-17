@@ -119,6 +119,8 @@ const formatDate = (dateStr: string | null) => {
 };
 
 export function ManualTransferMatches({ onMatchDeleted }: ManualTransferMatchesProps) {
+  "use no memo";
+
   const [matches, setMatches] = useState<ManualMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
@@ -543,7 +545,7 @@ export function ManualTransferMatches({ onMatchDeleted }: ManualTransferMatchesP
           <DialogHeader>
             <DialogTitle>Delete Match?</DialogTitle>
             <DialogDescription>
-              This will remove the transfer-vendor match, but won't delete any synced transactions.
+              This will remove the transfer-vendor match, but won&apos;t delete any synced transactions.
               The transfer will appear in the Unmatched tab again.
             </DialogDescription>
           </DialogHeader>

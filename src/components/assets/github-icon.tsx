@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useHydrated } from "@/hooks/use-hydrated";
 import Image from "next/image";
 
 interface GitHubIconProps {
@@ -11,12 +11,8 @@ interface GitHubIconProps {
 
 export function GitHubIcon({ className = "", size = 16 }: GitHubIconProps) {
   const { theme, systemTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHydrated();
 
-  // Only render theme-dependent content after hydration
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Use a default (light mode) during SSR to prevent hydration mismatch
   if (!mounted) {

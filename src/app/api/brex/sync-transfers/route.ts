@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-server";
+import { toJson } from "@/lib/utils";
 import {
   listAllTransfers,
   type BrexTransfer,
@@ -51,8 +52,7 @@ export async function POST(request: NextRequest) {
         const transferRow = mapTransferToRow(transfer);
 
         // Upsert transfer (insert if new, update if exists)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any)
+        const { error } = await supabase
           .from("api_brex_transfers")
           .upsert(transferRow, {
             onConflict: "brex_transfer_id",
@@ -67,8 +67,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Check if this was an insert or update
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: existing } = await (supabase as any)
+        const { data: existing } = await supabase
           .from("api_brex_transfers")
           .select("id, created_at, updated_at")
           .eq("brex_transfer_id", transfer.id)
@@ -196,7 +195,7 @@ function mapTransferToRow(transfer: BrexTransfer) {
     synced_at: new Date().toISOString(),
     sync_status: "success",
     sync_error_message: null,
-    raw_payload: transfer as Record<string, unknown>,
+    raw_payload: toJson(transfer),
   };
 }
 
@@ -207,8 +206,7 @@ export async function GET() {
   try {
     const supabase = createServiceRoleClient();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: lastSync, error } = await (supabase as any)
+    const { data: lastSync, error } = await supabase
       .from("api_brex_transfers")
       .select("synced_at")
       .order("synced_at", { ascending: false })
@@ -220,8 +218,7 @@ export async function GET() {
       throw error;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { count } = await (supabase as any)
+    const { count } = await supabase
       .from("api_brex_transfers")
       .select("*", { count: "exact", head: true });
 

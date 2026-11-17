@@ -21,7 +21,7 @@ function loadEnv() {
       }
     }
     return env;
-  } catch (error) {
+  } catch {
     return {};
   }
 }

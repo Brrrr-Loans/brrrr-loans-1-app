@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/shadcn/card";
 import { Button } from "@/components/ui/shadcn/button";
 import { Badge } from "@/components/ui/shadcn/badge";
@@ -14,7 +14,6 @@ import {
   TableRow,
 } from "@/components/ui/shadcn/table";
 import {
-  Check,
   AlertCircle,
   ArrowRight,
   Banknote,
@@ -26,6 +25,7 @@ import {
 } from "lucide-react";
 import { useSupabaseWithRefresh } from "@/hooks/use-supabase";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
 
 interface Transfer {
@@ -50,10 +50,10 @@ interface StepLedgerSyncProps {
 }
 
 export function StepLedgerSync({
-  transferIds,
   onSyncComplete,
   onReset,
 }: StepLedgerSyncProps) {
+  const router = useRouter();
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -67,11 +67,7 @@ export function StepLedgerSync({
 
   const { client: supabase, refreshToken } = useSupabaseWithRefresh();
 
-  useEffect(() => {
-    if (supabase) fetchData();
-  }, [supabase]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!supabase) return;
     setIsLoading(true);
 
@@ -118,7 +114,7 @@ export function StepLedgerSync({
     // Merge data
     const enrichedTransfers = (transferData || []).map((t) => {
       const vendorMatch = vendorMatches?.find((v) => v.ofb_transfer_id === t.ofb_transfer_id);
-      const vendorName = (vendorMatch?.api_ofb_vendors as any)?.name || null;
+      const vendorName = vendorMatch?.api_ofb_vendors?.name || null;
       
       let orgName = null;
       let orgId = null;
@@ -127,11 +123,11 @@ export function StepLedgerSync({
       
       if (vendorMatch?.ofb_vendor_id) {
         const orgLink = orgLinks?.find((o) => o.ofb_vendor_id === vendorMatch.ofb_vendor_id);
-        orgName = (orgLink?.auth_clerk_orgs as any)?.clerk_org_name || null;
+        orgName = orgLink?.auth_clerk_orgs?.clerk_org_name || null;
         orgId = orgLink?.clerk_org_id || null;
         
         const userLink = userLinks?.find((u) => u.ofb_vendor_id === vendorMatch.ofb_vendor_id);
-        userName = (userLink?.auth_clerk_users as any)?.full_name || null;
+        userName = userLink?.auth_clerk_users?.full_name || null;
         userId = userLink?.clerk_user_id || null;
       }
 
@@ -154,7 +150,15 @@ export function StepLedgerSync({
     setTransfers(readyToSync);
     setSelectedTransfers(new Set(readyToSync.map((t) => t.ofb_transfer_id)));
     setIsLoading(false);
-  };
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    async function load() {
+      await fetchData();
+    }
+    void load();
+  }, [supabase, fetchData]);
 
   const handleSelectAll = () => {
     if (selectedTransfers.size === transfers.length) {
@@ -259,9 +263,10 @@ export function StepLedgerSync({
           if (linkError) throw linkError;
 
           synced++;
-        } catch (error: any) {
+        } catch (error) {
           console.error("Sync error for transfer:", transfer.ofb_transfer_id, error);
-          errors.push(`${transfer.counterparty_name}: ${error.message}`);
+          const message = error instanceof Error ? error.message : String(error);
+          errors.push(`${transfer.counterparty_name}: ${message}`);
           failed++;
         }
       }
@@ -359,7 +364,7 @@ export function StepLedgerSync({
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Start New Import
               </Button>
-              <Button onClick={() => window.location.href = "/balance-sheet/transactions"}>
+              <Button onClick={() => router.push("/balance-sheet/transactions")}>
                 View Transactions
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>

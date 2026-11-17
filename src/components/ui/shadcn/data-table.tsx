@@ -343,6 +343,7 @@ export function DataTable({
 }: {
   data: z.infer<typeof schema>[];
 }) {
+  "use no memo";
   const [data, setData] = React.useState(() => initialData);
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =

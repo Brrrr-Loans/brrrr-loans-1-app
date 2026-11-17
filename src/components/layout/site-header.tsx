@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -287,14 +288,9 @@ function SiteHeaderContent({ breadcrumb, dealName }: SiteHeaderProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [showTeamSwitcher, setShowTeamSwitcher] = React.useState(false);
-  const [mounted, setMounted] = React.useState(false);
+  const mounted = useHydrated();
   const { canImpersonate, isLoaded: impersonationLoaded } = useImpersonation();
 
-  // Ensure breadcrumbs only render on client to prevent hydration mismatch
-  // useSearchParams() can return different values during SSR vs client hydration
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const handleOpenTeamSwitcher = () => {
     setShowTeamSwitcher(true);

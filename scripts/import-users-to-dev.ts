@@ -60,7 +60,8 @@ async function main() {
     // Exclude generated columns: full_name
     const usersToInsert = prodUsers.map(user => {
       const devClerkId = CLERK_DEV_IDS[user.email];
-      const { full_name, ...rest } = user; // Remove generated column
+      const rest = { ...user }; // Remove generated column
+      delete rest.full_name;
       return {
         ...rest,
         clerk_user_id: devClerkId || user.clerk_user_id, // Use dev ID if available

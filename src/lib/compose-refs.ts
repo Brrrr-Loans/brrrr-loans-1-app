@@ -55,8 +55,41 @@ function composeRefs<T>(...refs: PossibleRef<T>[]): React.RefCallback<T> {
  * Accepts callback refs and RefObject(s)
  */
 function useComposedRefs<T>(...refs: PossibleRef<T>[]): React.RefCallback<T> {
-  // biome-ignore lint/correctness/useExhaustiveDependencies: we want to memoize by all values
-  return React.useCallback(composeRefs(...refs), refs);
+  const refsRef = React.useRef(refs);
+  const nodeRef = React.useRef<T | null>(null);
+  const cleanupRef = React.useRef<(() => void) | undefined>(undefined);
+
+  React.useLayoutEffect(() => {
+    const prev = refsRef.current;
+    const changed =
+      prev.length !== refs.length || prev.some((ref, i) => ref !== refs[i]);
+    if (!changed) return;
+    refsRef.current = refs;
+    const node = nodeRef.current;
+    if (node === null) return;
+    if (cleanupRef.current) {
+      cleanupRef.current();
+    } else {
+      for (const ref of prev) setRef(ref, null);
+    }
+    const cleanup = composeRefs(...refs)(node);
+    cleanupRef.current = typeof cleanup === "function" ? cleanup : undefined;
+  });
+
+  return React.useCallback((node: T | null) => {
+    nodeRef.current = node;
+    const cleanup = composeRefs(...refsRef.current)(node);
+    if (typeof cleanup !== "function") {
+      cleanupRef.current = undefined;
+      return;
+    }
+    cleanupRef.current = cleanup;
+    return () => {
+      cleanup();
+      cleanupRef.current = undefined;
+      nodeRef.current = null;
+    };
+  }, []);
 }
 
 export { composeRefs, useComposedRefs };

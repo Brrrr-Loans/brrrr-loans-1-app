@@ -64,7 +64,6 @@ interface StepVendorMatchingProps {
 }
 
 export function StepVendorMatching({
-  transferIds,
   onMatchComplete,
 }: StepVendorMatchingProps) {
   const [transfers, setTransfers] = useState<Transfer[]>([]);
@@ -148,7 +147,11 @@ export function StepVendorMatching({
   }, [supabase]);
 
   useEffect(() => {
-    if (supabase) fetchData();
+    if (!supabase) return;
+    async function load() {
+      await fetchData();
+    }
+    void load();
   }, [supabase, fetchData]);
 
   const handleSort = (field: SortField) => {

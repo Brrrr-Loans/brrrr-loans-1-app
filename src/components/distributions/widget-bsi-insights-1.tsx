@@ -29,19 +29,19 @@ interface DealRecord {
 
 export function InvestorDealsWidget() {
   const [deals, setDeals] = useState<DealRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
   const { user } = useUser();
   const router = useRouter();
   const supabase = createClient();
 
+  const loading = !!user && loadedUserId !== user.id;
+
   const fetchInvestorDeals = useCallback(async () => {
     if (!user) {
-      setLoading(false);
       return;
     }
 
     try {
-      setLoading(true);
 
       console.log("Looking up user with clerk_user_id:", user.id);
 
@@ -213,12 +213,15 @@ export function InvestorDealsWidget() {
       console.error("Error in fetchInvestorDeals:", error);
       setDeals([]);
     } finally {
-      setLoading(false);
+      setLoadedUserId(user.id);
     }
   }, [supabase, user]);
 
   useEffect(() => {
-    void fetchInvestorDeals();
+    async function load() {
+      await fetchInvestorDeals();
+    }
+    void load();
   }, [fetchInvestorDeals]);
 
   const totals = useMemo(

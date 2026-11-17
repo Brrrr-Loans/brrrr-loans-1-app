@@ -77,7 +77,11 @@ export function DealDocuments() {
   const supabase = useSupabase();
   const { impersonatedUserId } = useImpersonation();
   const [documents, setDocuments] = useState<DealDocument[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadedForUserId, setLoadedForUserId] = useState<
+    typeof impersonatedUserId | undefined
+  >(undefined);
+  const loading = refreshing || loadedForUserId !== impersonatedUserId;
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
 
@@ -108,11 +112,18 @@ export function DealDocuments() {
     ],
     maxFiles: 10,
     maxFileSize: 50 * 1024 * 1024,
+    onUploadSuccess: (uploaded) => {
+      toast.success(`Uploaded ${uploaded.length} file(s)`);
+      uploadProps.setFiles([]);
+      setShowUploadDialog(false);
+      setSelectedCategoryId("");
+      setSelectedDealId("");
+      refreshDocuments();
+    },
   });
 
   const fetchDocuments = useCallback(
     async (signal?: AbortSignal) => {
-      setLoading(true);
       try {
         const url = "/api/documents/deal";
 
@@ -132,11 +143,17 @@ export function DealDocuments() {
         console.error("Error fetching deal documents:", error);
         toast.error("Failed to load documents");
       } finally {
-        setLoading(false);
+        setLoadedForUserId(impersonatedUserId);
+        setRefreshing(false);
       }
     },
     [impersonatedUserId],
   );
+
+  const refreshDocuments = useCallback(() => {
+    setRefreshing(true);
+    void fetchDocuments();
+  }, [fetchDocuments]);
 
   // Fetch categories and deals for upload dialog
   const fetchCategoriesAndDeals = useCallback(async () => {
@@ -163,8 +180,13 @@ export function DealDocuments() {
     // AbortController to cancel in-flight requests when impersonatedUserId changes
     const abortController = new AbortController();
 
-    fetchDocuments(abortController.signal);
-    fetchCategoriesAndDeals();
+    async function load() {
+      await Promise.all([
+        fetchDocuments(abortController.signal),
+        fetchCategoriesAndDeals(),
+      ]);
+    }
+    void load();
 
     // Cleanup: cancel in-flight request when dependencies change or unmount
     return () => {
@@ -172,24 +194,6 @@ export function DealDocuments() {
     };
   }, [fetchDocuments, fetchCategoriesAndDeals]);
 
-  // Destructure for dependency tracking
-  const {
-    isSuccess: uploadIsSuccess,
-    successes: uploadSuccesses,
-    setFiles: uploadSetFiles,
-  } = uploadProps;
-
-  // Handle successful upload
-  useEffect(() => {
-    if (uploadIsSuccess) {
-      toast.success(`Uploaded ${uploadSuccesses.length} file(s)`);
-      setShowUploadDialog(false);
-      uploadSetFiles([]);
-      setSelectedCategoryId("");
-      setSelectedDealId("");
-      fetchDocuments();
-    }
-  }, [uploadIsSuccess, uploadSuccesses.length, uploadSetFiles, fetchDocuments]);
 
   const handleDownload = async (doc: DealDocument) => {
     if (!supabase) return;
@@ -268,7 +272,7 @@ export function DealDocuments() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => fetchDocuments()}
+              onClick={refreshDocuments}
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh

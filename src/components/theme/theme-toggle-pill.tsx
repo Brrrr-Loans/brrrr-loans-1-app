@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useHydrated } from "@/hooks/use-hydrated";
 import { useTheme } from "next-themes";
 import { Monitor, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -11,12 +12,8 @@ interface ThemeTogglePillProps {
 
 export function ThemeTogglePill({ className }: ThemeTogglePillProps) {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = React.useState(false);
+  const mounted = useHydrated();
 
-  // Avoid hydration mismatch
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
 
   if (!mounted) {
     return (

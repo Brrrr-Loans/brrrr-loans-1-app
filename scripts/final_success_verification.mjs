@@ -50,7 +50,7 @@ async function finalVerification() {
   
   console.log('\n📋 Test 2: Correct table with all columns');
   try {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('auth_user_profile')
       .select('id, email, clerk_id, role, clerk_role, is_internal_yn, is_active_yn')
       .limit(1);

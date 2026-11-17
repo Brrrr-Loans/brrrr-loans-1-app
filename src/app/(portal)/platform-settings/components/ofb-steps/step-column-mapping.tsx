@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/shadcn/card";
 import { Button } from "@/components/ui/shadcn/button";
 import { Badge } from "@/components/ui/shadcn/badge";
@@ -102,9 +102,13 @@ export function StepColumnMapping({
     [headers]
   );
 
-  // Auto-map common column names
-  useEffect(() => {
-    if (savedMapping) return;
+  // Auto-map common column names whenever the headers change (derived during render)
+  const autoMapKey = savedMapping ? null : validHeaders.join("\u0000");
+  const [syncedAutoMapKey, setSyncedAutoMapKey] = useState<string | null>(null);
+  if (autoMapKey !== syncedAutoMapKey) {
+    setSyncedAutoMapKey(autoMapKey);
+  }
+  if (autoMapKey !== null && autoMapKey !== syncedAutoMapKey) {
 
     const autoMapping: Record<string, string> = {};
     const headerLower = validHeaders.map((h) => h.toLowerCase().trim());
@@ -181,7 +185,7 @@ export function StepColumnMapping({
     if (Object.keys(autoMapping).length > 0) {
       setMapping(autoMapping);
     }
-  }, [validHeaders, savedMapping]);
+  }
 
   const handleMappingChange = (targetField: string, csvColumn: string) => {
     setMapping((prev) => ({
@@ -393,7 +397,7 @@ export function StepColumnMapping({
                 <div className="flex-1 min-w-[150px] text-sm text-muted-foreground truncate">
                   {mapping[field.key] && (
                     <span className="italic">
-                      e.g., "{getSampleValue(mapping[field.key])}"
+                      e.g., &quot;{getSampleValue(mapping[field.key])}&quot;
                     </span>
                   )}
                 </div>

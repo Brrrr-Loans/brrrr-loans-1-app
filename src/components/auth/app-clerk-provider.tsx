@@ -11,7 +11,7 @@ export function AppClerkProvider({ children }: { children: React.ReactNode }) {
     <ClerkProvider
       dynamic
       appearance={{
-        baseTheme: resolvedTheme === "dark" ? dark : undefined,
+        theme: resolvedTheme === "dark" ? dark : undefined,
         elements: {
           rootBox: "w-full",
           card: "shadow-none",

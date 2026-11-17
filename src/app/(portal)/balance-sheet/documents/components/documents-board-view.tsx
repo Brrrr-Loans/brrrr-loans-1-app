@@ -495,7 +495,6 @@ export function DocumentsBoardView({
   selectedDocs,
   onSelectDoc,
   cardSize = "medium",
-  fitImage = false,
   showPageIcon = true,
   groupBy = "dateCreated",
   onDocumentMove,

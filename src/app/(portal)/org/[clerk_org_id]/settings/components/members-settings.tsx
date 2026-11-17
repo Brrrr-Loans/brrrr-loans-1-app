@@ -47,14 +47,6 @@ import {
   TableRow,
 } from "@/components/ui/shadcn/table";
 
-const roleLabels: Record<string, { label: string; variant: "default" | "secondary" | "outline" }> = {
-  "org:admin": { label: "Admin", variant: "default" },
-  "org:member": { label: "Member", variant: "secondary" },
-  admin: { label: "Admin", variant: "default" },
-  member: { label: "Member", variant: "secondary" },
-  viewer: { label: "Viewer", variant: "outline" },
-};
-
 export function MembersSettings() {
   const { organization, isLoaded, memberships } = useOrganization({
     memberships: {
@@ -126,10 +118,6 @@ export function MembersSettings() {
     } catch (error) {
       console.error("Failed to update role:", error);
     }
-  };
-
-  const getRoleInfo = (role: string) => {
-    return roleLabels[role] || { label: role, variant: "outline" as const };
   };
 
   return (

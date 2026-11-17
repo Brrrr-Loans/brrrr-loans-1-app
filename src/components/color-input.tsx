@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { hexToHsva, hsvaToHex } from "@uiw/color-convert";
 import { Colorful } from "@uiw/react-color";
@@ -26,15 +26,6 @@ interface ColorInputProps {
   label: string;
   disabled?: boolean;
 }
-
-const getContrastColor = (hexColor: string): string => {
-  const hex = hexColor.replace("#", "");
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-  return brightness > 128 ? "#000000" : "#ffffff";
-};
 
 const toHex = (colorValue: string): string => {
   try {
@@ -122,23 +113,20 @@ const fromHex = (
 export function ColorInput({
   value,
   onChange,
-  label,
   disabled = false,
 }: ColorInputProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value);
+  const [syncedValue, setSyncedValue] = useState(value);
   const [activeTab, setActiveTab] = useState("hex");
   const originalFormat = useMemo(() => detectFormat(value), [value]);
 
-  useEffect(() => {
+  if (value !== syncedValue) {
+    setSyncedValue(value);
     setInputValue(value);
-  }, [value]);
+  }
 
   const hexColor = useMemo(() => toHex(inputValue), [inputValue]);
-  const contrastColor = useMemo(() => {
-    if (!/^#[0-9A-Fa-f]{6}$/.test(hexColor)) return "#000000";
-    return getContrastColor(hexColor);
-  }, [hexColor]);
 
   const colorValues = useMemo(() => {
     if (!/^#[0-9A-Fa-f]{6}$/.test(hexColor)) {

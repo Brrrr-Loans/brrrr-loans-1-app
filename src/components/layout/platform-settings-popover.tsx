@@ -6,7 +6,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useOrganization } from "@clerk/nextjs";
 import {
   Plug,
-  ExternalLink,
   Palette,
   Settings2,
   SunMoon,
@@ -91,9 +90,6 @@ export function PlatformSettingsPopover({
   );
 
   // Check if org settings routes are active
-  const isOrgSettingsActive =
-    organization && pathname.includes(`/org/${organization.id}/settings`);
-
   // Build org settings base URL
   const orgSettingsBaseUrl = organization
     ? `/org/${organization.id}/settings`

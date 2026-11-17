@@ -1,17 +1,19 @@
 "use client";
 
-import { useSignUp } from "@clerk/nextjs";
+import { useSignUp } from "@clerk/nextjs/legacy";
 import { useState } from "react";
 import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";
 import { Separator } from "@/components/ui";
 import { GitHubIcon } from "@/components/assets/github-icon";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 type SignUpStep = "start" | "verifications";
 
 export function SignUpForm() {
   const { isLoaded, signUp, setActive } = useSignUp();
+  const router = useRouter();
   const [step, setStep] = useState<SignUpStep>("start");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -83,7 +85,7 @@ export function SignUpForm() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        window.location.href = "/dashboard";
+        router.push("/dashboard");
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Verification failed";

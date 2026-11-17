@@ -150,13 +150,6 @@ const LB_ACTION_LABELS: Record<string, string> = {
   all: "all",
 };
 
-const LB_PERM_DESCRIPTION: Record<string, string> = {
-  room_write: "Full access",
-  room_read: "Read-only",
-  room_presence_write: "Presence only",
-  room_private: "Denied",
-};
-
 function ResourceGroupNode({ data }: NodeProps) {
   const rType = (data.resourceType as ResourceType) ?? "table";
   const Icon = RESOURCE_ICONS[rType] ?? Database;

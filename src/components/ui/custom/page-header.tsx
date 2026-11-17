@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
@@ -13,7 +13,7 @@ interface PageHeaderProps {
     label: string;
     content: React.ReactNode;
     href?: string; // Optional href for making tabs into links
-    icon?: any; // Changed from LucideIcon to any to avoid serialization issues
+    icon?: LucideIcon;
   }>;
   defaultTab?: string;
 }
@@ -27,16 +27,14 @@ export function PageHeader({
   
   // Use the first tab as fallback if defaultTab is not provided or not found
   const fallbackTab = tabs[0]?.id;
-  const [activeTab, setActiveTab] = useState(defaultTab || fallbackTab);
+  const requestedTab = defaultTab || fallbackTab;
+  const [activeTab, setActiveTab] = useState(requestedTab);
+  const [syncedTab, setSyncedTab] = useState(requestedTab);
 
-  useEffect(() => {
-    const nextTab = defaultTab || fallbackTab;
-
-    if (nextTab && nextTab !== activeTab) {
-      setActiveTab(nextTab);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultTab, fallbackTab]);
+  if (requestedTab !== syncedTab) {
+    setSyncedTab(requestedTab);
+    if (requestedTab) setActiveTab(requestedTab);
+  }
 
   const activeTabContent = tabs.find((tab) => tab.id === activeTab)?.content;
 

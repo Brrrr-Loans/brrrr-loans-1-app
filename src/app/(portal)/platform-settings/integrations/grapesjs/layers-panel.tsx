@@ -11,7 +11,14 @@ import {
   Unlock,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import type { Component } from "grapesjs";
+import {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { useGrapesEditor } from "./grapesjs-editor";
 
@@ -179,35 +186,79 @@ function LayerItem({
 
 export function LayersPanel({ onClose }: LayersPanelProps) {
   const { editor } = useGrapesEditor();
-  const [layers, setLayers] = useState<LayerNode[]>([]);
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [expandedOverride, setExpandedOverride] = useState<Set<string> | null>(
+    null
+  );
+
+  // Subscribe to component changes; the snapshot is a change counter bumped per event
+  const layersVersionRef = useRef(0);
+  const layerListenersRef = useRef(new Set<() => void>());
+  const refreshLayers = useCallback(() => {
+    layersVersionRef.current += 1;
+    for (const listener of layerListenersRef.current) listener();
+  }, []);
+  const subscribeToComponents = useCallback(
+    (onChange: () => void) => {
+      const listeners = layerListenersRef.current;
+      listeners.add(onChange);
+      if (!editor?.on) return () => listeners.delete(onChange);
+      const handler = () => {
+        layersVersionRef.current += 1;
+        onChange();
+      };
+      const events = [
+        "component:add",
+        "component:remove",
+        "component:update",
+        "component:selected",
+        "component:deselected",
+      ];
+      try {
+        for (const event of events) {
+          editor.on(event, handler);
+        }
+      } catch {
+        // Editor may be in an invalid state
+      }
+      return () => {
+        listeners.delete(onChange);
+        try {
+          for (const event of events) {
+            editor.off(event, handler);
+          }
+        } catch {
+          // Editor may already be destroyed
+        }
+      };
+    },
+    [editor]
+  );
+  const layersVersion = useSyncExternalStore(
+    subscribeToComponents,
+    () => layersVersionRef.current,
+    () => 0
+  );
 
   // Build layer tree from GrapesJS components
-  const buildLayerTree = useCallback(() => {
-    if (!editor?.getWrapper) return;
+  const layers = useMemo<LayerNode[]>(() => {
+    void layersVersion;
+    if (!editor?.getWrapper) return [];
 
     try {
       const wrapper = editor.getWrapper();
-      if (!wrapper) return;
+      if (!wrapper) return [];
 
       const selectedComponents = editor.getSelectedAll();
       const selectedIds = new Set(selectedComponents.map((c) => c.getId()));
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- GrapesJS components have dynamic types
-      const buildNode = (component: any, level: number): LayerNode => {
+      const buildNode = (component: Component, level: number): LayerNode => {
         const children = component.components();
-        const id = component.getId() as string;
-        const displayStyle = component.getStyle("display");
-        const isHidden =
-          typeof displayStyle === "string"
-            ? displayStyle === "none"
-            : displayStyle?.display === "none";
+        const id = component.getId();
+        const isHidden = component.getStyle().display === "none";
 
         // Get component name - special handling for wrapper (Body)
-        let name = getComponentName(
-          component as { get: (key: string) => unknown; getName?: () => string }
-        );
-        const tagName = (component.get("tagName") as string) || "div";
+        let name = getComponentName(component);
+        const tagName = component.get("tagName") || "div";
 
         // If this is the wrapper component, show it as "Body"
         if (component === wrapper || tagName.toLowerCase() === "body") {
@@ -219,74 +270,41 @@ export function LayersPanel({ onClose }: LayersPanelProps) {
           name,
           tagName,
           isVisible: !isHidden,
-          isLocked: !!(component.get("locked") as boolean),
+          isLocked: !!component.get("locked"),
           isSelected: selectedIds.has(id),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- GrapesJS components have dynamic types
-          children: children.map((child: any) => buildNode(child, level + 1)),
+          children: children.map((child: Component) =>
+            buildNode(child, level + 1)
+          ),
           level,
         };
       };
 
       // Include the wrapper (Body) as the root layer
-      const wrapperNode = buildNode(wrapper, 0);
-      const tree: LayerNode[] = [wrapperNode];
-
-      setLayers(tree);
-
-      // Auto-expand the wrapper (Body) by default
-      if (expandedIds.size === 0) {
-        const idsToExpand = new Set<string>();
-        idsToExpand.add(wrapperNode.id); // Always expand Body
-
-        const collectIds = (nodes: LayerNode[], maxLevel: number) => {
-          for (const node of nodes) {
-            if (node.level < maxLevel && node.children.length > 0) {
-              idsToExpand.add(node.id);
-              collectIds(node.children, maxLevel);
-            }
-          }
-        };
-        collectIds(wrapperNode.children, 2);
-        setExpandedIds(idsToExpand);
-      }
+      return [buildNode(wrapper, 0)];
     } catch (error) {
       console.error("Error building layer tree:", error);
+      return [];
     }
-  }, [editor, expandedIds.size]);
+  }, [editor, layersVersion]);
 
-  // Subscribe to editor changes
-  useEffect(() => {
-    if (!editor?.on) return;
-
-    buildLayerTree();
-
-    // Listen for component changes
-    const events = [
-      "component:add",
-      "component:remove",
-      "component:update",
-      "component:selected",
-      "component:deselected",
-    ];
-
-    try {
-      for (const event of events) {
-        editor.on(event, buildLayerTree);
-      }
-    } catch {
-      // Editor may be in an invalid state
-    }
-
-    return () => {
-      try {
-        for (const event of events) {
-          editor.off(event, buildLayerTree);
+  // Until the user toggles a layer, expand Body and its first two levels
+  const expandedIds = useMemo(() => {
+    if (expandedOverride) return expandedOverride;
+    const idsToExpand = new Set<string>();
+    const wrapperNode = layers[0];
+    if (!wrapperNode) return idsToExpand;
+    idsToExpand.add(wrapperNode.id);
+    const collectIds = (nodes: LayerNode[], maxLevel: number) => {
+      for (const node of nodes) {
+        if (node.level < maxLevel && node.children.length > 0) {
+          idsToExpand.add(node.id);
+          collectIds(node.children, maxLevel);
         }
-      } catch {
-        // Editor may already be destroyed
       }
     };
-  }, [editor, buildLayerTree]);
+    collectIds(wrapperNode.children, 2);
+    return idsToExpand;
+  }, [expandedOverride, layers]);
 
   // Helper to find component by ID (including the wrapper itself)
   const findComponentById = useCallback(
@@ -331,24 +349,19 @@ export function LayersPanel({ onClose }: LayersPanelProps) {
       try {
         const component = findComponentById(id);
         if (component) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- GrapesJS components have dynamic types
-          const displayStyle = (component as any).getStyle("display");
-          const isHidden =
-            typeof displayStyle === "string"
-              ? displayStyle === "none"
-              : displayStyle?.display === "none";
+          const isHidden = component.getStyle().display === "none";
           if (isHidden) {
             component.removeStyle("display");
           } else {
             component.addStyle({ display: "none" });
           }
-          buildLayerTree();
+          refreshLayers();
         }
       } catch {
         // Editor may be in an invalid state
       }
     },
-    [editor, findComponentById, buildLayerTree]
+    [editor, findComponentById, refreshLayers]
   );
 
   const handleToggleLock = useCallback(
@@ -358,29 +371,29 @@ export function LayersPanel({ onClose }: LayersPanelProps) {
       try {
         const component = findComponentById(id);
         if (component) {
-          const isLocked = component.get("locked") as boolean;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- GrapesJS set() accepts string keys
-          (component as any).set("locked", !isLocked);
-          buildLayerTree();
+          const isLocked = !!component.get("locked");
+          component.set({ locked: !isLocked });
+          refreshLayers();
         }
       } catch {
         // Editor may be in an invalid state
       }
     },
-    [editor, findComponentById, buildLayerTree]
+    [editor, findComponentById, refreshLayers]
   );
 
-  const handleToggleExpand = useCallback((id: string) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
+  const handleToggleExpand = useCallback(
+    (id: string) => {
+      const next = new Set(expandedIds);
       if (next.has(id)) {
         next.delete(id);
       } else {
         next.add(id);
       }
-      return next;
-    });
-  }, []);
+      setExpandedOverride(next);
+    },
+    [expandedIds]
+  );
 
   return (
     <div className="flex h-full w-64 flex-col border-r border-border bg-background">

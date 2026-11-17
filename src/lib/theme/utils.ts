@@ -5,6 +5,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase";
 import {
   EDITABLE_THEME_TOKENS,
   EDITABLE_RADIUS_TOKENS,
@@ -14,9 +15,7 @@ import {
   type OrgTheme,
 } from "./constants";
 
-// Use generic SupabaseClient to be compatible with different Database type definitions
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type TypedSupabaseClient = SupabaseClient<any>;
+type TypedSupabaseClient = SupabaseClient<Database>;
 
 // ============================================================================
 // THEME APPLICATION
@@ -37,19 +36,19 @@ export function applyTheme(theme: Pick<OrgTheme, "tokens_light" | "tokens_dark" 
 
   // Build CSS for light mode
   const lightVars = Object.entries(theme.tokens_light)
-    .filter(([key]) => EDITABLE_THEME_TOKENS.includes(key as any))
+    .filter(([key]) => (EDITABLE_THEME_TOKENS as readonly string[]).includes(key))
     .map(([key, value]) => `--${key}: ${value};`)
     .join("\n    ");
 
   // Build CSS for dark mode
   const darkVars = Object.entries(theme.tokens_dark)
-    .filter(([key]) => EDITABLE_THEME_TOKENS.includes(key as any))
+    .filter(([key]) => (EDITABLE_THEME_TOKENS as readonly string[]).includes(key))
     .map(([key, value]) => `--${key}: ${value};`)
     .join("\n    ");
 
   // Build CSS for radius (applies to both modes)
   const radiusVars = Object.entries(theme.radius)
-    .filter(([key]) => EDITABLE_RADIUS_TOKENS.includes(key as any))
+    .filter(([key]) => (EDITABLE_RADIUS_TOKENS as readonly string[]).includes(key))
     .map(([key, value]) => `--${key}: ${value};`)
     .join("\n    ");
 

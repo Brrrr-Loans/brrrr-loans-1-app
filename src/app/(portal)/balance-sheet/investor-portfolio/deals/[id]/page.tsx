@@ -156,7 +156,7 @@ export default async function DealPage({ params }: PageProps) {
             </TabsContent>
 
             <TabsContent value="distributions">
-              <DistributionsListWrapper dealId={id} />
+              <DistributionsListWrapper />
             </TabsContent>
           </Tabs>
         </div>

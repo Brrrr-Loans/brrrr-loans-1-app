@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useOrgTheme } from "@/contexts/theme-context";
-import { Palette, Save, Check, Plus, Star, Trash2, X } from "lucide-react";
+import { Palette, Save, Check, Star, Trash2 } from "lucide-react";
 import { 
   Dialog, 
   DialogContent, 
@@ -58,15 +58,12 @@ export function ThemeEditorWrapper({ open, onOpenChange }: ThemeEditorWrapperPro
   const {
     currentTheme,
     availableThemes,
-    isLoading,
     isOrgAdmin,
     internalOrgId,
     saveNewTheme,
-    updateExistingTheme,
     deleteTheme,
     setAsDefaultTheme,
     applyThemeById,
-    loadThemes,
   } = useOrgTheme();
 
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -75,6 +72,7 @@ export function ThemeEditorWrapper({ open, onOpenChange }: ThemeEditorWrapperPro
   const [isDefault, setIsDefault] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedThemeId, setSelectedThemeId] = useState<string>("");
+  const [syncedTheme, setSyncedTheme] = useState(currentTheme);
 
   // Controlled/uncontrolled pattern
   const isControlled = open !== undefined;
@@ -84,11 +82,10 @@ export function ThemeEditorWrapper({ open, onOpenChange }: ThemeEditorWrapperPro
     : setShowManageDialog;
 
   // Sync selected theme with current theme
-  useEffect(() => {
-    if (currentTheme) {
-      setSelectedThemeId(String(currentTheme.id));
-    }
-  }, [currentTheme]);
+  if (currentTheme !== syncedTheme) {
+    setSyncedTheme(currentTheme);
+    if (currentTheme) setSelectedThemeId(String(currentTheme.id));
+  }
 
   /**
    * Captures current CSS variable values from the DOM.

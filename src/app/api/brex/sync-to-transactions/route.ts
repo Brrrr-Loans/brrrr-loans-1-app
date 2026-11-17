@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase-server";
 
 /**
  * Trigger sync of matched transfers to bsi_transactions
  * POST /api/brex/sync-to-transactions
  */
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
     const supabase = createServiceRoleClient();
 

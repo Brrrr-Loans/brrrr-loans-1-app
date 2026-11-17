@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo } from "react";
+import { useHydrated } from "@/hooks/use-hydrated";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -106,12 +107,8 @@ export function StatCard({
   onClick,
 }: StatCardProps) {
   // Prevent Recharts "removeChild" errors by deferring render until mounted
-  const [isMounted, setIsMounted] = useState(false);
+  const isMounted = useHydrated();
 
-  useEffect(() => {
-    setIsMounted(true);
-    return () => setIsMounted(false);
-  }, []);
 
   // Use provided sparkline data or generate default
   const chartData = useMemo(() => {

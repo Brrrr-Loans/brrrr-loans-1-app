@@ -4,11 +4,7 @@ import * as React from "react";
 import { useState, useTransition, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import {
-  getMemberRolesForPolicies,
-  getOrgRolesForPolicies,
-  type MemberRoleOption,
-} from "@/app/(portal)/org/[clerk_org_id]/settings/policies/member-roles-api";
+import { getMemberRolesForPolicies, getOrgRolesForPolicies } from "@/app/(portal)/org/[clerk_org_id]/settings/policies/member-roles-api";
 import {
   saveOrgPolicies,
   setOrgPolicyActive,
@@ -33,7 +29,6 @@ import {
   type PolicyAction,
   type ResourceType,
   type NamedScopeRow,
-  type RoomScopeInput,
   type DealRoleTypeRow,
 } from "@/app/(portal)/org/[clerk_org_id]/settings/policies/constants";
 import {
@@ -68,17 +63,6 @@ import {
 } from "@/components/ui/shadcn/command";
 import { Separator } from "@/components/ui/shadcn/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/shadcn/radio-group";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/shadcn/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -118,7 +102,6 @@ import {
   LayoutGrid,
   MoreHorizontal,
   Trash2,
-  AlertTriangle,
   ShieldAlert,
   Info,
 } from "lucide-react";
@@ -163,11 +146,6 @@ const dataActionOptions = [
   { value: "insert", label: "Insert" },
   { value: "update", label: "Update" },
   { value: "delete", label: "Delete" },
-];
-
-const featureActionOptions = [
-  { value: "submit", label: "Submit" },
-  { value: "view", label: "View" },
 ];
 
 const liveblocksActionOptions = [
@@ -1187,9 +1165,11 @@ export default function OrgPolicyBuilder({
 
   // Policies in local state for optimistic updates (synced from server)
   const [policies, setPolicies] = useState<OrgPolicyRow[]>(initialPolicies);
-  useEffect(() => {
+  const [syncedInitialPolicies, setSyncedInitialPolicies] = useState(initialPolicies);
+  if (initialPolicies !== syncedInitialPolicies) {
+    setSyncedInitialPolicies(initialPolicies);
     setPolicies(initialPolicies);
-  }, [initialPolicies]);
+  }
 
   // Status
   const [error, setError] = useState<string | null>(null);
@@ -1474,11 +1454,23 @@ export default function OrgPolicyBuilder({
     activeFeatureActionOptions,
   ]);
 
-  // Reset selected actions when the resource type mix changes
-  useEffect(() => {
+  // Reset selected actions when the resource type mix changes (derived during render)
+  const resourceMixKey = [
+    editingPolicyId ?? "",
+    hasFeatureSelected,
+    hasDataSelected,
+    hasRouteSelected,
+    hasLiveblocksSelected,
+    hasApiResourceSelected,
+    selectedResources.join("|"),
+  ].join("\u0000");
+  const [syncedResourceMixKey, setSyncedResourceMixKey] = useState("");
+  if (resourceMixKey !== syncedResourceMixKey) {
+    setSyncedResourceMixKey(resourceMixKey);
     // Edit updates one row. Create-mode defaults must not replace that selection.
-    if (editingPolicyId) return;
-    if (
+    if (editingPolicyId) {
+      // no-op
+    } else if (
       hasApiResourceSelected &&
       !hasDataSelected &&
       !hasFeatureSelected &&
@@ -1540,8 +1532,7 @@ export default function OrgPolicyBuilder({
         return valid.length > 0 ? valid : ["select", "insert", "update", "delete"];
       });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editingPolicyId, hasFeatureSelected, hasDataSelected, hasRouteSelected, hasLiveblocksSelected, hasApiResourceSelected, selectedResources]);
+  }
 
   // Determine if row-level scope selector should be enabled based on selected data resources.
   // Features never have row-level scope; when mixed with data resources, only the data
@@ -3067,7 +3058,6 @@ function PolicyTableRow({
   onDelete,
   visibleColumns,
   orgDisplayName,
-  colCount,
 }: {
   policy: OrgPolicyRow;
   isEditing: boolean;

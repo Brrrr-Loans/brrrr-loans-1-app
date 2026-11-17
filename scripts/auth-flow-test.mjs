@@ -10,7 +10,6 @@ console.log("==================================\n");
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SUPABASE_URL) {
   console.error('❌ Missing required environment variable');
@@ -28,9 +27,6 @@ if (!SUPABASE_ANON_KEY) {
 
 // Create Supabase clients
 const supabaseAnon = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const supabaseAdmin = SUPABASE_SERVICE_ROLE_KEY
-  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-  : null;
 
 async function testTableAccess() {
   console.log("📋 Test 1: Table Access Verification\n");
@@ -49,7 +45,7 @@ async function testTableAccess() {
     console.log(`Testing: ${test.name}`);
 
     try {
-      const { data, error, count } = await supabaseAnon
+      const { error, count } = await supabaseAnon
         .from(test.table)
         .select("*", { count: "exact", head: true });
 
@@ -92,7 +88,7 @@ async function testAuthUserProfileStructure() {
   console.log("🏗️  Test 2: auth_clerk_users Table Structure\n");
 
   try {
-    const { data, error } = await supabaseAnon
+    const { error } = await supabaseAnon
       .from("auth_clerk_users")
       .select(
         "id, clerk_user_id, email, first_name, last_name, role, is_internal_yn, is_active_yn"
@@ -125,7 +121,7 @@ async function testClerkIntegration() {
 
   try {
     // Test if clerk_user_id field exists and has proper constraints
-    const { data, error } = await supabaseAnon
+    const { error } = await supabaseAnon
       .from("auth_clerk_users")
       .select("clerk_user_id, role")
       .not("clerk_user_id", "is", null)
@@ -223,7 +219,7 @@ async function testRowLevelSecurity() {
 
   try {
     // Test if RLS is properly configured
-    const { data, error } = await supabaseAnon
+    const { error } = await supabaseAnon
       .from("auth_clerk_users")
       .select("id")
       .limit(1);

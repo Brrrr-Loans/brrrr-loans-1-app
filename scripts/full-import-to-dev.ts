@@ -22,7 +22,7 @@ async function importTable(
   prod: SupabaseClient,
   dev: SupabaseClient,
   table: string,
-  transform?: (data: any[]) => any[]
+  transform?: (data: Record<string, unknown>[]) => Record<string, unknown>[]
 ): Promise<number> {
   const { data, error: fetchError } = await prod.from(table).select('*');
   

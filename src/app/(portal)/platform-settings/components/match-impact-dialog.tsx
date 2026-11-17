@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useEffectEvent } from "react";
 import { Button } from "@/components/ui";
 import {
   Dialog,
@@ -54,56 +54,69 @@ export function MatchImpactDialog({
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (open && transferIds.length > 0 && vendorId) {
-      // Reset to preview step and load data when dialog opens
+  const transferKey = transferIds.join(",");
+
+  // Reset to the preview step whenever the dialog (re)opens
+  const previewKey = open ? `${vendorId ?? ""}:${transferKey}` : null;
+  const [syncedPreviewKey, setSyncedPreviewKey] = useState<string | null>(null);
+  if (previewKey !== syncedPreviewKey) {
+    setSyncedPreviewKey(previewKey);
+    if (previewKey && transferIds.length > 0) {
       setStep("preview");
       setPreview(null);
       setSyncError(null);
-      loadPreview();
+      setLoading(true);
     }
-  }, [open, transferIds.length, vendorId]);
+  }
 
-  const loadPreview = async () => {
-    if (transferIds.length === 0 || !vendorId) {
-      onOpenChange(false);
-      return;
-    }
-    
-    setLoading(true);
-    setSyncError(null);
-    setStep("preview");
-    setPreview(null);
-    
-    try {
-      const response = await fetch("/api/brex/match-impact-preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          transfer_ids: transferIds,
-          vendor_id: vendorId,
-        }),
-      });
+  const onPreviewError = useEffectEvent(() => {
+    toast({
+      variant: "destructive",
+      title: "Error",
+      description: "Failed to load match impact preview",
+    });
+    onOpenChange(false);
+  });
 
-      const data = await response.json();
+  useEffect(() => {
+    if (!open || transferKey.length === 0 || !vendorId) return;
 
-      if (data.success) {
-        setPreview(data.preview);
-      } else {
-        throw new Error(data.error || "Failed to load preview");
+    const ids = transferKey.split(",").map(Number);
+    const controller = new AbortController();
+
+    async function load() {
+      try {
+        const response = await fetch("/api/brex/match-impact-preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            transfer_ids: ids,
+            vendor_id: vendorId,
+          }),
+          signal: controller.signal,
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          setPreview(data.preview);
+        } else {
+          throw new Error(data.error || "Failed to load preview");
+        }
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        console.error("Error loading preview:", error);
+        onPreviewError();
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
-    } catch (error) {
-      console.error("Error loading preview:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to load match impact preview",
-      });
-      onOpenChange(false);
-    } finally {
-      setLoading(false);
     }
-  };
+
+    void load();
+    return () => controller.abort();
+  }, [open, transferKey, vendorId]);
 
   const handleConfirmMatch = async () => {
     setLoading(true);
